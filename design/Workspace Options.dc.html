@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121110;font-family:'Be Vietnam Pro',system-ui,sans-serif}
+a{color:#d97757}a:hover{color:#e8906f}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.06);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#d97757;color:#1a1917;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 'Be Vietnam Pro',sans-serif;color:#f2efe8}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(255,255,255,.1);color:#f2efe8;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 12px/1.3 'Be Vietnam Pro',sans-serif;color:#b0a99d}
+.dv-card{max-width:100%;background:#1a1917;border:1px solid #37332f;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden}
+.dv-opt:target .dv-oid{background:#d97757;color:#1a1917}
+.dv-next{margin:22px 0 0;font:12px/1.5 'Be Vietnam Pro',sans-serif;color:#7d766a}
+</style>
+</helmet>
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Workspace — 3 hướng layout · ca Gỗ Việt Phát đang chạy · dark máy chiếu</span></div>
+<div class="dv-opts">
+
+<!-- ═══════════ 1a — Theo spec: 3 vùng cổ điển ═══════════ -->
+<div class="dv-opt" id="1a"><div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Theo spec — sidebar | chat | canvas rộng. An toàn, đúng UI SPEC, canvas là sân khấu.</div>
+<div class="dv-card" style="width:1400px">
+<div style="display:flex;flex-direction:column;height:880px;background:#1a1917;color:#f2efe8">
+  <!-- topbar -->
+  <div style="display:flex;align-items:center;gap:12px;padding:0 16px;height:48px;border-bottom:1px solid #37332f;background:#211f1d;flex:none">
+    <div style="width:24px;height:24px;border-radius:6px;background:#d97757;display:grid;place-items:center;font:700 12px 'Be Vietnam Pro';color:#1a1917">G</div>
+    <div style="font:600 13px 'Be Vietnam Pro'">Digital Expert Guild</div>
+    <div style="font:400 11px 'Be Vietnam Pro';color:#7d766a">Hội đồng Chuyên gia Số · SHB</div>
+    <div style="flex:1"></div>
+    <div style="font:500 11px 'Be Vietnam Pro';color:#b0a99d;padding:4px 10px;border:1px solid #37332f;border-radius:20px">🔔 <span style="color:#d97757">2</span></div>
+    <div style="display:flex;align-items:center;gap:8px;font:500 11px 'Be Vietnam Pro';color:#b0a99d"><span style="width:22px;height:22px;border-radius:50%;background:#332f2b;display:grid;place-items:center;font-size:10px;color:#d97757">L</span>Lan · RM</div>
+  </div>
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- sidebar -->
+    <div style="width:232px;flex:none;border-right:1px solid #37332f;background:#211f1d;display:flex;flex-direction:column;padding:12px">
+      <div style="padding:9px 12px;border-radius:8px;background:rgba(217,119,87,.16);color:#d97757;font:600 12px 'Be Vietnam Pro';text-align:center;margin-bottom:14px;border:1px solid rgba(217,119,87,.3)">+ Ca mới</div>
+      <div style="font:600 10px 'Be Vietnam Pro';color:#544e45;letter-spacing:.08em;margin:0 4px 8px">HÔM NAY</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="padding:10px 12px;border-radius:8px;background:#2a2825;border:1px solid #48423b">
+          <div style="font:600 12px 'Be Vietnam Pro';margin-bottom:3px">Gỗ Việt Phát — vay 5 tỷ</div>
+          <div style="display:flex;align-items:center;gap:6px;font:400 10.5px 'Be Vietnam Pro';color:#7d766a"><span style="width:7px;height:7px;border-radius:50%;background:#5fb2c9;box-shadow:0 0 6px #5fb2c9"></span>Đang chạy · 10:24</div>
+        </div>
+        <div style="padding:10px 12px;border-radius:8px">
+          <div style="font:500 12px 'Be Vietnam Pro';color:#b0a99d;margin-bottom:3px">Minh Long — LC 2 tỷ</div>
+          <div style="display:flex;align-items:center;gap:6px;font:400 10.5px 'Be Vietnam Pro';color:#7d766a"><span style="width:7px;height:7px;border-radius:50%;background:#dda94a"></span>Chờ duyệt · 09:51</div>
+        </div>
+        <div style="padding:10px 12px;border-radius:8px">
+          <div style="font:500 12px 'Be Vietnam Pro';color:#b0a99d;margin-bottom:3px">Hộ KD Tân Phú — 800tr</div>
+          <div style="display:flex;align-items:center;gap:6px;font:400 10.5px 'Be Vietnam Pro';color:#7d766a"><span style="width:7px;height:7px;border-radius:50%;background:#82b878"></span>Hoàn tất · 08:30</div>
+        </div>
+      </div>
+    </div>
+    <!-- chat -->
+    <div style="width:430px;flex:none;border-right:1px solid #37332f;display:flex;flex-direction:column">
+      <div style="flex:1;overflow:hidden;padding:18px 16px;display:flex;flex-direction:column;gap:14px">
+        <div style="align-self:flex-end;max-width:85%;background:#332f2b;border-radius:14px 14px 4px 14px;padding:11px 14px;font:400 12.5px/1.55 'Be Vietnam Pro';color:#f2efe8">Công ty TNHH Gỗ Việt Phát muốn vay 5 tỷ mở rộng xưởng, thế chấp nhà xưởng định giá 8 tỷ. Kiểm tra khả năng vay giúp tôi.</div>
+        <!-- progress inline -->
+        <div style="align-self:stretch;background:#211f1d;border:1px solid #37332f;border-radius:10px;padding:11px 13px">
+          <div style="font:600 10px 'Be Vietnam Pro';color:#544e45;letter-spacing:.08em;margin-bottom:8px">ĐỘI ĐANG LÀM VIỆC</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:14px;background:rgba(185,140,217,.15);color:#b98cd9;font:500 10.5px 'Be Vietnam Pro'">◆ Planner · đã phân việc ✓</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:14px;background:rgba(130,184,120,.15);color:#82b878;font:500 10.5px 'Be Vietnam Pro'">Tín dụng ✓</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:14px;background:rgba(221,169,74,.15);color:#dda94a;font:500 10.5px 'Be Vietnam Pro'">Pháp chế ⚠ 1 flag</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:14px;background:rgba(130,184,120,.15);color:#82b878;font:500 10.5px 'Be Vietnam Pro'">Sản phẩm ✓</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:14px;background:rgba(95,178,201,.16);color:#5fb2c9;font:500 10.5px 'Be Vietnam Pro'"><span style="width:6px;height:6px;border-radius:50%;background:#5fb2c9;box-shadow:0 0 5px #5fb2c9"></span>Vận hành · đang lập timeline…</span>
+          </div>
+        </div>
+        <!-- structured answer -->
+        <div style="align-self:stretch;background:#211f1d;border:1px solid #48423b;border-radius:4px 14px 14px 14px;overflow:hidden">
+          <div style="padding:11px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:8px">
+            <span style="font:600 10px 'Be Vietnam Pro';color:#544e45;letter-spacing:.08em">KẾT LUẬN</span>
+            <span style="padding:3px 10px;border-radius:12px;background:rgba(221,169,74,.15);color:#dda94a;font:700 11px 'Be Vietnam Pro'">DUYỆT CÓ ĐIỀU KIỆN</span>
+          </div>
+          <div style="padding:11px 14px;font:400 12.5px/1.6 'Be Vietnam Pro';color:#b0a99d">
+            Hồ sơ đạt cả 3 chỉ tiêu tín dụng: <span style="color:#f2efe8;background:rgba(130,184,120,.12);padding:1px 6px;border-radius:4px;font-weight:600">DSCR 1.4 ⓘ</span> <span style="color:#f2efe8;background:rgba(130,184,120,.12);padding:1px 6px;border-radius:4px;font-weight:600">LTV 62,5% ⓘ</span> <span style="color:#f2efe8;background:rgba(130,184,120,.12);padding:1px 6px;border-radius:4px;font-weight:600">CIC nhóm 1 ⓘ</span>
+            <div style="margin-top:9px;padding-top:9px;border-top:1px dashed #37332f"><span style="font:600 10px 'Be Vietnam Pro';color:#544e45;letter-spacing:.08em">ĐIỀU KIỆN</span><div style="color:#f2efe8;margin-top:3px">Bổ sung giấy phép PCCC bản cập nhật 2026 <span style="color:#dda94a">⚠</span> trước giải ngân.</div></div>
+            <div style="margin-top:9px;padding-top:9px;border-top:1px dashed #37332f"><span style="font:600 10px 'Be Vietnam Pro';color:#544e45;letter-spacing:.08em">BƯỚC TIẾP</span><div style="color:#f2efe8;margin-top:3px">1. Gửi KH bổ sung PCCC · 2. Trình phê duyệt hạn mức · 3. Giải ngân (chờ duyệt 🔒)</div></div>
+          </div>
+          <div style="padding:9px 14px;border-top:1px solid #37332f;display:flex;gap:6px;font:500 10px ui-monospace,monospace;color:#7d766a">Nguồn: <span style="color:#5fb2c9">calc_dscr</span>·<span style="color:#5fb2c9">calc_ltv</span>·<span style="color:#5fb2c9">check_cic</span>·<span style="color:#5fb2c9">check_documents</span></div>
+        </div>
+        <!-- pending badge -->
+        <div style="align-self:stretch;display:flex;align-items:center;gap:9px;background:rgba(221,169,74,.08);border:1px solid rgba(221,169,74,.3);border-radius:10px;padding:10px 13px;font:500 11.5px 'Be Vietnam Pro';color:#dda94a">⏸ Yêu cầu trình phê duyệt đã gửi — chờ cấp có thẩm quyền duyệt</div>
+      </div>
+      <div style="flex:none;padding:12px 16px;border-top:1px solid #37332f">
+        <div style="display:flex;align-items:center;gap:10px;background:#211f1d;border:1px solid #48423b;border-radius:12px;padding:11px 14px">
+          <span style="flex:1;font:400 12.5px 'Be Vietnam Pro';color:#544e45">Hỏi tiếp về ca này…</span>
+          <span style="width:28px;height:28px;border-radius:8px;background:#d97757;display:grid;place-items:center;color:#1a1917;font-weight:700">↑</span>
+        </div>
+      </div>
+    </div>
+    <!-- canvas -->
+    <div style="flex:1;min-width:0;background:#161514;display:flex;flex-direction:column">
+      <!-- what-if bar -->
+      <div style="flex:none;margin:14px 16px 0;background:linear-gradient(135deg,rgba(217,119,87,.14),rgba(217,119,87,.05));border:1px solid rgba(217,119,87,.35);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:18px">
+        <span style="font:700 11px 'Be Vietnam Pro';color:#d97757;letter-spacing:.06em">⭐ WHAT-IF</span>
+        <div style="flex:1;display:flex;align-items:center;gap:10px">
+          <span style="font:500 11px 'Be Vietnam Pro';color:#b0a99d">Số tiền vay</span>
+          <div style="flex:1;max-width:220px;height:5px;border-radius:3px;background:#37332f;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:40%;background:#d97757;border-radius:3px"></div><div style="position:absolute;left:40%;top:50%;transform:translate(-50%,-50%);width:15px;height:15px;border-radius:50%;background:#f2efe8;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div></div>
+          <span style="font:700 13px ui-monospace,monospace;color:#f2efe8">5,0 tỷ</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font:500 11px 'Be Vietnam Pro';color:#b0a99d">Kỳ hạn <span style="padding:5px 10px;border:1px solid #48423b;border-radius:7px;background:#211f1d;color:#f2efe8;font-weight:600">60 tháng ▾</span></div>
+        <div style="padding:8px 16px;border-radius:9px;background:#d97757;color:#1a1917;font:700 12px 'Be Vietnam Pro'">⟳ Tính lại</div>
+      </div>
+      <div style="flex:1;overflow:hidden;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start">
+        <!-- case file spans -->
+        <div style="grid-column:1/-1;background:#211f1d;border:1px solid #37332f;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:16px">
+          <div style="width:38px;height:38px;border-radius:10px;background:#332f2b;display:grid;place-items:center;font:700 15px 'Be Vietnam Pro';color:#d97757">GV</div>
+          <div style="flex:1"><div style="font:700 14px 'Be Vietnam Pro'">Công ty TNHH Gỗ Việt Phát</div><div style="font:400 11px 'Be Vietnam Pro';color:#7d766a">SME · Sản xuất gỗ · KH-2214 · Đề nghị: 5 tỷ / 60 tháng · TSBĐ: nhà xưởng 8 tỷ</div></div>
+          <div style="display:flex;gap:8px">
+            <div style="text-align:center;padding:6px 12px;border-radius:9px;background:rgba(130,184,120,.12);border:1px solid rgba(130,184,120,.25)"><div style="font:600 9.5px 'Be Vietnam Pro';color:#7d766a">TÍN DỤNG</div><div style="font:700 12px 'Be Vietnam Pro';color:#82b878">✓ Đạt</div></div>
+            <div style="text-align:center;padding:6px 12px;border-radius:9px;background:rgba(221,169,74,.12);border:1px solid rgba(221,169,74,.25)"><div style="font:600 9.5px 'Be Vietnam Pro';color:#7d766a">PHÁP CHẾ</div><div style="font:700 12px 'Be Vietnam Pro';color:#dda94a">⚠ 1 flag</div></div>
+            <div style="text-align:center;padding:6px 12px;border-radius:9px;background:rgba(130,184,120,.12);border:1px solid rgba(130,184,120,.25)"><div style="font:600 9.5px 'Be Vietnam Pro';color:#7d766a">SẢN PHẨM</div><div style="font:700 12px 'Be Vietnam Pro';color:#82b878">✓ Xong</div></div>
+            <div style="text-align:center;padding:6px 12px;border-radius:9px;background:rgba(95,178,201,.12);border:1px solid rgba(95,178,201,.3)"><div style="font:600 9.5px 'Be Vietnam Pro';color:#7d766a">VẬN HÀNH</div><div style="font:700 12px 'Be Vietnam Pro';color:#5fb2c9">● Đang</div></div>
+          </div>
+        </div>
+        <!-- credit verdict -->
+        <div style="background:#211f1d;border:1px solid #37332f;border-radius:12px;overflow:hidden">
+          <div style="padding:10px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:8px"><span style="font:700 11.5px 'Be Vietnam Pro'">Thẩm định Tín dụng</span><span style="margin-left:auto;font:600 10px 'Be Vietnam Pro';color:#82b878">✓ ĐẠT 3/3</span></div>
+          <div style="padding:6px 14px 12px">
+            <div style="display:grid;grid-template-columns:1fr auto auto;gap:4px 14px;font:400 11.5px 'Be Vietnam Pro';align-items:center">
+              <span style="color:#b0a99d;padding-top:6px">DSCR <span style="color:#544e45">(ngưỡng ≥1,2)</span></span><span style="font:700 13px ui-monospace,monospace;color:#f2efe8;padding-top:6px">1,40</span><span style="color:#82b878;padding-top:6px">✓ <span style="font:500 9px ui-monospace,monospace;color:#5fb2c9">calc_dscr</span></span>
+              <span style="color:#b0a99d;padding-top:6px">LTV <span style="color:#544e45">(trần 70%)</span></span><span style="font:700 13px ui-monospace,monospace;color:#f2efe8;padding-top:6px">62,5%</span><span style="color:#82b878;padding-top:6px">✓ <span style="font:500 9px ui-monospace,monospace;color:#5fb2c9">calc_ltv</span></span>
+              <span style="color:#b0a99d;padding-top:6px">CIC</span><span style="font:700 13px ui-monospace,monospace;color:#f2efe8;padding-top:6px">Nhóm 1</span><span style="color:#82b878;padding-top:6px">✓ <span style="font:500 9px ui-monospace,monospace;color:#5fb2c9">check_cic</span></span>
+            </div>
+          </div>
+        </div>
+        <!-- legal verdict -->
+        <div style="background:#211f1d;border:1px solid #37332f;border-radius:12px;overflow:hidden">
+          <div style="padding:10px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:8px"><span style="font:700 11.5px 'Be Vietnam Pro'">Pháp chế &amp; Tuân thủ</span><span style="margin-left:auto;font:600 10px 'Be Vietnam Pro';color:#dda94a">⚠ 1 ĐIỀU KIỆN</span></div>
+          <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px;font:400 11.5px 'Be Vietnam Pro'">
+            <div style="display:flex;gap:8px;color:#b0a99d"><span style="color:#82b878">✓</span>ĐKKD còn hiệu lực</div>
+            <div style="display:flex;gap:8px;color:#b0a99d"><span style="color:#82b878">✓</span>Hồ sơ thế chấp nhà xưởng hợp lệ</div>
+            <div style="display:flex;gap:8px;align-items:flex-start;background:rgba(221,169,74,.08);border:1px solid rgba(221,169,74,.25);border-radius:8px;padding:7px 9px;margin:2px -2px 0"><span style="color:#dda94a">⚠</span><span style="color:#f2efe8">Giấy phép PCCC — thiếu bản cập nhật 2026<br><span style="font-size:10px;color:#7d766a">Điều kiện trước giải ngân · nguồn: check_documents</span></span></div>
+          </div>
+        </div>
+        <!-- products -->
+        <div style="background:#211f1d;border:1px solid #37332f;border-radius:12px;overflow:hidden">
+          <div style="padding:10px 14px;border-bottom:1px solid #37332f"><span style="font:700 11.5px 'Be Vietnam Pro'">So sánh gói vay</span></div>
+          <div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px;font:400 11px 'Be Vietnam Pro'">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;background:rgba(217,119,87,.12);border:1px solid rgba(217,119,87,.35)"><span style="color:#d97757">★</span><span style="flex:1;font-weight:600;color:#f2efe8">SME Mở rộng SX</span><span style="font:700 12px ui-monospace,monospace;color:#d97757">8,2%</span><span style="color:#7d766a">60 th</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px"><span style="color:#544e45">○</span><span style="flex:1;color:#b0a99d">Thế chấp chuẩn</span><span style="font:600 12px ui-monospace,monospace;color:#b0a99d">9,1%</span><span style="color:#7d766a">48 th</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px"><span style="color:#544e45">○</span><span style="flex:1;color:#b0a99d">Tín chấp DN</span><span style="font:600 12px ui-monospace,monospace;color:#b0a99d">11,5%</span><span style="color:#7d766a">36 th</span></div>
+          </div>
+        </div>
+        <!-- ops skeleton -->
+        <div style="background:#211f1d;border:1px solid #37332f;border-radius:12px;overflow:hidden">
+          <div style="padding:10px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:8px"><span style="font:700 11.5px 'Be Vietnam Pro'">Vận hành — bước tiếp</span><span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font:600 10px 'Be Vietnam Pro';color:#5fb2c9"><span style="width:6px;height:6px;border-radius:50%;background:#5fb2c9;box-shadow:0 0 5px #5fb2c9"></span>ĐANG LẬP</span></div>
+          <div style="padding:12px 14px;display:flex;flex-direction:column;gap:9px">
+            <div style="height:11px;border-radius:6px;background:linear-gradient(90deg,#2a2825,#332f2b,#2a2825);width:80%"></div>
+            <div style="height:11px;border-radius:6px;background:linear-gradient(90deg,#2a2825,#332f2b,#2a2825);width:60%"></div>
+            <div style="height:11px;border-radius:6px;background:linear-gradient(90deg,#2a2825,#332f2b,#2a2825);width:70%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div></div>
+
+<!-- ═══════════ 1b — Canvas trung tâm / mission control ═══════════ -->
+<div class="dv-opt" id="1b"><div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Canvas trung tâm — chat thu thành dock trái, agent strip ngang trên canvas. "Beyond chatbot" rõ nhất.</div>
+<div class="dv-card" style="width:1400px">
+<div style="display:flex;height:880px;background:#1a1917;color:#f2efe8">
+  <!-- icon rail -->
+  <div style="width:52px;flex:none;background:#161514;border-right:1px solid #37332f;display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:14px">
+    <div style="width:28px;height:28px;border-radius:8px;background:#d97757;display:grid;place-items:center;font:700 13px 'Be Vietnam Pro';color:#1a1917">G</div>
+    <div style="width:30px;height:30px;border-radius:8px;background:#2a2825;display:grid;place-items:center;font-size:13px">💬</div>
+    <div style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:13px;opacity:.45">🗂</div>
+    <div style="flex:1"></div>
+    <div style="width:26px;height:26px;border-radius:50%;background:#332f2b;display:grid;place-items:center;font:600 10px 'Be Vietnam Pro';color:#d97757">L</div>
+  </div>
+  <!-- chat dock -->
+  <div style="width:360px;flex:none;border-right:1px solid #37332f;background:#1d1c1a;display:flex;flex-direction:column">
+    <div style="flex:none;padding:12px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:8px">
+      <span style="font:600 12px 'Be Vietnam Pro'">Gỗ Việt Phát — vay 5 tỷ</span>
+      <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font:500 10px 'Be Vietnam Pro';color:#5fb2c9"><span style="width:6px;height:6px;border-radius:50%;background:#5fb2c9;box-shadow:0 0 5px #5fb2c9"></span>đang chạy</span>
+      <span style="font:400 14px 'Be Vietnam Pro';color:#544e45">▾</span>
+    </div>
+    <div style="flex:1;padding:14px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <div style="align-self:flex-end;max-width:90%;background:#332f2b;border-radius:12px 12px 4px 12px;padding:10px 12px;font:400 12px/1.5 'Be Vietnam Pro'">Gỗ Việt Phát vay 5 tỷ mở rộng xưởng, thế chấp nhà xưởng 8 tỷ. Kiểm tra khả năng vay.</div>
+      <div style="align-self:flex-start;max-width:92%;background:rgba(185,140,217,.1);border:1px solid rgba(185,140,217,.3);border-radius:4px 12px 12px 12px;padding:10px 12px;font:400 12px/1.5 'Be Vietnam Pro';color:#f2efe8"><span style="font:600 10px 'Be Vietnam Pro';color:#b98cd9">◆ PLANNER HỎI LẠI</span><br>Mục đích vay là mở rộng nhà xưởng hiện tại hay xây mới? Điều này ảnh hưởng gói sản phẩm.</div>
+      <div style="align-self:flex-end;max-width:90%;background:#332f2b;border-radius:12px 12px 4px 12px;padding:10px 12px;font:400 12px/1.5 'Be Vietnam Pro'">Mở rộng xưởng hiện tại.</div>
+      <div style="align-self:flex-start;font:400 11px 'Be Vietnam Pro';color:#7d766a;display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:#5fb2c9;box-shadow:0 0 5px #5fb2c9"></span>Đội đang xử lý — theo dõi bên phải →</div>
+      <div style="align-self:stretch;background:#211f1d;border:1px solid #48423b;border-radius:4px 12px 12px 12px;padding:11px 13px;font:400 12px/1.55 'Be Vietnam Pro';color:#b0a99d">
+        <span style="padding:2px 9px;border-radius:11px;background:rgba(221,169,74,.15);color:#dda94a;font:700 10.5px 'Be Vietnam Pro'">DUYỆT CÓ ĐIỀU KIỆN</span>
+        <div style="margin-top:7px">Đạt <span style="color:#f2efe8;font-weight:600">DSCR 1.4 ⓘ</span> · <span style="color:#f2efe8;font-weight:600">LTV 62,5% ⓘ</span> · CIC nhóm 1. Điều kiện: bổ sung PCCC 2026 trước giải ngân.</div>
+      </div>
+    </div>
+    <div style="flex:none;padding:12px 14px;border-top:1px solid #37332f"><div style="display:flex;align-items:center;gap:8px;background:#211f1d;border:1px solid #48423b;border-radius:11px;padding:10px 12px"><span style="flex:1;font:400 12px 'Be Vietnam Pro';color:#544e45">Nhắn cho đội…</span><span style="width:26px;height:26px;border-radius:7px;background:#d97757;display:grid;place-items:center;color:#1a1917;font-weight:700;font-size:12px">↑</span></div></div>
+  </div>
+  <!-- big canvas -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#161514">
+    <!-- agent strip -->
+    <div style="flex:none;display:flex;gap:10px;padding:14px 18px;border-bottom:1px solid #37332f;background:#1a1917">
+      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:11px;background:rgba(185,140,217,.1);border:1px solid rgba(185,140,217,.35)"><span style="width:30px;height:30px;border-radius:9px;background:rgba(185,140,217,.2);display:grid;place-items:center;color:#b98cd9;font-weight:700">◆</span><div><div style="font:600 11.5px 'Be Vietnam Pro';color:#b98cd9">Planner</div><div style="font:400 10px 'Be Vietnam Pro';color:#7d766a">điều phối 4 việc</div></div></div>
+      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:11px;background:rgba(130,184,120,.08);border:1px solid rgba(130,184,120,.3)"><span style="width:30px;height:30px;border-radius:9px;background:rgba(130,184,120,.18);display:grid;place-items:center;color:#82b878">✓</span><div><div style="font:600 11.5px 'Be Vietnam Pro'">Tín dụng</div><div style="font:400 10px 'Be Vietnam Pro';color:#82b878">đạt 3/3 · 12s</div></div></div>
+      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:11px;background:rgba(221,169,74,.08);border:1px solid rgba(221,169,74,.3)"><span style="width:30px;height:30px;border-radius:9px;background:rgba(221,169,74,.18);display:grid;place-items:center;color:#dda94a">⚠</span><div><div style="font:600 11.5px 'Be Vietnam Pro'">Pháp chế</div><div style="font:400 10px 'Be Vietnam Pro';color:#dda94a">1 flag PCCC</div></div></div>
+      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:11px;background:rgba(130,184,120,.08);border:1px solid rgba(130,184,120,.3)"><span style="width:30px;height:30px;border-radius:9px;background:rgba(130,184,120,.18);display:grid;place-items:center;color:#82b878">✓</span><div><div style="font:600 11.5px 'Be Vietnam Pro'">Sản phẩm</div><div style="font:400 10px 'Be Vietnam Pro';color:#82b878">3 gói · đề xuất 1</div></div></div>
+      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:11px;background:rgba(95,178,201,.08);border:1px solid rgba(95,178,201,.4);box-shadow:0 0 14px rgba(95,178,201,.12)"><span style="width:30px;height:30px;border-radius:9px;background:rgba(95,178,201,.18);display:grid;place-items:center;color:#5fb2c9">●</span><div><div style="font:600 11.5px 'Be Vietnam Pro';color:#5fb2c9">Vận hành</div><div style="font:400 10px 'Be Vietnam Pro';color:#7d766a">đang lập timeline…</div></div></div>
+    </div>
+    <!-- canvas tabs -->
+    <div style="flex:none;display:flex;gap:2px;padding:10px 18px 0;font:500 11px 'Be Vietnam Pro'">
+      <span style="padding:7px 14px;border-radius:8px 8px 0 0;background:#211f1d;border:1px solid #37332f;border-bottom:none;color:#f2efe8;font-weight:600">Hồ sơ ca</span>
+      <span style="padding:7px 14px;color:#7d766a">Tờ trình</span>
+      <span style="padding:7px 14px;color:#7d766a">So sánh gói</span>
+    </div>
+    <div style="flex:1;margin:0 18px 16px;background:#211f1d;border:1px solid #37332f;border-radius:0 12px 12px 12px;padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:42px;height:42px;border-radius:11px;background:#332f2b;display:grid;place-items:center;font:700 16px 'Be Vietnam Pro';color:#d97757">GV</div>
+        <div style="flex:1"><div style="font:700 16px 'Be Vietnam Pro'">Công ty TNHH Gỗ Việt Phát</div><div style="font:400 11.5px 'Be Vietnam Pro';color:#7d766a">SME · Sản xuất gỗ · KH-2214 · 5 tỷ / 60 tháng · TSBĐ nhà xưởng 8 tỷ</div></div>
+        <span style="padding:5px 13px;border-radius:14px;background:rgba(221,169,74,.15);color:#dda94a;font:700 11.5px 'Be Vietnam Pro'">DUYỆT CÓ ĐIỀU KIỆN</span>
+      </div>
+      <!-- what-if hero -->
+      <div style="background:linear-gradient(135deg,rgba(217,119,87,.16),rgba(217,119,87,.04));border:1.5px solid rgba(217,119,87,.45);border-radius:13px;padding:14px 18px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span style="font:700 12px 'Be Vietnam Pro';color:#d97757">⭐ WHAT-IF — chỉnh &amp; để đội tính lại</span><span style="margin-left:auto;font:400 10.5px 'Be Vietnam Pro';color:#7d766a">lần chạy trước: 5 tỷ / 60 th</span></div>
+        <div style="display:flex;align-items:center;gap:22px">
+          <div style="flex:1;display:flex;align-items:center;gap:12px"><span style="font:500 11.5px 'Be Vietnam Pro';color:#b0a99d">Số tiền</span>
+            <div style="flex:1;height:6px;border-radius:3px;background:#37332f;position:relative"><div style="position:absolute;inset:0 80% 0 0;background:#d97757;border-radius:3px"></div><div style="position:absolute;left:20%;top:50%;transform:translate(-50%,-50%);width:17px;height:17px;border-radius:50%;background:#f2efe8;box-shadow:0 0 0 4px rgba(217,119,87,.3)"></div></div>
+            <span style="font:700 16px ui-monospace,monospace;color:#d97757">4,0 tỷ</span></div>
+          <span style="padding:6px 12px;border:1px solid #48423b;border-radius:8px;background:#211f1d;font:600 11.5px 'Be Vietnam Pro'">60 tháng ▾</span>
+          <span style="padding:9px 20px;border-radius:10px;background:#d97757;color:#1a1917;font:700 12.5px 'Be Vietnam Pro';box-shadow:0 3px 14px rgba(217,119,87,.35)">⟳ Tính lại</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:9px;background:rgba(130,184,120,.12);font:600 11px ui-monospace,monospace;color:#82b878">DSCR 1,40 → 1,75 ↑</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:9px;background:rgba(130,184,120,.12);font:600 11px ui-monospace,monospace;color:#82b878">LTV 62,5% → 50% ↓</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:9px;background:rgba(130,184,120,.12);font:600 11px 'Be Vietnam Pro';color:#82b878">Kết luận: có điều kiện → DUYỆT</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;flex:1;min-height:0">
+        <div style="background:#1a1917;border:1px solid #37332f;border-radius:11px;padding:12px 14px">
+          <div style="font:700 11px 'Be Vietnam Pro';margin-bottom:9px;display:flex;justify-content:space-between">Tín dụng <span style="color:#82b878">✓</span></div>
+          <div style="display:flex;flex-direction:column;gap:7px;font:400 11px 'Be Vietnam Pro';color:#b0a99d">
+            <div style="display:flex;justify-content:space-between">DSCR <span style="font:700 12px ui-monospace,monospace;color:#82b878">1,40 ✓</span></div>
+            <div style="display:flex;justify-content:space-between">LTV <span style="font:700 12px ui-monospace,monospace;color:#82b878">62,5% ✓</span></div>
+            <div style="display:flex;justify-content:space-between">CIC <span style="font:700 12px ui-monospace,monospace;color:#82b878">Nhóm 1 ✓</span></div>
+          </div>
+        </div>
+        <div style="background:#1a1917;border:1px solid #37332f;border-radius:11px;padding:12px 14px">
+          <div style="font:700 11px 'Be Vietnam Pro';margin-bottom:9px;display:flex;justify-content:space-between">Pháp chế <span style="color:#dda94a">⚠</span></div>
+          <div style="display:flex;flex-direction:column;gap:7px;font:400 11px 'Be Vietnam Pro';color:#b0a99d">
+            <div><span style="color:#82b878">✓</span> ĐKKD hiệu lực</div>
+            <div><span style="color:#82b878">✓</span> Thế chấp hợp lệ</div>
+            <div style="color:#dda94a">⚠ PCCC thiếu bản 2026</div>
+          </div>
+        </div>
+        <div style="background:#1a1917;border:1px solid #37332f;border-radius:11px;padding:12px 14px">
+          <div style="font:700 11px 'Be Vietnam Pro';margin-bottom:9px;display:flex;justify-content:space-between">Vận hành <span style="color:#5fb2c9">●</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><div style="height:10px;border-radius:5px;background:#2a2825;width:85%"></div><div style="height:10px;border-radius:5px;background:#2a2825;width:65%"></div><div style="height:10px;border-radius:5px;background:#2a2825;width:75%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div></div>
+
+<!-- ═══════════ 1c — Dòng công việc dọc ═══════════ -->
+<div class="dv-opt" id="1c"><div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Dòng công việc dọc — chat và artifact xen kẽ 1 luồng, mỗi phòng ban là 1 "biên bản" nối tiếp. Kể chuyện tốt khi chiếu.</div>
+<div class="dv-card" style="width:1400px">
+<div style="display:flex;height:880px;background:#1a1917;color:#f2efe8">
+  <!-- sidebar -->
+  <div style="width:230px;flex:none;border-right:1px solid #37332f;background:#211f1d;padding:12px;display:flex;flex-direction:column;gap:4px">
+    <div style="padding:9px 12px;border-radius:8px;background:rgba(217,119,87,.16);color:#d97757;font:600 12px 'Be Vietnam Pro';text-align:center;margin-bottom:12px;border:1px solid rgba(217,119,87,.3)">+ Ca mới</div>
+    <div style="padding:10px 12px;border-radius:8px;background:#2a2825;border:1px solid #48423b"><div style="font:600 12px 'Be Vietnam Pro'">Gỗ Việt Phát — 5 tỷ</div><div style="font:400 10.5px 'Be Vietnam Pro';color:#5fb2c9;margin-top:2px">● đang chạy</div></div>
+    <div style="padding:10px 12px"><div style="font:500 12px 'Be Vietnam Pro';color:#b0a99d">Minh Long — LC 2 tỷ</div><div style="font:400 10.5px 'Be Vietnam Pro';color:#dda94a;margin-top:2px">⏸ chờ duyệt</div></div>
+    <div style="padding:10px 12px"><div style="font:500 12px 'Be Vietnam Pro';color:#b0a99d">Tân Phú — 800tr</div><div style="font:400 10.5px 'Be Vietnam Pro';color:#82b878;margin-top:2px">✓ hoàn tất</div></div>
+  </div>
+  <!-- unified stream -->
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex:none;display:flex;align-items:center;gap:12px;padding:12px 24px;border-bottom:1px solid #37332f;background:#1d1c1a">
+      <div style="font:700 14px 'Be Vietnam Pro'">Gỗ Việt Phát — vay 5 tỷ mở rộng xưởng</div>
+      <span style="padding:3px 10px;border-radius:12px;background:rgba(95,178,201,.15);color:#5fb2c9;font:600 10.5px 'Be Vietnam Pro'">● 4/5 phòng xong</span>
+      <div style="flex:1"></div>
+      <span style="font:600 11px 'Be Vietnam Pro';color:#d97757;padding:6px 14px;border:1px solid rgba(217,119,87,.4);border-radius:9px">⭐ What-if</span>
+      <span style="font:600 11px 'Be Vietnam Pro';color:#b0a99d;padding:6px 14px;border:1px solid #37332f;border-radius:9px">📄 Tờ trình</span>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:20px 24px;position:relative">
+      <div style="position:absolute;left:47px;top:20px;bottom:0;width:2px;background:#2a2825"></div>
+      <div style="display:flex;flex-direction:column;gap:16px;position:relative">
+        <!-- user msg -->
+        <div style="display:flex;gap:16px">
+          <div style="width:46px;flex:none;display:flex;justify-content:center"><div style="width:30px;height:30px;border-radius:50%;background:#332f2b;display:grid;place-items:center;font:600 11px 'Be Vietnam Pro';color:#d97757;border:2px solid #1a1917;z-index:1">L</div></div>
+          <div style="flex:1;padding-top:4px"><div style="font:600 10.5px 'Be Vietnam Pro';color:#7d766a;margin-bottom:4px">LAN · RM · 10:24</div><div style="font:400 13px/1.5 'Be Vietnam Pro';max-width:700px">Công ty TNHH Gỗ Việt Phát muốn vay 5 tỷ mở rộng xưởng, thế chấp nhà xưởng định giá 8 tỷ. Kiểm tra khả năng vay giúp tôi.</div></div>
+        </div>
+        <!-- planner decompose -->
+        <div style="display:flex;gap:16px">
+          <div style="width:46px;flex:none;display:flex;justify-content:center"><div style="width:30px;height:30px;border-radius:9px;background:rgba(185,140,217,.2);display:grid;place-items:center;color:#b98cd9;font-weight:700;border:2px solid #1a1917;z-index:1">◆</div></div>
+          <div style="flex:1"><div style="font:600 10.5px 'Be Vietnam Pro';color:#b98cd9;margin-bottom:6px">PLANNER · phân việc · 10:24:08</div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <span style="padding:5px 11px;border-radius:8px;background:#211f1d;border:1px solid #37332f;font:500 11px 'Be Vietnam Pro';color:#b0a99d">→ Tín dụng: thẩm định DSCR/LTV/CIC</span>
+              <span style="padding:5px 11px;border-radius:8px;background:#211f1d;border:1px solid #37332f;font:500 11px 'Be Vietnam Pro';color:#b0a99d">→ Pháp chế: check hồ sơ (chờ Tín dụng)</span>
+              <span style="padding:5px 11px;border-radius:8px;background:#211f1d;border:1px solid #37332f;font:500 11px 'Be Vietnam Pro';color:#b0a99d">→ Sản phẩm: chọn gói ∥ song song</span>
+            </div></div>
+        </div>
+        <!-- credit verdict inline -->
+        <div style="display:flex;gap:16px">
+          <div style="width:46px;flex:none;display:flex;justify-content:center"><div style="width:30px;height:30px;border-radius:9px;background:rgba(130,184,120,.18);display:grid;place-items:center;color:#82b878;border:2px solid #1a1917;z-index:1">✓</div></div>
+          <div style="flex:1"><div style="font:600 10.5px 'Be Vietnam Pro';color:#82b878;margin-bottom:6px">TÍN DỤNG · hoàn tất 12s · 3 tool call</div>
+            <div style="max-width:720px;background:#211f1d;border:1px solid #37332f;border-radius:11px;padding:11px 15px;display:flex;gap:26px">
+              <div><div style="font:400 10px 'Be Vietnam Pro';color:#7d766a">DSCR ≥1,2</div><div style="font:700 17px ui-monospace,monospace;color:#82b878">1,40 ✓</div><div style="font:400 9px ui-monospace,monospace;color:#5fb2c9">calc_dscr</div></div>
+              <div><div style="font:400 10px 'Be Vietnam Pro';color:#7d766a">LTV trần 70%</div><div style="font:700 17px ui-monospace,monospace;color:#82b878">62,5% ✓</div><div style="font:400 9px ui-monospace,monospace;color:#5fb2c9">calc_ltv</div></div>
+              <div><div style="font:400 10px 'Be Vietnam Pro';color:#7d766a">CIC</div><div style="font:700 17px ui-monospace,monospace;color:#82b878">Nhóm 1 ✓</div><div style="font:400 9px ui-monospace,monospace;color:#5fb2c9">check_cic</div></div>
+            </div></div>
+        </div>
+        <!-- legal verdict inline -->
+        <div style="display:flex;gap:16px">
+          <div style="width:46px;flex:none;display:flex;justify-content:center"><div style="width:30px;height:30px;border-radius:9px;background:rgba(221,169,74,.18);display:grid;place-items:center;color:#dda94a;border:2px solid #1a1917;z-index:1">⚠</div></div>
+          <div style="flex:1"><div style="font:600 10.5px 'Be Vietnam Pro';color:#dda94a;margin-bottom:6px">PHÁP CHẾ · hoàn tất · 1 flag</div>
+            <div style="max-width:720px;background:#211f1d;border:1px solid rgba(221,169,74,.3);border-radius:11px;padding:11px 15px;font:400 12px 'Be Vietnam Pro';color:#b0a99d">
+              <span style="color:#82b878">✓</span> ĐKKD · <span style="color:#82b878">✓</span> hồ sơ thế chấp · <span style="color:#dda94a;font-weight:600">⚠ thiếu PCCC bản cập nhật 2026</span> — điều kiện trước giải ngân <span style="font:400 9.5px ui-monospace,monospace;color:#5fb2c9">check_documents</span>
+            </div></div>
+        </div>
+        <!-- ops running -->
+        <div style="display:flex;gap:16px">
+          <div style="width:46px;flex:none;display:flex;justify-content:center"><div style="width:30px;height:30px;border-radius:9px;background:rgba(95,178,201,.18);display:grid;place-items:center;color:#5fb2c9;border:2px solid #1a1917;z-index:1;box-shadow:0 0 10px rgba(95,178,201,.3)">●</div></div>
+          <div style="flex:1"><div style="font:600 10.5px 'Be Vietnam Pro';color:#5fb2c9;margin-bottom:6px">VẬN HÀNH · đang lập timeline…</div>
+            <div style="max-width:720px;background:#211f1d;border:1px solid #37332f;border-radius:11px;padding:12px 15px;display:flex;gap:10px"><div style="height:10px;border-radius:5px;background:#2a2825;flex:2"></div><div style="height:10px;border-radius:5px;background:#2a2825;flex:1"></div><div style="height:10px;border-radius:5px;background:#2a2825;flex:1.5"></div></div></div>
+        </div>
+        <!-- planner synthesis -->
+        <div style="display:flex;gap:16px">
+          <div style="width:46px;flex:none;display:flex;justify-content:center"><div style="width:30px;height:30px;border-radius:9px;background:rgba(185,140,217,.2);display:grid;place-items:center;color:#b98cd9;font-weight:700;border:2px solid #1a1917;z-index:1">◆</div></div>
+          <div style="flex:1"><div style="font:600 10.5px 'Be Vietnam Pro';color:#b98cd9;margin-bottom:6px">PLANNER · tổng hợp sơ bộ</div>
+            <div style="max-width:720px;background:rgba(185,140,217,.06);border:1px solid rgba(185,140,217,.25);border-radius:11px;padding:12px 15px;font:400 12.5px/1.55 'Be Vietnam Pro'">
+              <span style="padding:2px 9px;border-radius:11px;background:rgba(221,169,74,.15);color:#dda94a;font:700 10.5px 'Be Vietnam Pro'">DUYỆT CÓ ĐIỀU KIỆN</span>
+              <span style="color:#b0a99d"> — cả 3 chỉ tiêu tín dụng đạt; chờ Vận hành chốt timeline. Điều kiện: bổ sung PCCC trước giải ngân.</span>
+            </div></div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:none;padding:12px 24px 16px"><div style="display:flex;align-items:center;gap:10px;background:#211f1d;border:1px solid #48423b;border-radius:12px;padding:11px 15px;max-width:800px"><span style="flex:1;font:400 12.5px 'Be Vietnam Pro';color:#544e45">Hỏi tiếp hoặc chỉnh what-if…</span><span style="width:28px;height:28px;border-radius:8px;background:#d97757;display:grid;place-items:center;color:#1a1917;font-weight:700">↑</span></div></div>
+  </div>
+</div>
+</div></div>
+
+</div>
+<p class="dv-next">Thử tiếp: "chốt <a class="dv-oid" href="#1a">1a</a> nhưng lấy agent strip của <a class="dv-oid" href="#1b">1b</a>" · "cho xem <a class="dv-oid" href="#1c">1c</a> ở trạng thái chờ duyệt" · "hướng mới táo bạo hơn"</p>
+</section>
+
+</x-dc>
+</body>
+</html>

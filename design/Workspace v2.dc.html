@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="workspace/seed.js"></script>
+<style>
+body{margin:0;background:#1a1917;font-family:'Be Vietnam Pro',system-ui,sans-serif;color:#f2efe8}
+a{color:#d97757}a:hover{color:#e8906f}
+@keyframes deg-fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes deg-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes deg-shimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#332f2b;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+<x-import component="Register" from="./workspace/shared.jsx" hint-size="1px,1px" style="position:absolute;width:0;height:0"></x-import>
+<x-import component="Register" from="./workspace/cards.jsx" hint-size="1px,1px" style="position:absolute;width:0;height:0"></x-import>
+<x-import component="Register" from="./workspace/chat.jsx" hint-size="1px,1px" style="position:absolute;width:0;height:0"></x-import>
+<x-import component="Register" from="./workspace/lobby.jsx" hint-size="1px,1px" style="position:absolute;width:0;height:0"></x-import>
+<x-import component="WorkspaceApp" from="./workspace/App.jsx" hint-size="100%,100vh"></x-import>
+
+</x-dc>
+</body>
+</html>

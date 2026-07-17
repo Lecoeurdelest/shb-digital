@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121110;font-family:'Be Vietnam Pro',system-ui,sans-serif;color:#f2efe8}
+a{color:#d97757}a:hover{color:#e8906f}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes toastin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes flow{to{stroke-dashoffset:-12}}
+@keyframes bob{0%,100%{transform:translate(-50%,-100%)}50%{transform:translate(-50%,calc(-100% - 5px))}}
+input[type=range]{accent-color:#d97757}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#332f2b;border-radius:4px}::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+
+<!-- ═══ LOGIN ═══ -->
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+<div style="min-height:100vh;display:grid;place-items:center;background:radial-gradient(800px 500px at 50% 30%,rgba(217,119,87,.07),transparent),#1a1917">
+  <div style="width:380px;background:#211f1d;border:1px solid #37332f;border-radius:16px;padding:36px 32px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <div style="width:38px;height:38px;border-radius:10px;background:#d97757;display:grid;place-items:center;font-size:18px;font-weight:800;color:#1a1917">G</div>
+      <div><div style="font-size:16px;font-weight:700">Digital Expert Guild</div><div style="font-size:11px;color:#7d766a">Hội đồng Chuyên gia Số · SHB</div></div>
+    </div>
+    <div style="font-size:12px;color:#b0a99d;line-height:1.6;margin:14px 0 22px">Đội chuyên gia số xử lý nghiệp vụ ngân hàng — có giám sát, có phanh, có bằng chứng.</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input value="{{ loginU }}" onChange="{{ onLoginU }}" placeholder="Tài khoản (user / admin)" style="background:#1a1917;border:1px solid #48423b;border-radius:9px;padding:11px 13px;color:#f2efe8;font:400 13px 'Be Vietnam Pro';outline:none"></input>
+        <input type="password" value="demo-132" readOnly="{{ true }}" style="background:#1a1917;border:1px solid #37332f;border-radius:9px;padding:11px 13px;color:#544e45;font:400 13px 'Be Vietnam Pro';outline:none"></input>
+      </div>
+      <div onClick="{{ loginTyped }}" style="padding:12px;border-radius:10px;background:#d97757;color:#1a1917;font-weight:700;font-size:13px;text-align:center;cursor:pointer">Đăng nhập</div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <div onClick="{{ loginUser }}" style="flex:1;padding:9px;border-radius:9px;border:1px solid #48423b;color:#b0a99d;font-size:11.5px;font-weight:600;text-align:center;cursor:pointer" style-hover="border-color:#d97757;color:#d97757">👤 Vai RM (user)</div>
+        <div onClick="{{ loginAdmin }}" style="flex:1;padding:9px;border-radius:9px;border:1px solid #48423b;color:#b0a99d;font-size:11.5px;font-weight:600;text-align:center;cursor:pointer" style-hover="border-color:#d97757;color:#d97757">🛡 Vai Admin</div>
+      </div>
+      <div style="font-size:10.5px;color:#544e45;text-align:center;margin-top:2px">Admin = RM + Control Tower · demo không cần mật khẩu thật</div>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══ APP ═══ -->
+<sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;height:100vh;min-width:1360px;background:#1a1917;overflow:hidden">
+  <!-- topbar -->
+  <div style="display:flex;align-items:center;gap:14px;padding:0 16px;height:50px;border-bottom:1px solid #37332f;background:#211f1d;flex:none">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:7px;background:#d97757;display:grid;place-items:center;font-weight:800;font-size:13px;color:#1a1917">G</div>
+      <div style="font-weight:700;font-size:13.5px">Digital Expert Guild</div>
+      <div style="font-size:10.5px;color:#7d766a">SHB · demo</div>
+    </div>
+    <div style="display:flex;gap:2px;margin-left:18px">
+      <div onClick="{{ goWorkspace }}" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:{{ navWsBg }};color:{{ navWsColor }}">Workspace</div>
+      <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ goTower }}" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap;background:{{ navTwBg }};color:{{ navTwColor }}">Control Tower
+        <sc-if value="{{ hasPending }}" hint-placeholder-val="{{ false }}"><span style="min-width:16px;height:16px;border-radius:8px;background:#dda94a;color:#1a1917;font-size:10px;font-weight:800;display:grid;place-items:center;padding:0 4px">{{ pendingCount }}</span></sc-if>
+      </div>
+      </sc-if>
+    </div>
+    <div style="flex:1"></div>
+    <div onClick="{{ togglePrefs }}" style="font-size:15px;cursor:pointer;color:#7d766a" style-hover="color:#f2efe8">⚙</div>
+    <div style="position:relative;font-size:15px;cursor:pointer">🔔<sc-if value="{{ hasBell }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-7px;min-width:15px;height:15px;border-radius:8px;background:#d97757;color:#1a1917;font-size:9.5px;font-weight:800;display:grid;place-items:center;padding:0 3px">{{ bell }}</span></sc-if></div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#b0a99d;font-weight:500"><span style="width:24px;height:24px;border-radius:50%;background:#332f2b;display:grid;place-items:center;font-size:10px;font-weight:700;color:#d97757">{{ userInitial }}</span>{{ userLabel }}</div>
+    <div onClick="{{ logout }}" style="font-size:11px;color:#7d766a;cursor:pointer;padding:5px 10px;border:1px solid #37332f;border-radius:7px" style-hover="color:#f2efe8">Thoát</div>
+  </div>
+
+  <!-- ═══ WORKSPACE ═══ -->
+  <sc-if value="{{ isWorkspace }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex:1;min-height:0">
+    <!-- sidebar -->
+    <div style="width:230px;flex:none;border-right:1px solid #37332f;background:#211f1d;display:flex;flex-direction:column;padding:12px;gap:4px;overflow-y:auto">
+      <div onClick="{{ newCase }}" style="padding:9px 12px;border-radius:8px;background:rgba(217,119,87,.16);color:#d97757;font-weight:600;font-size:12px;text-align:center;margin-bottom:10px;border:1px solid rgba(217,119,87,.3);cursor:pointer" style-hover="background:rgba(217,119,87,.25)">+ Ca mới</div>
+      <div style="font-size:10px;font-weight:600;color:#544e45;letter-spacing:.08em;margin:0 4px 6px">HÔM NAY</div>
+      <sc-for list="{{ convs }}" as="c" hint-placeholder-count="3">
+        <div onClick="{{ c.open }}" style="padding:10px 12px;border-radius:8px;cursor:pointer;background:{{ c.bg }};border:1px solid {{ c.bd }}" style-hover="background:#2a2825">
+          <div style="font-size:12px;font-weight:600;color:{{ c.nameColor }};margin-bottom:3px">{{ c.name }}</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;color:#7d766a"><span style="width:7px;height:7px;border-radius:50%;background:{{ c.dot }};box-shadow:{{ c.glow }}"></span>{{ c.statusLabel }} · {{ c.time }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- chat -->
+    <div style="width:420px;flex:none;border-right:1px solid #37332f;display:flex;flex-direction:column;min-height:0">
+      <sc-if value="{{ noActive }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:grid;place-items:center;padding:30px">
+          <div style="text-align:center;max-width:300px">
+            <div style="width:52px;height:52px;border-radius:14px;background:rgba(217,119,87,.14);display:grid;place-items:center;font-size:24px;margin:0 auto 14px">🏛</div>
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">Chào chị Lan 👋</div>
+            <div style="font-size:12px;color:#7d766a;line-height:1.6;margin-bottom:18px">Mở ca mới hoặc chạy 1 ca mẫu — đội chuyên gia số sẽ chia việc và xử lý.</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div onClick="{{ runSample }}" style="padding:11px;border-radius:10px;background:#d97757;color:#1a1917;font-weight:700;font-size:12.5px;cursor:pointer">▶ Ca mẫu: Gỗ Việt Phát vay 5 tỷ</div>
+              <div style="padding:10px;border-radius:10px;border:1px solid #37332f;color:#7d766a;font-size:11.5px">Tra soát giao dịch nghi vấn</div>
+              <div style="padding:10px;border-radius:10px;border:1px solid #37332f;color:#7d766a;font-size:11.5px">Cơ cấu nợ DN gặp khó khăn</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasActive }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ isSubFocus }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;padding:11px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:10px;background:#1d1c1a">
+        <div onClick="{{ backToMain }}" style="width:26px;height:26px;border-radius:8px;border:1px solid #48423b;display:grid;place-items:center;color:#b0a99d;cursor:pointer;font-size:13px" style-hover="color:#f2efe8;border-color:#7d766a">←</div>
+        <div style="width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:15px;background:{{ subChipBg }};border:1px solid {{ subChipBd }}">{{ subIcon }}</div>
+        <div style="flex:1"><div style="font-size:12.5px;font-weight:700">SUB {{ subName }}</div><div style="font-size:10px;font-weight:600;color:{{ subStColor }}">{{ subStatus }}</div></div>
+        <sc-if value="{{ subCanStop }}" hint-placeholder-val="{{ false }}"><div onClick="{{ subStop }}" style="padding:7px 13px;border-radius:8px;border:1px solid rgba(224,112,95,.4);color:#e0705f;font-size:11px;font-weight:700;cursor:pointer" style-hover="background:rgba(224,112,95,.12)">⏹ Dừng sub</div></sc-if>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px">
+        <div style="flex:none;align-self:center;font-size:9.5px;color:#544e45;padding:3px 10px;border:1px dashed #37332f;border-radius:9px">kênh giám sát — bàn giao chính thức vẫn qua Main (§3)</div>
+        <sc-if value="{{ subEmpty }}" hint-placeholder-val="{{ false }}"><div style="flex:none;align-self:center;color:#544e45;font-size:11.5px;padding:26px 0">Sub chưa có hoạt động trong ca này</div></sc-if>
+        <sc-for list="{{ subItems }}" as="si" hint-placeholder-count="2">
+          <sc-if value="{{ si.isTrace }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:none;display:flex;align-items:flex-start;gap:8px;background:#211f1d;border:1px solid #2a2825;border-radius:9px;padding:8px 11px;animation:fadein .3s">
+              <span style="padding:2px 7px;border-radius:6px;font-size:9px;font-weight:700;border:1px solid #37332f;color:#7d766a;flex:none">{{ si.kind }}</span>
+              <span style="flex:1;font-size:11px;line-height:1.5;color:#b0a99d">{{ si.label }}</span>
+              <span style="font:500 9px ui-monospace,monospace;color:#544e45;flex:none">{{ si.time }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ si.isUser }}" hint-placeholder-val="{{ false }}"><div style="flex:none;align-self:flex-end;max-width:85%;background:#332f2b;border-radius:12px 12px 4px 12px;padding:8px 12px;font-size:11.5px;animation:fadein .3s">{{ si.label }}</div></sc-if>
+          <sc-if value="{{ si.isSub }}" hint-placeholder-val="{{ false }}"><div style="flex:none;align-self:flex-start;max-width:85%;background:#211f1d;border:1px solid #37332f;border-radius:4px 12px 12px 12px;padding:8px 12px;font-size:11.5px;color:#b0a99d;animation:fadein .3s">{{ si.label }}</div></sc-if>
+        </sc-for>
+      </div>
+      <div style="flex:none;padding:12px 14px;border-top:1px solid #37332f">
+        <div style="display:flex;align-items:center;gap:10px;background:#211f1d;border:1px solid #48423b;border-radius:12px;padding:9px 13px">
+          <input value="{{ subDraft }}" onChange="{{ onSubDraft }}" onKeyDown="{{ onSubKey }}" placeholder="Nhắn riêng cho sub {{ subName }}…" style="flex:1;background:none;border:none;outline:none;color:#f2efe8;font:400 12px 'Be Vietnam Pro'"></input>
+          <div onClick="{{ sendSub }}" style="width:26px;height:26px;border-radius:7px;background:#d97757;display:grid;place-items:center;color:#1a1917;font-weight:700;font-size:12px;cursor:pointer">↑</div>
+        </div>
+      </div>
+      </sc-if>
+      <sc-if value="{{ isMainFocus }}" hint-placeholder-val="{{ true }}">
+      <div id="chat-scroll" style="flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ chat }}" as="m" hint-placeholder-count="2">
+          <sc-if value="{{ m.isUser }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:none;align-self:flex-end;max-width:85%;background:#332f2b;border-radius:14px 14px 4px 14px;padding:10px 14px;font-size:12.5px;line-height:1.55;animation:fadein .3s">{{ m.text }}</div>
+          </sc-if>
+          <sc-if value="{{ m.isAsk }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:none;align-self:flex-start;max-width:92%;background:rgba(185,140,217,.1);border:1px solid rgba(185,140,217,.3);border-radius:4px 14px 14px 14px;padding:10px 13px;font-size:12.5px;line-height:1.55;animation:fadein .3s"><span style="font-size:10px;font-weight:600;color:#b98cd9">◆ MAIN HỎI LẠI</span><br>{{ m.text }}
+              <sc-if value="{{ m.showReply }}" hint-placeholder-val="{{ false }}"><div onClick="{{ answerBack }}" style="margin-top:8px;display:inline-block;padding:6px 13px;border-radius:8px;background:#b98cd9;color:#1a1917;font-size:11px;font-weight:700;cursor:pointer">↩ "Mở rộng xưởng hiện tại"</div></sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ m.isNote }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:none;align-self:center;font-size:10.5px;color:#7d766a;padding:4px 12px;background:#211f1d;border-radius:10px;animation:fadein .3s">{{ m.text }}</div>
+          </sc-if>
+          <sc-if value="{{ m.isAnswer }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:none;align-self:stretch;background:#211f1d;border:1px solid #48423b;border-radius:4px 14px 14px 14px;overflow:hidden;animation:fadein .4s">
+              <div style="padding:10px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:#544e45;letter-spacing:.08em">KẾT LUẬN</span>
+                <span style="padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:{{ m.vBg }};color:{{ m.vColor }}">{{ m.verdict }}</span>
+              </div>
+              <div style="padding:11px 14px;font-size:12.5px;line-height:1.6;color:#b0a99d">
+                {{ m.body }}
+                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px">
+                  <sc-for list="{{ m.cites }}" as="ct" hint-placeholder-count="3"><span onClick="{{ ct.jump }}" style="color:#f2efe8;background:rgba(130,184,120,.12);padding:2px 8px;border-radius:5px;font-weight:600;font-size:11.5px;cursor:pointer" style-hover="background:rgba(130,184,120,.25)">{{ ct.label }} ⓘ</span></sc-for>
+                </div>
+                <div style="margin-top:9px;padding-top:9px;border-top:1px dashed #37332f"><span style="font-size:10px;font-weight:600;color:#544e45;letter-spacing:.08em">ĐIỀU KIỆN</span><div style="color:#f2efe8;margin-top:3px">{{ m.cond }}</div></div>
+                <div style="margin-top:9px;padding-top:9px;border-top:1px dashed #37332f"><span style="font-size:10px;font-weight:600;color:#544e45;letter-spacing:.08em">BƯỚC TIẾP</span><div style="color:#f2efe8;margin-top:3px">{{ m.next }}</div></div>
+              </div>
+              <div style="padding:8px 14px;border-top:1px solid #37332f;font:500 10px ui-monospace,monospace;color:#7d766a">Nguồn: <span style="color:#5fb2c9">{{ m.sources }}</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ m.isPending }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:none;align-self:stretch;display:flex;align-items:center;gap:9px;border-radius:10px;padding:10px 13px;font-size:11.5px;font-weight:500;animation:fadein .3s;background:{{ m.pBg }};border:1px solid {{ m.pBd }};color:{{ m.pColor }}">{{ m.text }}</div>
+          </sc-if>
+        </sc-for>
+        <!-- progress inline -->
+        <sc-if value="{{ showProgress }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:none;align-self:stretch;background:#211f1d;border:1px solid #37332f;border-radius:10px;padding:10px 13px;animation:fadein .3s">
+            <div style="font-size:10px;font-weight:600;color:#544e45;letter-spacing:.08em;margin-bottom:8px">ĐỘI ĐANG LÀM VIỆC</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ chips }}" as="ch" hint-placeholder-count="5">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:14px;font-size:10.5px;font-weight:500;background:{{ ch.bg }};color:{{ ch.color }}"><sc-if value="{{ ch.live }}" hint-placeholder-val="{{ false }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ ch.color }};box-shadow:0 0 5px {{ ch.color }};animation:pulse 1.2s infinite"></span></sc-if>{{ ch.label }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      <div style="flex:none;padding:12px 14px;border-top:1px solid #37332f">
+        <div style="display:flex;align-items:center;gap:10px;background:#211f1d;border:1px solid #48423b;border-radius:12px;padding:10px 14px">
+          <input value="{{ draft }}" onChange="{{ onDraft }}" onKeyDown="{{ onKey }}" placeholder="{{ inputPh }}" style="flex:1;background:none;border:none;outline:none;color:#f2efe8;font:400 12.5px 'Be Vietnam Pro'"></input>
+          <div onClick="{{ send }}" style="width:28px;height:28px;border-radius:8px;background:#d97757;display:grid;place-items:center;color:#1a1917;font-weight:700;cursor:pointer">↑</div>
+        </div>
+        <sc-if value="{{ showSampleBtn }}" hint-placeholder-val="{{ false }}"><div onClick="{{ runSample }}" style="margin-top:8px;font-size:11px;color:#d97757;cursor:pointer;font-weight:600">▶ Chạy ca mẫu (demo-script)</div></sc-if>
+      </div>
+      </sc-if>
+      </sc-if>
+    </div>
+
+    <!-- canvas -->
+    <div style="flex:1;min-width:0;background:#161514;display:flex;flex-direction:column;overflow:hidden">
+      <sc-if value="{{ hasActive }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:none;display:flex;gap:2px;padding:10px 16px 0">
+        <div onClick="{{ goLobby }}" style="padding:7px 15px;border-radius:9px 9px 0 0;font-size:11.5px;font-weight:600;cursor:pointer;background:{{ tabLobbyBg }};color:{{ tabLobbyColor }};border:1px solid {{ tabLobbyBd }};border-bottom:none">🏛 Lobby — đội làm việc</div>
+        <div onClick="{{ goWork }}" style="padding:7px 15px;border-radius:9px 9px 0 0;font-size:11.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;background:{{ tabWorkBg }};color:{{ tabWorkColor }};border:1px solid {{ tabWorkBd }};border-bottom:none">▦ Công việc chi tiết<sc-if value="{{ hasCards }}" hint-placeholder-val="{{ false }}"><span style="min-width:15px;height:15px;border-radius:8px;background:#d97757;color:#1a1917;font-size:9px;font-weight:800;display:grid;place-items:center;padding:0 4px">{{ cardCount }}</span></sc-if></div>
+      </div>
+      </sc-if>
+      <!-- LOBBY 3D -->
+      <sc-if value="{{ showLobby }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;position:relative;margin:0 16px 16px;background:radial-gradient(70% 55% at 50% 78%,rgba(217,119,87,.06),transparent),#1a1917;border:1px solid #37332f;border-radius:0 14px 14px 14px;overflow:hidden;perspective:900px">
+        <div style="position:absolute;left:-25%;right:-25%;bottom:-40%;height:95%;transform:rotateX(60deg);transform-origin:50% 0;background-image:linear-gradient(rgba(217,119,87,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(217,119,87,.08) 1px,transparent 1px);background-size:48px 48px"></div>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+          <line x1="50" y1="66" x2="18" y2="38" stroke="{{ eCredit }}" stroke-width="0.4" stroke-dasharray="2 2" style="animation:{{ bmCredit }}"></line>
+          <line x1="50" y1="66" x2="38" y2="24" stroke="{{ eLegal }}" stroke-width="0.4" stroke-dasharray="2 2" style="animation:{{ bmLegal }}"></line>
+          <line x1="50" y1="66" x2="62" y2="24" stroke="{{ eProducts }}" stroke-width="0.4" stroke-dasharray="2 2" style="animation:{{ bmProducts }}"></line>
+          <line x1="50" y1="66" x2="82" y2="38" stroke="{{ eOps }}" stroke-width="0.4" stroke-dasharray="2 2" style="animation:{{ bmOps }}"></line>
+        </svg>
+        <sc-for list="{{ lobbyAgents }}" as="la" hint-placeholder-count="5">
+          <div onClick="{{ la.click }}" style="position:absolute;left:{{ la.x }};top:{{ la.y }};transform:translate(-50%,-100%);text-align:center;cursor:pointer;animation:{{ la.bob }}">
+            <div style="width:56px;height:56px;border-radius:16px;display:grid;place-items:center;font-size:23px;margin:0 auto;background:{{ la.bg }};border:2px solid {{ la.bd }};box-shadow:{{ la.glow }}">{{ la.icon }}</div>
+            <div style="width:52px;height:10px;border-radius:50%;margin:4px auto 0;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent)"></div>
+            <div style="font-size:11px;font-weight:700;margin-top:2px;color:{{ la.color }};white-space:nowrap">{{ la.name }}</div>
+            <div style="font-size:9px;color:#7d766a;white-space:nowrap">{{ la.sub }}</div>
+          </div>
+        </sc-for>
+        <div style="position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:10px;color:#544e45">Click Main hoặc 1 sub để mở conversation của nó ở khung giữa — xem trace · nhắn · ⏹ dừng</div>
+      </div>
+      </sc-if>
+      <sc-if value="{{ showWork }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ canvasEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:grid;place-items:center"><div style="text-align:center;color:#544e45"><div style="font-size:30px;margin-bottom:10px">▦</div><div style="font-size:12.5px">Work Canvas — sản phẩm công việc của đội sẽ hiện ở đây khi ca chạy</div></div></div>
+      </sc-if>
+      <sc-if value="{{ canvasBusy }}" hint-placeholder-val="{{ false }}">
+      <!-- what-if -->
+      <sc-if value="{{ showWhatif }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;margin:14px 16px 0;background:linear-gradient(135deg,rgba(217,119,87,.14),rgba(217,119,87,.04));border:1.5px solid rgba(217,119,87,.4);border-radius:12px;padding:12px 16px">
+        <div style="display:flex;align-items:center;gap:16px">
+          <span style="font-size:11px;font-weight:700;color:#d97757;letter-spacing:.06em">⭐ WHAT-IF</span>
+          <div style="flex:1;display:flex;align-items:center;gap:10px">
+            <span style="font-size:11px;font-weight:500;color:#b0a99d">Số tiền vay</span>
+            <input type="range" min="3" max="8" step="0.5" value="{{ amount }}" onChange="{{ onAmount }}" style="flex:1;max-width:220px"></input>
+            <span style="font:700 14px ui-monospace,monospace;color:#d97757">{{ amountStr }} tỷ</span>
+          </div>
+          <select value="{{ term }}" onChange="{{ onTerm }}" style="padding:6px 10px;border:1px solid #48423b;border-radius:8px;background:#211f1d;color:#f2efe8;font:600 11.5px 'Be Vietnam Pro';outline:none">
+            <option value="36">36 tháng</option><option value="48">48 tháng</option><option value="60">60 tháng</option>
+          </select>
+          <div onClick="{{ rerun }}" style="padding:8px 18px;border-radius:9px;background:#d97757;color:#1a1917;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 3px 12px rgba(217,119,87,.3)" style-hover="background:#e8906f">⟳ Tính lại</div>
+        </div>
+        <sc-if value="{{ hasDeltas }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <sc-for list="{{ deltas }}" as="d" hint-placeholder-count="3"><span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:9px;background:rgba(130,184,120,.12);font:600 11px ui-monospace,monospace;color:#82b878;animation:fadein .4s">{{ d.text }}</span></sc-for>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+      <!-- approval inline (admin) -->
+      <sc-if value="{{ showApprovalPanel }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:none;margin:14px 16px 0;background:rgba(221,169,74,.07);border:1.5px solid rgba(221,169,74,.4);border-radius:12px;padding:13px 16px;animation:fadein .4s">
+        <div style="display:flex;align-items:center;gap:14px">
+          <span style="font-size:16px">⏸</span>
+          <div style="flex:1"><div style="font-size:12.5px;font-weight:700;color:#dda94a">Chờ phê duyệt: Trình hạn mức {{ amountStr }} tỷ — Gỗ Việt Phát</div><div style="font-size:10.5px;color:#7d766a;margin-top:2px">Vận hành xin thực thi · rủi ro: CAO · đã bắn alert 📤 Discord</div></div>
+          <input value="{{ rejReason }}" onChange="{{ onRejReason }}" placeholder="Lý do (nếu từ chối)…" style="width:170px;background:#1a1917;border:1px solid #48423b;border-radius:8px;padding:8px 10px;color:#f2efe8;font:400 11px 'Be Vietnam Pro';outline:none"></input>
+          <div onClick="{{ approveActive }}" style="padding:8px 16px;border-radius:9px;background:#82b878;color:#1a1917;font-size:12px;font-weight:700;cursor:pointer">✓ Duyệt</div>
+          <div onClick="{{ rejectActive }}" style="padding:8px 16px;border-radius:9px;border:1px solid #e0705f;color:#e0705f;font-size:12px;font-weight:700;cursor:pointer">✗ Từ chối</div>
+        </div>
+      </div>
+      </sc-if>
+      <!-- cards -->
+      <div style="flex:1;overflow-y:auto;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start">
+        <sc-for list="{{ cards }}" as="k" hint-placeholder-count="2">
+          <div id="{{ k.anchor }}" style="background:#211f1d;border:1px solid {{ k.bd }};border-radius:12px;overflow:hidden;animation:fadein .4s;grid-column:{{ k.span }};box-shadow:{{ k.shadow }}">
+            <div style="padding:10px 14px;border-bottom:1px solid #37332f;display:flex;align-items:center;gap:8px">
+              <span style="font-size:11.5px;font-weight:700">{{ k.title }}</span>
+              <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:{{ k.stColor }}"><sc-if value="{{ k.live }}" hint-placeholder-val="{{ false }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ k.stColor }};box-shadow:0 0 5px {{ k.stColor }};animation:pulse 1.2s infinite"></span></sc-if>{{ k.stLabel }}</span>
+            </div>
+            <!-- skeleton -->
+            <sc-if value="{{ k.isSkeleton }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:14px;display:flex;flex-direction:column;gap:9px">
+                <div style="height:11px;border-radius:6px;width:80%;background:linear-gradient(90deg,#2a2825 25%,#332f2b 50%,#2a2825 75%);background-size:200px 100%;animation:shimmer 1.4s infinite linear"></div>
+                <div style="height:11px;border-radius:6px;width:55%;background:linear-gradient(90deg,#2a2825 25%,#332f2b 50%,#2a2825 75%);background-size:200px 100%;animation:shimmer 1.4s infinite linear"></div>
+                <div style="height:11px;border-radius:6px;width:70%;background:linear-gradient(90deg,#2a2825 25%,#332f2b 50%,#2a2825 75%);background-size:200px 100%;animation:shimmer 1.4s infinite linear"></div>
+              </div>
+            </sc-if>
+            <!-- info -->
+            <sc-if value="{{ k.isInfo }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:12px 14px;display:flex;align-items:center;gap:14px">
+                <div style="width:38px;height:38px;border-radius:10px;background:#332f2b;display:grid;place-items:center;font-size:15px;font-weight:700;color:#d97757">GV</div>
+                <div style="flex:1"><div style="font-size:13.5px;font-weight:700">{{ k.name }}</div><div style="font-size:10.5px;color:#7d766a">{{ k.sub }}</div></div>
+                <div style="display:flex;gap:7px">
+                  <sc-for list="{{ deptBadges }}" as="b" hint-placeholder-count="4">
+                    <div style="text-align:center;padding:5px 11px;border-radius:9px;background:{{ b.bg }};border:1px solid {{ b.bd }}"><div style="font-size:9px;font-weight:600;color:#7d766a">{{ b.dept }}</div><div style="font-size:11px;font-weight:700;color:{{ b.color }}">{{ b.val }}</div></div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <!-- metric -->
+            <sc-if value="{{ k.isMetric }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:8px 14px 12px;display:grid;grid-template-columns:1fr auto auto;gap:5px 14px;align-items:center">
+                <sc-for list="{{ k.rows }}" as="r" hint-placeholder-count="3">
+                  <span style="font-size:11.5px;color:#b0a99d;padding-top:5px">{{ r.name }} <span style="color:#544e45">{{ r.hint }}</span></span>
+                  <span style="font:700 13px ui-monospace,monospace;color:#f2efe8;padding-top:5px">{{ r.val }}<span style="color:#82b878;font-size:10px"> {{ r.delta }}</span></span>
+                  <span style="font-size:11.5px;color:{{ r.okColor }};padding-top:5px">{{ r.ok }} <span style="font:500 9px ui-monospace,monospace;color:#5fb2c9">{{ r.src }}</span></span>
+                </sc-for>
+              </div>
+            </sc-if>
+            <!-- checklist -->
+            <sc-if value="{{ k.isChecklist }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:10px 14px;display:flex;flex-direction:column;gap:7px">
+                <sc-for list="{{ k.items }}" as="it" hint-placeholder-count="3">
+                  <div style="display:flex;gap:8px;align-items:flex-start;font-size:11.5px;color:#b0a99d;border-radius:8px;padding:{{ it.pad }};background:{{ it.bg }};border:1px solid {{ it.bd }};margin:{{ it.mg }}"><span style="color:{{ it.color }}">{{ it.mark }}</span><span style="color:{{ it.txColor }}">{{ it.text }}<sc-if value="{{ it.hasNote }}" hint-placeholder-val="{{ false }}"><br><span style="font-size:10px;color:#7d766a">{{ it.note }}</span></sc-if></span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <!-- options -->
+            <sc-if value="{{ k.isOptions }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ k.opts }}" as="o" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;font-size:11px;background:{{ o.bg }};border:1px solid {{ o.bd }}"><span style="color:{{ o.markColor }}">{{ o.mark }}</span><span style="flex:1;font-weight:{{ o.w }};color:{{ o.color }}">{{ o.name }}</span><span style="font:700 12px ui-monospace,monospace;color:{{ o.rateColor }}">{{ o.rate }}</span><span style="color:#7d766a">{{ o.term }}</span></div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <!-- timeline -->
+            <sc-if value="{{ k.isTimeline }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:12px 14px;display:flex;flex-direction:column;gap:0">
+                <sc-for list="{{ k.steps }}" as="s" hint-placeholder-count="3">
+                  <div style="display:flex;gap:11px">
+                    <div style="display:flex;flex-direction:column;align-items:center"><div style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ s.nBg }};color:{{ s.nColor }};border:1px solid {{ s.nBd }}">{{ s.n }}</div><sc-if value="{{ s.hasLine }}" hint-placeholder-val="{{ true }}"><div style="width:2px;flex:1;min-height:14px;background:#2a2825"></div></sc-if></div>
+                    <div style="padding-bottom:12px"><div style="font-size:11.5px;font-weight:600;color:{{ s.color }}">{{ s.text }}</div><div style="font-size:10px;color:#7d766a;margin-top:1px">{{ s.note }}</div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <!-- action -->
+            <sc-if value="{{ k.isAction }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:12px 14px;display:flex;align-items:center;gap:12px">
+                <span style="font-size:17px">{{ k.icon }}</span>
+                <div style="flex:1"><div style="font-size:12px;font-weight:600">{{ k.text }}</div><div style="font-size:10.5px;color:#7d766a;margin-top:2px">{{ k.note }}</div></div>
+                <span style="padding:4px 12px;border-radius:12px;font-size:10.5px;font-weight:700;background:{{ k.aBg }};color:{{ k.aColor }}">{{ k.aLabel }}</span>
+              </div>
+            </sc-if>
+            <!-- document -->
+            <sc-if value="{{ k.isDoc }}" hint-placeholder-val="{{ false }}">
+              <div style="padding:14px 18px">
+                <div style="background:#f2efe8;color:#2a2825;border-radius:8px;padding:18px 20px;font-family:Georgia,serif">
+                  <div style="text-align:center;font-size:10px;letter-spacing:.1em;color:#7d766a">NGÂN HÀNG SHB — CHI NHÁNH ĐÔNG ĐÔ</div>
+                  <div style="text-align:center;font-size:14px;font-weight:700;margin:8px 0 12px">TỜ TRÌNH THẨM ĐỊNH CẤP TÍN DỤNG</div>
+                  <div style="font-size:11px;line-height:1.7">
+                    <b>Khách hàng:</b> Công ty TNHH Gỗ Việt Phát (KH-2214)<br>
+                    <b>Đề nghị:</b> {{ k.amt }} tỷ đồng · {{ k.termStr }} tháng · TSBĐ nhà xưởng 8 tỷ<br>
+                    <b>Thẩm định:</b> DSCR {{ k.dscr }} (≥1,2) · LTV {{ k.ltv }} (trần 70%) · CIC nhóm 1<br>
+                    <b>Kết luận:</b> {{ k.verdict }}<br>
+                    <b>Điều kiện:</b> {{ k.cond }}
+                  </div>
+                  <div style="display:flex;justify-content:space-between;margin-top:16px;font-size:10px;color:#7d766a"><span>Lập bởi: Digital Expert Guild<br>{{ k.time }}</span><span style="text-align:center">CÁN BỘ THẨM ĐỊNH<br><br>(đã ký số)</span></div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:10px"><div style="padding:7px 15px;border-radius:8px;background:#d97757;color:#1a1917;font-size:11px;font-weight:700;cursor:pointer">↓ Export PDF</div><div style="padding:7px 15px;border-radius:8px;border:1px solid #48423b;color:#b0a99d;font-size:11px;font-weight:600;cursor:pointer">Gửi cấp phê duyệt</div></div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ═══ CONTROL TOWER ═══ -->
+  <sc-if value="{{ isTower }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+    <div style="flex:none;display:flex;gap:2px;padding:10px 18px 0;border-bottom:1px solid #37332f;background:#1d1c1a">
+      <sc-for list="{{ towerTabs }}" as="t" hint-placeholder-count="5">
+        <div onClick="{{ t.go }}" style="padding:9px 16px;border-radius:9px 9px 0 0;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;background:{{ t.bg }};color:{{ t.color }};border:1px solid {{ t.bd }};border-bottom:none">{{ t.label }}<sc-if value="{{ t.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="min-width:16px;height:16px;border-radius:8px;background:#dda94a;color:#1a1917;font-size:10px;font-weight:800;display:grid;place-items:center;padding:0 4px">{{ t.badge }}</span></sc-if></div>
+      </sc-for>
+    </div>
+    <div style="flex:1;min-height:0;overflow-y:auto;background:#161514">
+
+      <!-- TAB MAP -->
+      <sc-if value="{{ tabMap }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:16px;padding:18px;height:100%;box-sizing:border-box">
+        <div style="flex:1.3;background:#1a1917;border:1px solid #37332f;border-radius:14px;position:relative;min-height:480px">
+          <div style="position:absolute;top:14px;left:16px;font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em">LIVE ORCHESTRATION MAP · {{ activeName }}</div>
+          <svg viewBox="0 0 600 480" style="position:absolute;inset:0;width:100%;height:100%">
+            <line x1="300" y1="240" x2="140" y2="110" stroke="{{ eCredit }}" stroke-width="2"></line>
+            <line x1="300" y1="240" x2="460" y2="110" stroke="{{ eLegal }}" stroke-width="2"></line>
+            <line x1="300" y1="240" x2="140" y2="370" stroke="{{ eProducts }}" stroke-width="2"></line>
+            <line x1="300" y1="240" x2="460" y2="370" stroke="{{ eOps }}" stroke-width="2"></line>
+          </svg>
+          <sc-for list="{{ mapNodes }}" as="n" hint-placeholder-count="5">
+            <div style="position:absolute;left:{{ n.x }};top:{{ n.y }};transform:translate(-50%,-50%);text-align:center">
+              <div style="width:64px;height:64px;border-radius:18px;display:grid;place-items:center;font-size:22px;margin:0 auto;background:{{ n.bg }};border:2px solid {{ n.bd }};box-shadow:{{ n.glow }};animation:{{ n.anim }}">{{ n.icon }}</div>
+              <div style="font-size:11px;font-weight:700;margin-top:6px;color:{{ n.color }}">{{ n.name }}</div>
+              <div style="font-size:9.5px;color:#7d766a">{{ n.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex:1;background:#1a1917;border:1px solid #37332f;border-radius:14px;padding:16px;overflow-y:auto">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:12px">TASK-TREE · DECOMPOSE</div>
+          <sc-for list="{{ tasks }}" as="tk" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;margin-bottom:6px;background:#211f1d;border:1px solid #37332f">
+              <span style="width:8px;height:8px;border-radius:50%;background:{{ tk.dot }};box-shadow:{{ tk.glow }}"></span>
+              <div style="flex:1"><div style="font-size:11.5px;font-weight:600">{{ tk.name }}</div><div style="font-size:10px;color:#7d766a">{{ tk.desc }}</div></div>
+              <span style="font-size:10px;font-weight:600;color:{{ tk.color }}">{{ tk.status }}</span>
+              <sc-if value="{{ tk.canCancel }}" hint-placeholder-val="{{ false }}"><div onClick="{{ tk.cancel }}" style="width:20px;height:20px;border-radius:6px;border:1px solid rgba(224,112,95,.4);color:#e0705f;display:grid;place-items:center;font-size:11px;font-weight:700;cursor:pointer" style-hover="background:rgba(224,112,95,.15)">✕</div></sc-if>
+            </div>
+          </sc-for>
+          <div style="font-size:10px;color:#544e45;margin-top:10px">Dependency: Pháp chế chờ output Tín dụng · Sản phẩm chạy song song</div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- TAB TRACES -->
+      <sc-if value="{{ tabTraces }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:16px;padding:18px;height:100%;box-sizing:border-box">
+        <div style="flex:1.4;overflow-y:auto">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:12px">AGENT TRACE · {{ activeName }} · {{ traceCount }} bước</div>
+          <sc-for list="{{ traces }}" as="tr" hint-placeholder-count="5">
+            <div onClick="{{ tr.select }}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;margin-bottom:5px;cursor:pointer;background:{{ tr.bg }};border:1px solid {{ tr.bd }}" style-hover="background:#242220">
+              <span style="font:500 10px ui-monospace,monospace;color:#544e45;width:56px">{{ tr.time }}</span>
+              <span style="padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;background:{{ tr.aBg }};color:{{ tr.aColor }}">{{ tr.agent }}</span>
+              <span style="padding:2px 8px;border-radius:6px;font-size:9.5px;font-weight:600;border:1px solid #37332f;color:#7d766a">{{ tr.kind }}</span>
+              <span style="flex:1;font-size:11.5px;color:#b0a99d">{{ tr.label }}</span>
+              <span style="color:#544e45">›</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex:1;background:#1a1917;border:1px solid #37332f;border-radius:14px;padding:16px;overflow-y:auto">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:12px">TOOL-CALL INSPECTOR</div>
+          <sc-if value="{{ noTraceSel }}" hint-placeholder-val="{{ true }}"><div style="color:#544e45;font-size:12px;padding:30px 0;text-align:center">Chọn 1 bước bên trái để xem input/output</div></sc-if>
+          <sc-if value="{{ hasTraceSel }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12.5px;font-weight:700;margin-bottom:10px">{{ selTraceLabel }}</div>
+            <div style="font-size:10px;font-weight:600;color:#544e45;letter-spacing:.07em;margin-bottom:5px">INPUT</div>
+            <pre style="background:#121110;border:1px solid #2a2825;border-radius:9px;padding:12px;font:400 10.5px ui-monospace,monospace;color:#b0a99d;white-space:pre-wrap;margin:0 0 12px">{{ selTraceIn }}</pre>
+            <div style="font-size:10px;font-weight:600;color:#544e45;letter-spacing:.07em;margin-bottom:5px">OUTPUT</div>
+            <pre style="background:#121110;border:1px solid #2a2825;border-radius:9px;padding:12px;font:400 10.5px ui-monospace,monospace;color:#82b878;white-space:pre-wrap;margin:0">{{ selTraceOut }}</pre>
+          </sc-if>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- TAB APPROVALS -->
+      <sc-if value="{{ tabApprovals }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px">
+        <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:12px">APPROVAL QUEUE · hành động nhạy cảm chờ người duyệt</div>
+        <sc-if value="{{ noApprovals }}" hint-placeholder-val="{{ true }}"><div style="padding:40px;text-align:center;color:#544e45;font-size:12.5px;background:#1a1917;border:1px dashed #37332f;border-radius:12px">Hàng chờ trống — không có hành động nào cần duyệt ✓</div></sc-if>
+        <sc-for list="{{ approvals }}" as="ap" hint-placeholder-count="1">
+          <div style="display:flex;align-items:center;gap:14px;background:#1a1917;border:1px solid {{ ap.bd }};border-radius:12px;padding:14px 16px;margin-bottom:8px">
+            <span style="font-size:18px">{{ ap.icon }}</span>
+            <span style="font:500 10px ui-monospace,monospace;color:#544e45">{{ ap.time }}</span>
+            <div style="flex:1"><div style="font-size:12.5px;font-weight:700">{{ ap.action }}</div><div style="font-size:10.5px;color:#7d766a;margin-top:2px">{{ ap.conv }} · agent xin: {{ ap.agent }} · alert 📤 đã bắn Discord</div></div>
+            <span style="padding:3px 11px;border-radius:11px;font-size:10px;font-weight:700;background:rgba(224,112,95,.14);color:#e0705f">RỦI RO {{ ap.risk }}</span>
+            <sc-if value="{{ ap.isPending }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ ap.approve }}" style="padding:8px 16px;border-radius:9px;background:#82b878;color:#1a1917;font-size:11.5px;font-weight:700;cursor:pointer">✓ Duyệt</div>
+              <div onClick="{{ ap.reject }}" style="padding:8px 16px;border-radius:9px;border:1px solid #e0705f;color:#e0705f;font-size:11.5px;font-weight:700;cursor:pointer">✗ Từ chối</div>
+            </sc-if>
+            <sc-if value="{{ ap.isDone }}" hint-placeholder-val="{{ false }}"><span style="padding:5px 13px;border-radius:11px;font-size:11px;font-weight:700;background:{{ ap.doneBg }};color:{{ ap.doneColor }}">{{ ap.doneLabel }}</span></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- TAB AUDIT -->
+      <sc-if value="{{ tabAudit }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em">AUDIT LOG · append-only</div>
+          <input value="{{ auditQ }}" onChange="{{ onAuditQ }}" placeholder="Tìm theo agent / tool / nội dung…" style="margin-left:auto;width:260px;background:#1a1917;border:1px solid #48423b;border-radius:9px;padding:8px 12px;color:#f2efe8;font:400 11.5px 'Be Vietnam Pro';outline:none"></input>
+          <span style="font-size:11px;color:#7d766a">Tổng chi phí ca: <span style="font:700 12px ui-monospace,monospace;color:#d97757">{{ totalCost }}</span></span>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 90px 90px 1fr 70px;gap:0;font-size:10px;font-weight:700;color:#544e45;letter-spacing:.05em;padding:0 14px 8px">
+          <span>GIỜ</span><span>AGENT</span><span>LOẠI</span><span>NỘI DUNG</span><span style="text-align:right">COST</span>
+        </div>
+        <sc-for list="{{ auditRows }}" as="au" hint-placeholder-count="6">
+          <div style="display:grid;grid-template-columns:70px 90px 90px 1fr 70px;gap:0;align-items:center;background:#1a1917;border:1px solid #2a2825;border-radius:9px;padding:9px 14px;margin-bottom:4px;font-size:11px">
+            <span style="font:500 10px ui-monospace,monospace;color:#544e45">{{ au.time }}</span>
+            <span style="font-weight:600;color:{{ au.aColor }}">{{ au.agent }}</span>
+            <span style="font:500 10px ui-monospace,monospace;color:#5fb2c9">{{ au.kind }}</span>
+            <span style="color:#b0a99d">{{ au.sum }}</span>
+            <span style="font:500 10px ui-monospace,monospace;color:#7d766a;text-align:right">{{ au.cost }}</span>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- TAB SETTINGS -->
+      <sc-if value="{{ tabSettings }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <!-- model routing -->
+        <div style="background:#1a1917;border:1px solid #37332f;border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:4px">MODEL ROUTING (C9)</div>
+          <div style="font-size:10.5px;color:#544e45;margin-bottom:12px">Main model mạnh · sub model rẻ — providers.yaml, không hardcode</div>
+          <sc-for list="{{ modelRows }}" as="mr" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #2a2825">
+              <span style="width:8px;height:8px;border-radius:50%;background:{{ mr.dot }}"></span>
+              <span style="flex:1;font-size:11.5px;font-weight:600">{{ mr.label }}</span>
+              <select value="{{ mr.val }}" onChange="{{ mr.onChange }}" style="padding:5px 9px;border:1px solid #48423b;border-radius:7px;background:#211f1d;color:#f2efe8;font:500 10.5px 'Be Vietnam Pro';outline:none">
+                <option value="claude-sonnet-4.5">claude-sonnet-4.5 · mạnh</option>
+                <option value="claude-haiku-4.5">claude-haiku-4.5 · rẻ</option>
+                <option value="gpt-5-mini">gpt-5-mini · rẻ</option>
+                <option value="gemini-2.5-flash">gemini-2.5-flash · rẻ</option>
+              </select>
+              <span style="font:500 10px ui-monospace,monospace;color:#7d766a;width:52px;text-align:right">{{ mr.cost }}</span>
+            </div>
+          </sc-for>
+          <div style="margin-top:12px;padding-top:11px;border-top:1px solid #2a2825">
+            <div style="font-size:10px;font-weight:700;color:#544e45;letter-spacing:.07em;margin-bottom:7px">FALLBACK ĐA PROVIDER (C10) — thứ tự</div>
+            <div style="display:flex;gap:7px">
+              <span style="padding:5px 12px;border-radius:8px;background:rgba(217,119,87,.14);border:1px solid rgba(217,119,87,.35);font-size:10.5px;font-weight:700;color:#d97757">1 · Anthropic</span>
+              <span style="padding:5px 12px;border-radius:8px;background:#211f1d;border:1px solid #37332f;font-size:10.5px;font-weight:600;color:#b0a99d">2 · OpenAI</span>
+              <span style="padding:5px 12px;border-radius:8px;background:#211f1d;border:1px solid #37332f;font-size:10.5px;font-weight:600;color:#b0a99d">3 · Google</span>
+            </div>
+            <div style="font-size:10px;color:#7d766a;margin-top:8px">Ước tính: <span style="font:700 11px ui-monospace,monospace;color:#d97757">~$0.055/ca</span> · planner chiếm ~60% chi phí</div>
+          </div>
+        </div>
+        <!-- notification channels -->
+        <div style="background:#1a1917;border:1px solid #37332f;border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:12px">KÊNH THÔNG BÁO (J7)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:13px">
+            <div style="display:flex;align-items:center;gap:9px"><span style="width:76px;font-size:11px;font-weight:600;color:#b0a99d">Discord</span><input value="{{ cfgDiscord }}" onChange="{{ onCfgDiscord }}" style="flex:1;background:#121110;border:1px solid #37332f;border-radius:8px;padding:7px 10px;color:#b0a99d;font:400 10px ui-monospace,monospace;outline:none"></input><div onClick="{{ testWebhook }}" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(217,119,87,.4);color:#d97757;font-size:10.5px;font-weight:700;cursor:pointer">Test 📤</div></div>
+            <div style="display:flex;align-items:center;gap:9px"><span style="width:76px;font-size:11px;font-weight:600;color:#b0a99d">SMTP</span><input value="guild-alerts@shb.com.vn · smtp.shb.local:587" readOnly="{{ true }}" style="flex:1;background:#121110;border:1px solid #37332f;border-radius:8px;padding:7px 10px;color:#7d766a;font:400 10px ui-monospace,monospace;outline:none"></input></div>
+            <div style="display:flex;align-items:center;gap:9px"><span style="width:76px;font-size:11px;font-weight:600;color:#b0a99d">Zalo OA</span><input value="OA: SHB Digital Guild · webhook đã xác thực ✓" readOnly="{{ true }}" style="flex:1;background:#121110;border:1px solid #37332f;border-radius:8px;padding:7px 10px;color:#7d766a;font:400 10px ui-monospace,monospace;outline:none"></input></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 62px 62px 62px;font-size:9.5px;font-weight:700;color:#544e45;letter-spacing:.05em;padding:0 2px 6px"><span>LOẠI ALERT</span><span style="text-align:center">DISCORD</span><span style="text-align:center">EMAIL</span><span style="text-align:center">ZALO</span></div>
+          <sc-for list="{{ alertRows }}" as="al" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:1fr 62px 62px 62px;align-items:center;padding:6px 2px;border-top:1px solid #2a2825">
+              <span style="font-size:11px;font-weight:600">{{ al.name }}</span>
+              <div style="display:flex;justify-content:center"><div onClick="{{ al.dClick }}" style="width:32px;height:17px;border-radius:9px;background:{{ al.dBg }};position:relative;cursor:pointer"><div style="position:absolute;top:2px;left:{{ al.dKnob }};width:13px;height:13px;border-radius:50%;background:#f2efe8;transition:left .15s"></div></div></div>
+              <div style="display:flex;justify-content:center"><div onClick="{{ al.eClick }}" style="width:32px;height:17px;border-radius:9px;background:{{ al.eBg }};position:relative;cursor:pointer"><div style="position:absolute;top:2px;left:{{ al.eKnob }};width:13px;height:13px;border-radius:50%;background:#f2efe8;transition:left .15s"></div></div></div>
+              <div style="display:flex;justify-content:center"><div onClick="{{ al.zClick }}" style="width:32px;height:17px;border-radius:9px;background:{{ al.zBg }};position:relative;cursor:pointer"><div style="position:absolute;top:2px;left:{{ al.zKnob }};width:13px;height:13px;border-radius:50%;background:#f2efe8;transition:left .15s"></div></div></div>
+            </div>
+          </sc-for>
+        </div>
+        <!-- guardrail -->
+        <div style="background:#1a1917;border:1px solid #37332f;border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:12px">GUARDRAIL &amp; AN TOÀN (F3 · F5 · F6)</div>
+          <div style="font-size:10px;font-weight:700;color:#544e45;letter-spacing:.07em;margin-bottom:7px">KILL-SWITCH PER AGENT — nút tắt khẩn</div>
+          <sc-for list="{{ killRows }}" as="kr" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #2a2825">
+              <span style="flex:1;font-size:11.5px;font-weight:600;color:{{ kr.color }}">{{ kr.label }}</span>
+              <span style="font-size:10px;color:{{ kr.stColor }};font-weight:600">{{ kr.status }}</span>
+              <div onClick="{{ kr.click }}" style="width:36px;height:19px;border-radius:10px;background:{{ kr.bg }};position:relative;cursor:pointer"><div style="position:absolute;top:2px;left:{{ kr.knob }};width:15px;height:15px;border-radius:50%;background:#f2efe8;transition:left .15s"></div></div>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #2a2825;margin-top:6px">
+            <span style="flex:1;font-size:11.5px;font-weight:600">PII masking trong log (F5)</span>
+            <div onClick="{{ togglePii }}" style="width:36px;height:19px;border-radius:10px;background:{{ piiBg }};position:relative;cursor:pointer"><div style="position:absolute;top:2px;left:{{ piiKnob }};width:15px;height:15px;border-radius:50%;background:#f2efe8;transition:left .15s"></div></div>
+          </div>
+          <div style="margin-top:10px;font-size:10px;color:#7d766a;line-height:1.6">Whitelist cần người duyệt: <span style="font:500 10px ui-monospace,monospace;color:#dda94a">disburse · unfreeze_account · waive_fee</span> — agent không tự thực thi</div>
+        </div>
+        <!-- business params -->
+        <div style="background:#1a1917;border:1px solid #37332f;border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em;margin-bottom:4px">THAM SỐ NGHIỆP VỤ (E3)</div>
+          <div style="font-size:10.5px;color:#544e45;margin-bottom:12px">Config — không hardcode · đổi số không đổi code</div>
+          <sc-for list="{{ paramRows }}" as="pr" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #2a2825">
+              <span style="flex:1;font-size:11.5px;font-weight:600">{{ pr.name }}</span>
+              <span style="font-size:9.5px;color:#544e45">{{ pr.note }}</span>
+              <input value="{{ pr.val }}" readOnly="{{ true }}" style="width:80px;background:#121110;border:1px solid #48423b;border-radius:7px;padding:6px 9px;color:#f2efe8;font:700 11.5px ui-monospace,monospace;text-align:right;outline:none"></input>
+            </div>
+          </sc-for>
+          <div onClick="{{ saveCfg }}" style="margin-top:14px;padding:9px;border-radius:9px;background:#d97757;color:#1a1917;font-size:12px;font-weight:700;text-align:center;cursor:pointer">Lưu cấu hình hệ thống</div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- TAB COMPARE & CERTIFY -->
+      <sc-if value="{{ tabCompare }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:18px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em">COMPARE — cùng ca Gỗ Việt Phát: chatbot đơn vs đội agent</div>
+          <div onClick="{{ runCompare }}" style="margin-left:auto;padding:8px 18px;border-radius:9px;background:#d97757;color:#1a1917;font-size:12px;font-weight:700;cursor:pointer">▶ Chạy cả hai</div>
+        </div>
+        <sc-if value="{{ compareRunning }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:34px;text-align:center;background:#1a1917;border:1px solid #37332f;border-radius:12px;color:#5fb2c9;font-size:12.5px"><span style="animation:pulse 1s infinite">● Đang chạy song song 2 hệ trên cùng input…</span></div>
+        </sc-if>
+        <sc-if value="{{ compareDone }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:12px;animation:fadein .5s">
+            <div style="flex:1;text-align:center;background:rgba(224,112,95,.08);border:1.5px solid rgba(224,112,95,.35);border-radius:12px;padding:14px"><div style="font-size:26px;font-weight:800;color:#e0705f">3 số bịa · 2 bước sót</div><div style="font-size:11px;color:#7d766a;margin-top:3px">SINGLE-AGENT · điểm 41/100</div></div>
+            <div style="flex:1;text-align:center;background:rgba(130,184,120,.08);border:1.5px solid rgba(130,184,120,.35);border-radius:12px;padding:14px"><div style="font-size:26px;font-weight:800;color:#82b878">0 bịa · đủ 4 phòng ban</div><div style="font-size:11px;color:#7d766a;margin-top:3px">MULTI-AGENT · điểm 94/100</div></div>
+          </div>
+          <div style="display:flex;gap:12px;animation:fadein .6s">
+            <div style="flex:1;background:#1a1917;border:1px solid rgba(224,112,95,.3);border-radius:12px;padding:16px;font-size:12px;line-height:1.8;color:#b0a99d">
+              <div style="font-size:10.5px;font-weight:700;color:#e0705f;margin-bottom:8px">🤖 SINGLE-AGENT (chatbot đơn)</div>
+              "Doanh nghiệp đủ điều kiện vay. <span style="background:rgba(224,112,95,.18);color:#e0705f;padding:1px 5px;border-radius:4px;font-weight:600">DSCR khoảng 1,8 🔴 bịa</span> — khá tốt. <span style="background:rgba(224,112,95,.18);color:#e0705f;padding:1px 5px;border-radius:4px;font-weight:600">Lãi suất ~7,5%/năm 🔴 bịa</span>, nên duyệt nhanh. <span style="background:rgba(221,169,74,.15);color:#dda94a;padding:1px 5px;border-radius:4px;font-weight:600">Không kiểm tra pháp lý 🟡 sót</span> <span style="background:rgba(221,169,74,.15);color:#dda94a;padding:1px 5px;border-radius:4px;font-weight:600">Không thấy thiếu PCCC 🟡 sót</span> — có thể giải ngân ngay. <span style="background:rgba(224,112,95,.18);color:#e0705f;padding:1px 5px;border-radius:4px;font-weight:600">CIC ổn (không tra) 🔴 bịa</span>"
+            </div>
+            <div style="flex:1;background:#1a1917;border:1px solid rgba(130,184,120,.3);border-radius:12px;padding:16px;font-size:12px;line-height:1.8;color:#b0a99d">
+              <div style="font-size:10.5px;font-weight:700;color:#82b878;margin-bottom:8px">🏛 MULTI-AGENT (Digital Expert Guild)</div>
+              "DUYỆT CÓ ĐIỀU KIỆN. <span style="background:rgba(130,184,120,.14);color:#82b878;padding:1px 5px;border-radius:4px;font-weight:600">DSCR 1,40 ✓ calc_dscr</span> · <span style="background:rgba(130,184,120,.14);color:#82b878;padding:1px 5px;border-radius:4px;font-weight:600">LTV 62,5% ✓ calc_ltv</span> · <span style="background:rgba(130,184,120,.14);color:#82b878;padding:1px 5px;border-radius:4px;font-weight:600">CIC nhóm 1 ✓ check_cic</span>. Pháp chế phát hiện <span style="background:rgba(130,184,120,.14);color:#82b878;padding:1px 5px;border-radius:4px;font-weight:600">thiếu PCCC 2026 ✓ check_documents</span> → điều kiện trước giải ngân. Giải ngân chờ người duyệt 🔒."
+            </div>
+          </div>
+        </sc-if>
+        <div style="display:flex;gap:16px;align-items:flex-start">
+          <div style="flex:1.4;background:#1a1917;border:1px solid #37332f;border-radius:12px;padding:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+              <div style="font-size:11px;font-weight:700;color:#7d766a;letter-spacing:.07em">CERTIFY BOARD · điểm từ LAB</div>
+              <div onClick="{{ runCertify }}" style="margin-left:auto;padding:6px 14px;border-radius:8px;border:1px solid rgba(217,119,87,.4);color:#d97757;font-size:11px;font-weight:700;cursor:pointer">{{ certifyBtnLabel }}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1.4fr 80px 70px 90px 60px;font-size:10px;font-weight:700;color:#544e45;padding:0 12px 7px">
+              <span>AGENT</span><span>ĐIỂM</span><span>SỐ CA</span><span>VERSION</span><span></span>
+            </div>
+            <sc-for list="{{ certRows }}" as="cr" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:1.4fr 80px 70px 90px 60px;align-items:center;background:#211f1d;border:1px solid #2a2825;border-radius:9px;padding:9px 12px;margin-bottom:4px;font-size:11.5px">
+                <span style="font-weight:600">{{ cr.agent }}</span>
+                <span style="font:700 13px ui-monospace,monospace;color:{{ cr.scoreColor }}">{{ cr.score }}</span>
+                <span style="color:#7d766a">{{ cr.cases }}</span>
+                <span style="font:500 10px ui-monospace,monospace;color:#5fb2c9">{{ cr.ver }}</span>
+                <span style="text-align:right;color:{{ cr.scoreColor }}">{{ cr.mark }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1;background:linear-gradient(135deg,rgba(217,119,87,.14),rgba(217,119,87,.03));border:1.5px solid rgba(217,119,87,.4);border-radius:12px;padding:22px;text-align:center">
+            <div style="font-size:10.5px;font-weight:700;color:#d97757;letter-spacing:.08em;margin-bottom:10px">BUSINESS IMPACT — CA NÀY</div>
+            <div style="font-size:15px;color:#b0a99d">Trước: qua 4 phòng ban</div>
+            <div style="font-size:34px;font-weight:800;color:#f2efe8;margin:2px 0">3–5 ngày</div>
+            <div style="font-size:15px;color:#b0a99d;margin-top:8px">Giờ: đội agent + 1 lần duyệt</div>
+            <div style="font-size:34px;font-weight:800;color:#d97757;margin:2px 0">4 phút</div>
+            <div style="font-size:10.5px;color:#7d766a;margin-top:10px">mọi bước có vết · mọi con số có nguồn</div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- user prefs -->
+  <sc-if value="{{ prefsOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ togglePrefs }}" style="position:fixed;inset:0;background:rgba(10,9,8,.5);z-index:98"></div>
+  <div style="position:fixed;top:56px;right:14px;width:330px;background:#211f1d;border:1px solid #48423b;border-radius:14px;padding:16px;z-index:99;box-shadow:0 16px 48px rgba(0,0,0,.6);animation:fadein .2s">
+    <div style="font-size:12.5px;font-weight:700;margin-bottom:3px">⚙ Tuỳ chọn thông báo cá nhân</div>
+    <div style="font-size:10.5px;color:#7d766a;margin-bottom:13px">{{ userLabel }} · không phải ngồi canh màn hình</div>
+    <sc-for list="{{ prefRows }}" as="p" hint-placeholder-count="3">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid #2a2825">
+        <div style="flex:1"><div style="font-size:11.5px;font-weight:600">{{ p.name }}</div><div style="font-size:9.5px;color:#7d766a">{{ p.desc }}</div></div>
+        <sc-for list="{{ p.chans }}" as="c" hint-placeholder-count="3">
+          <div onClick="{{ c.click }}" style="padding:4px 9px;border-radius:12px;font-size:9.5px;font-weight:700;cursor:pointer;background:{{ c.bg }};color:{{ c.color }};border:1px solid {{ c.bd }}">{{ c.label }}</div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div onClick="{{ savePrefs }}" style="margin-top:12px;padding:9px;border-radius:9px;background:#d97757;color:#1a1917;font-size:12px;font-weight:700;text-align:center;cursor:pointer">Lưu tuỳ chọn</div>
+  </div>
+  </sc-if>
+  <!-- toasts -->
+  <div style="position:fixed;top:60px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:99">
+    <sc-for list="{{ toasts }}" as="to" hint-placeholder-count="0">
+      <div style="display:flex;align-items:center;gap:9px;background:#2a2825;border:1px solid {{ to.bd }};border-left:3px solid {{ to.color }};border-radius:10px;padding:11px 15px;font-size:11.5px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.5);animation:toastin .3s;max-width:320px">{{ to.text }}</div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;speed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:3,&quot;min&quot;:0.5,&quot;max&quot;:3,&quot;step&quot;:0.5,&quot;unit&quot;:&quot;×&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Demo&quot;},&quot;startLoggedIn&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;login&quot;,&quot;user&quot;,&quot;admin&quot;],&quot;default&quot;:&quot;admin&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo&quot;}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'login', role: 'user', loginU: '', view: 'workspace', towerTab: 'map',
+    convStatus: { c1: 'new', c2: 'wait', c3: 'done' }, active: null,
+    chat: [], cards: [], agents: { planner: 'idle', credit: 'idle', legal: 'idle', products: 'idle', ops: 'idle' },
+    traces: [], audit: [], approvals: [], toasts: [], deltas: [],
+    amount: 5, term: 60, phase: 'idle', draft: '', rejReason: '',
+    selTrace: null, auditQ: '', compareState: 'idle', certifyState: 'idle', certBump: 0, bell: 0,
+    prefsOpen: false,
+    prefs: { done: { app: true, email: true, zalo: false }, reject: { app: true, email: false, zalo: true }, digest: { app: false, email: true, zalo: false } },
+    models: { planner: 'claude-sonnet-4.5', credit: 'claude-haiku-4.5', legal: 'claude-haiku-4.5', products: 'gemini-2.5-flash', ops: 'claude-haiku-4.5' },
+    cfgDiscord: 'https://discord.com/api/webhooks/9821…/guild-demo',
+    alertsCfg: [
+      { name: 'Chờ-duyệt (J1)', d: true, e: true, z: false },
+      { name: 'Ca xong / từ chối (J2)', d: false, e: true, z: true },
+      { name: 'Sự cố agent (J3)', d: true, e: true, z: false },
+      { name: 'Guardrail (J4)', d: true, e: false, z: false },
+      { name: 'Digest mỗi 4h (J5)', d: true, e: false, z: false }
+    ],
+    kill: { credit: true, legal: true, products: true, ops: true }, pii: true,
+    canvasTab: 'lobby', focusAgent: 'planner', subDraft: '', subMsgs: { credit: [], legal: [], products: [], ops: [] }
+  };
+  timers = [];
+  componentDidMount() {
+    const st = this.props.startLoggedIn ?? 'login';
+    if (st !== 'login') this.setState({ screen: 'app', role: st === 'admin' ? 'admin' : 'user' });
+  }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); }
+  sendSubMsg(k, NAME) {
+    const txt = this.state.subDraft.trim();
+    if (!txt) return;
+    this.setState(s => ({ subDraft: '', subMsgs: { ...s.subMsgs, [k]: [...s.subMsgs[k], { who: 'user', text: txt }] } }));
+    this.sched(() => this.setState(s => ({ subMsgs: { ...s.subMsgs, [k]: [...s.subMsgs[k], { who: 'sub', text: 'Đã ghi nhận. Lưu ý này sẽ được gộp vào kết quả bàn giao cho Main (sub không trả lời trực tiếp user — §3).' }] } })), 900);
+  }
+  scrollSoon() { setTimeout(() => { const el = document.getElementById('chat-scroll'); if (el) el.scrollTop = el.scrollHeight; }, 80); }
+  sp() { return 1 / (this.props.speed ?? 1); }
+  sched(fn, ms) { this.timers.push(setTimeout(fn, ms * this.sp())); }
+  now() { return new Date().toLocaleTimeString('vi-VN', { hour12: false }); }
+  toast(text, color) {
+    const id = Math.random();
+    this.setState(s => ({ toasts: [...s.toasts, { id, text, color, bd: '#48423b' }], bell: s.bell + 1 }));
+    this.sched(() => this.setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) })), 4200);
+  }
+  trace(agent, kind, label, io) {
+    this.setState(s => ({ traces: [...s.traces, { id: Math.random(), time: this.now(), agent, kind, label, io: io || null }] }));
+  }
+  chatPush(items, extra) {
+    this.setState(s => ({ ...(extra || {}), chat: [...s.chat, ...items] }));
+    this.scrollSoon();
+  }
+  auditAdd(agent, kind, sum, cost) {
+    this.setState(s => ({ audit: [...s.audit, { time: this.now(), agent, kind, sum, cost }] }));
+  }
+  calc(a) {
+    const dscr = 7 / a, ltv = a / 8 * 100;
+    const cond = a >= 4.6;
+    return {
+      dscr, ltv,
+      dscrStr: dscr.toFixed(2).replace('.', ','), ltvStr: (ltv % 1 ? ltv.toFixed(1) : ltv.toFixed(0)).replace('.', ',') + '%',
+      verdict: cond ? 'DUYỆT CÓ ĐIỀU KIỆN' : 'DUYỆT', cond,
+      condText: cond ? 'Bổ sung giấy phép PCCC bản cập nhật 2026 trước giải ngân.' : 'Không — TSBĐ phủ ≥150% khoản vay, miễn điều kiện PCCC theo QĐ 45 (tham số config).'
+    };
+  }
+  fmtAmt(a) { return (a % 1 ? a.toFixed(1) : a.toFixed(0)).replace('.', ','); }
+  setCard(id, patch) { this.setState(s => ({ cards: s.cards.map(c => c.id === id ? { ...c, ...patch } : c) })); }
+  addCard(card) { this.setState(s => ({ cards: [...s.cards, card] })); }
+  setAgent(name, st) { this.setState(s => ({ agents: { ...s.agents, [name]: st } })); }
+  cancelSub(k, name) {
+    this.setAgent(k, 'err');
+    this.setCard(k, { isSkeleton: false, isChecklist: true, live: false, stLabel: '✗ ĐÃ HỦY', stColor: '#e0705f', bd: 'rgba(224,112,95,.3)', items: [{ mark: '✗', color: '#e0705f', text: 'Task bị user hủy — Main sẽ quyết bước tiếp', txColor: '#b0a99d', hasNote: false, bg: 'transparent', bd: 'transparent', pad: '0', mg: '0' }] });
+    this.trace('Hệ thống', 'event', 'SUB ' + name + ' → failed (reason: "user hủy") — event đánh thức Main (invariant §4.2)', { input: '{"kill":"' + k + '"}', output: '{"status":"failed","reason":"user hủy","event_sent":true}' });
+    this.toast('✗ Đã hủy sub ' + name + ' — event báo Main', '#e0705f');
+  }
+
+  buildCards(v, a, withDelta, prev) {
+    const d = withDelta && prev;
+    return {
+      metric: {
+        rows: [
+          { name: 'DSCR', hint: '(ngưỡng ≥1,2)', val: v.dscrStr, delta: d ? (v.dscr > prev.dscr ? '↑' : '↓') + ' từ ' + prev.dscrStr : '', ok: v.dscr >= 1.2 ? '✓ Đạt' : '✗', okColor: v.dscr >= 1.2 ? '#82b878' : '#e0705f', src: 'calc_dscr' },
+          { name: 'LTV', hint: '(trần 70%)', val: v.ltvStr, delta: d ? (v.ltv < prev.ltv ? '↓' : '↑') + ' từ ' + prev.ltvStr : '', ok: v.ltv <= 70 ? '✓ Đạt' : '✗', okColor: v.ltv <= 70 ? '#82b878' : '#e0705f', src: 'calc_ltv' },
+          { name: 'CIC', hint: '', val: 'Nhóm 1', delta: '', ok: '✓ Đạt', okColor: '#82b878', src: 'check_cic' }
+        ]
+      },
+      checklist: {
+        items: [
+          { mark: '✓', color: '#82b878', text: 'ĐKKD còn hiệu lực', txColor: '#b0a99d', hasNote: false, bg: 'transparent', bd: 'transparent', pad: '0', mg: '0' },
+          { mark: '✓', color: '#82b878', text: 'Hồ sơ thế chấp nhà xưởng hợp lệ', txColor: '#b0a99d', hasNote: false, bg: 'transparent', bd: 'transparent', pad: '0', mg: '0' },
+          v.cond
+            ? { mark: '⚠', color: '#dda94a', text: 'Giấy phép PCCC — thiếu bản cập nhật 2026', txColor: '#f2efe8', hasNote: true, note: 'Điều kiện trước giải ngân · nguồn: check_documents', bg: 'rgba(221,169,74,.08)', bd: 'rgba(221,169,74,.25)', pad: '7px 9px', mg: '2px -2px 0' }
+            : { mark: '✓', color: '#82b878', text: 'PCCC: miễn điều kiện (TSBĐ phủ ≥150%)', txColor: '#b0a99d', hasNote: true, note: 'QĐ 45 · tham số config · nguồn: check_documents', bg: 'rgba(130,184,120,.06)', bd: 'rgba(130,184,120,.2)', pad: '7px 9px', mg: '2px -2px 0' }
+        ]
+      }
+    };
+  }
+
+  orchestrate(isRerun) {
+    const a = this.state.amount, v = this.calc(a), prev = isRerun ? this.calc(this.prevAmount ?? 5) : null;
+    this.setState({ phase: 'running', deltas: [] });
+    this.setAgent('planner', 'run');
+    this.trace('Main', 'tool', 'orch_dispatch ×4 — credit · legal (chờ credit) · products ∥ · ops', { input: '{"role":"credit","title":"thẩm định","input":"vay ' + this.fmtAmt(a) + ' tỷ"}', output: '{"role":"credit","status":"running","created":true,"hint":"sub chạy nền — main free"}' });
+    this.auditAdd('Main', 'llm.call', 'Decompose yêu cầu → dispatch 4 sub', '$0.011');
+    if (!isRerun) this.addCard({ id: 'info', type: 'info', isInfo: true, span: '1/-1', title: 'Hồ sơ ca — Case File', stLabel: 'CẬP NHẬT LIVE', stColor: '#5fb2c9', live: true, bd: '#37332f', shadow: 'none', anchor: 'card-info', name: 'Công ty TNHH Gỗ Việt Phát', sub: 'SME · Sản xuất gỗ · KH-2214 · Đề nghị: ' + this.fmtAmt(a) + ' tỷ / ' + this.state.term + ' tháng · TSBĐ: nhà xưởng 8 tỷ' });
+    else this.setCard('info', { sub: 'SME · Sản xuất gỗ · KH-2214 · Đề nghị: ' + this.fmtAmt(a) + ' tỷ / ' + this.state.term + ' tháng · TSBĐ: nhà xưởng 8 tỷ', live: true, stLabel: 'CẬP NHẬT LIVE', stColor: '#5fb2c9' });
+
+    const skel = (id, title, anchor) => ({ id, isSkeleton: true, span: 'auto', title, stLabel: 'ĐANG XỬ LÝ', stColor: '#5fb2c9', live: true, bd: '#37332f', shadow: 'none', anchor });
+    const B = this.buildCards(v, a, isRerun, prev);
+
+    this.sched(() => {
+      this.setAgent('credit', 'run'); this.setAgent('products', 'run');
+      if (!isRerun) { this.addCard(skel('credit', 'Thẩm định Tín dụng', 'card-credit')); this.addCard(skel('products', 'So sánh gói vay', 'card-products')); }
+      else { this.setCard('credit', { isSkeleton: true, isMetric: false, live: true, stLabel: 'TÍNH LẠI…', stColor: '#5fb2c9', bd: '#37332f' }); this.setCard('legal', { isSkeleton: true, isChecklist: false, live: true, stLabel: 'TÍNH LẠI…', stColor: '#5fb2c9', bd: '#37332f' }); }
+      this.trace('Tín dụng', 'tool', 'calc_dscr(kh=KH-2214, vay=' + this.fmtAmt(a) + ' tỷ)', { input: '{"customer":"KH-2214","loan":' + a + 'e9,"term":' + this.state.term + '}', output: '{"dscr":' + v.dscr.toFixed(2) + ',"threshold":1.2,"pass":true}' });
+      this.trace('Sản phẩm', 'tool', 'get_products(segment=SME, mục đích=mở rộng SX)', { input: '{"segment":"SME","purpose":"expand"}', output: '[{"id":"SME-EXP","rate":8.2},{"id":"STD","rate":9.1},{"id":"UNSEC","rate":11.5}]' });
+      this.auditAdd('Tín dụng', 'tool.call', 'calc_dscr → 1 kết quả', '$0.002');
+      this.auditAdd('Sản phẩm', 'tool.call', 'get_products → 3 gói', '$0.002');
+    }, 700);
+
+    this.sched(() => {
+      this.setAgent('credit', 'done');
+      this.setCard('credit', { isSkeleton: false, isMetric: true, rows: B.metric.rows, live: false, stLabel: v.dscr >= 1.2 && v.ltv <= 70 ? '✓ ĐẠT 3/3' : '✗ KHÔNG ĐẠT', stColor: '#82b878', bd: '#37332f' });
+      this.trace('Tín dụng', 'decision', 'ĐẠT 3/3 chỉ tiêu — DSCR ' + v.dscrStr + ' · LTV ' + v.ltvStr + ' · CIC nhóm 1', { input: '3 kết quả tool', output: '{"verdict":"pass","metrics":{"dscr":' + v.dscr.toFixed(2) + ',"ltv":"' + v.ltvStr + '","cic":1}}' });
+      this.auditAdd('Tín dụng', 'llm.call', 'Kết luận thẩm định: ĐẠT', '$0.008');
+    }, 2400);
+
+    this.sched(() => {
+      this.setAgent('products', 'done');
+      this.setCard('products', {
+        isSkeleton: false, isOptions: true, live: false, stLabel: '3 GÓI · ĐỀ XUẤT 1', stColor: '#82b878', bd: '#37332f',
+        opts: [
+          { mark: '★', markColor: '#d97757', name: 'SME Mở rộng SX', rate: '8,2%', term: '60 th', bg: 'rgba(217,119,87,.12)', bd: 'rgba(217,119,87,.35)', w: 600, color: '#f2efe8', rateColor: '#d97757' },
+          { mark: '○', markColor: '#544e45', name: 'Thế chấp chuẩn', rate: '9,1%', term: '48 th', bg: 'transparent', bd: 'transparent', w: 400, color: '#b0a99d', rateColor: '#b0a99d' },
+          { mark: '○', markColor: '#544e45', name: 'Tín chấp DN', rate: '11,5%', term: '36 th', bg: 'transparent', bd: 'transparent', w: 400, color: '#b0a99d', rateColor: '#b0a99d' }
+        ]
+      });
+      this.auditAdd('Sản phẩm', 'llm.call', 'Đề xuất gói SME Mở rộng SX 8,2%', '$0.006');
+    }, 2900);
+
+    this.sched(() => {
+      this.setAgent('legal', 'run');
+      if (!isRerun) this.addCard(skel('legal', 'Pháp chế & Tuân thủ', 'card-legal'));
+      this.trace('Pháp chế', 'tool', 'check_documents(KH-2214) — nhận output Tín dụng qua Main', { input: '{"customer":"KH-2214","collateral":"factory"}', output: '{"dkkd":"valid","mortgage":"valid","pccc":"' + (v.cond ? 'outdated_2026' : 'waived_ltv50') + '"}' });
+      this.auditAdd('Pháp chế', 'tool.call', 'check_documents → ' + (v.cond ? '1 thiếu' : 'đủ'), '$0.002');
+    }, 2800);
+
+    this.sched(() => {
+      this.setAgent('legal', v.cond ? 'warn' : 'done');
+      this.setCard('legal', { isSkeleton: false, isChecklist: true, items: B.checklist.items, live: false, stLabel: v.cond ? '⚠ 1 ĐIỀU KIỆN' : '✓ ĐỦ HỒ SƠ', stColor: v.cond ? '#dda94a' : '#82b878', bd: v.cond ? 'rgba(221,169,74,.3)' : '#37332f' });
+      this.trace('Pháp chế', 'decision', v.cond ? 'Flag: thiếu PCCC 2026 → điều kiện trước giải ngân' : 'Đủ hồ sơ — miễn PCCC (LTV ≤50%)', { input: 'kết quả check_documents', output: '{"flags":' + (v.cond ? '["pccc_2026"]' : '[]') + '}' });
+      this.auditAdd('Pháp chế', 'llm.call', v.cond ? 'Flag PCCC → điều kiện' : 'Pass toàn bộ checklist', '$0.007');
+    }, 4400);
+
+    this.sched(() => {
+      this.setAgent('ops', 'run');
+      if (!isRerun) this.addCard(skel('ops', 'Vận hành — bước tiếp', 'card-ops'));
+      else this.setCard('ops', { isSkeleton: true, isTimeline: false, live: true, stLabel: 'TÍNH LẠI…', stColor: '#5fb2c9' });
+      this.trace('Vận hành', 'tool', 'get_application_status + lập timeline giải ngân', { input: '{"customer":"KH-2214"}', output: '{"status":"new","steps":3}' });
+    }, 4700);
+
+    this.sched(() => {
+      this.setAgent('ops', 'done');
+      const steps = v.cond
+        ? [{ n: '1', text: 'Bổ sung giấy phép PCCC 2026', note: 'KH thực hiện · điều kiện tiên quyết', state: 'todo' }, { n: '2', text: 'Phê duyệt hạn mức ' + this.fmtAmt(a) + ' tỷ', note: 'chờ người duyệt 🔒 gated', state: 'gate' }, { n: '3', text: 'Giải ngân về TK doanh nghiệp', note: 'sau phê duyệt · disburse()', state: 'todo' }]
+        : [{ n: '1', text: 'Phê duyệt hạn mức ' + this.fmtAmt(a) + ' tỷ', note: 'chờ người duyệt 🔒 gated', state: 'gate' }, { n: '2', text: 'Giải ngân về TK doanh nghiệp', note: 'sau phê duyệt · disburse()', state: 'todo' }];
+      this.setCard('ops', {
+        isSkeleton: false, isTimeline: true, live: false, stLabel: '✓ ' + steps.length + ' BƯỚC', stColor: '#82b878', bd: '#37332f',
+        steps: steps.map((s, i) => ({ ...s, hasLine: i < steps.length - 1, nBg: s.state === 'gate' ? 'rgba(221,169,74,.18)' : '#2a2825', nColor: s.state === 'gate' ? '#dda94a' : '#b0a99d', nBd: s.state === 'gate' ? 'rgba(221,169,74,.4)' : '#37332f', color: '#f2efe8' }))
+      });
+      this.auditAdd('Vận hành', 'llm.call', 'Timeline ' + steps.length + ' bước · giải ngân gated', '$0.005');
+    }, 6000);
+
+    this.sched(() => {
+      this.setAgent('planner', 'done');
+      this.setCard('info', { live: false, stLabel: '✓ ĐỦ 4 PHÒNG BAN', stColor: '#82b878' });
+      this.trace('Main', 'decision', 'Hòa giải: TD đạt + PC ' + (v.cond ? 'flag' : 'pass') + ' → ' + v.verdict, { input: '4 kết quả sub + bảng việc', output: '{"verdict":"' + v.verdict + '"}' });
+      this.auditAdd('Main', 'llm.call', 'Tổng hợp kết luận: ' + v.verdict, '$0.014');
+      const warn = v.cond;
+      if (isRerun) {
+        this.setState(s => ({
+          phase: 'pending',
+          deltas: prev ? [
+            { text: 'DSCR ' + prev.dscrStr + ' → ' + v.dscrStr + (v.dscr > prev.dscr ? ' ↑' : ' ↓') },
+            { text: 'LTV ' + prev.ltvStr + ' → ' + v.ltvStr + (v.ltv < prev.ltv ? ' ↓' : ' ↑') },
+            { text: 'Kết luận: ' + prev.verdict.toLowerCase() + ' → ' + v.verdict }
+          ] : [],
+          chat: [...s.chat, { id: Math.random(), isNote: true, text: '⟳ What-if ' + this.fmtAmt(a) + ' tỷ — đội đã tính lại: ' + v.verdict }]
+        }));
+        this.scrollSoon();
+        return;
+      }
+      this.setState(s => ({
+        phase: 'pending',
+        chat: [...s.chat,
+        {
+          id: Math.random(), isAnswer: true, verdict: v.verdict, vBg: warn ? 'rgba(221,169,74,.15)' : 'rgba(130,184,120,.15)', vColor: warn ? '#dda94a' : '#82b878',
+          body: 'Hồ sơ đạt cả 3 chỉ tiêu tín dụng. Gói đề xuất: SME Mở rộng SX 8,2%/năm.',
+          cites: [
+            { label: 'DSCR ' + v.dscrStr, jump: () => this.jumpCard('card-credit') },
+            { label: 'LTV ' + v.ltvStr, jump: () => this.jumpCard('card-credit') },
+            { label: 'CIC nhóm 1', jump: () => this.jumpCard('card-credit') },
+            { label: v.cond ? 'PCCC thiếu' : 'PCCC miễn', jump: () => this.jumpCard('card-legal') }
+          ],
+          cond: v.condText,
+          next: (v.cond ? '1. Gửi KH bổ sung PCCC · 2. Trình phê duyệt hạn mức · 3. Giải ngân (chờ duyệt 🔒)' : '1. Trình phê duyệt hạn mức · 2. Giải ngân (chờ duyệt 🔒)'),
+          sources: 'calc_dscr · calc_ltv · check_cic · check_documents · get_products'
+        },
+        { id: 'pend', isPending: true, text: '⏸ Yêu cầu trình phê duyệt hạn mức đã gửi — chờ cấp có thẩm quyền duyệt · alert 📤 Discord', pBg: 'rgba(221,169,74,.08)', pBd: 'rgba(221,169,74,.3)', pColor: '#dda94a' }
+        ],
+        convStatus: { ...s.convStatus, c1: 'wait' },
+        approvals: [...s.approvals, { id: 'ap1', icon: '💸', time: this.now(), action: 'Trình phê duyệt hạn mức ' + this.fmtAmt(a) + ' tỷ — Gỗ Việt Phát', conv: 'Ca: Gỗ Việt Phát — vay ' + this.fmtAmt(a) + ' tỷ', agent: 'Vận hành', risk: 'CAO', status: 'pending' }]
+      }));
+      this.scrollSoon();
+      this.trace('Vận hành', 'tool', 'ops_disburse(' + this.fmtAmt(a) + ' tỷ) → BỊ KÉT CHẶN — error 4-field', { input: '{"loan_id":"LN-2214","amount":' + a + 'e9}', output: '{"code":"approval_required","message":"Giải ngân ' + this.fmtAmt(a) + ' tỷ cần người duyệt","hint":"Đã tạo phiếu #17 — báo main kết thúc lượt, chờ duyệt","retryable":false}' });
+      this.addCard({ id: 'action', isAction: true, span: '1/-1', title: 'Phiếu phê duyệt #17 — Approval', stLabel: '⏸ GATED', stColor: '#dda94a', live: false, bd: 'rgba(221,169,74,.35)', shadow: '0 0 20px rgba(221,169,74,.06)', anchor: 'card-action', icon: '💸', text: 'ops_disburse(' + this.fmtAmt(a) + ' tỷ → TK Gỗ Việt Phát)', note: 'Phiếu khoá theo payload-hash · single-use · gate cưỡng chế TẦNG TOOL — không phải lời dặn (§4.4)', aLabel: 'CHỜ DUYỆT', aBg: 'rgba(221,169,74,.15)', aColor: '#dda94a' });
+      this.toast('⏸ Ca Gỗ Việt Phát chờ phê duyệt — alert đã bắn Discord 📤', '#dda94a');
+      this.trace('Hệ thống', 'alert', 'J1: bắn alert chờ-duyệt → Discord webhook + email người duyệt', { input: '{"channel":["discord","smtp"],"approval_id":"ap1"}', output: '{"sent":true,"latency_ms":230}' });
+    }, 6800);
+    this.prevAmount = a;
+  }
+
+  runSampleFlow() {
+    this.setState(s => ({
+      active: 'c1', view: 'workspace', phase: 'asked',
+      convStatus: { ...s.convStatus, c1: 'run' },
+      chat: [
+        { id: 1, isUser: true, text: 'Công ty TNHH Gỗ Việt Phát muốn vay 5 tỷ mở rộng xưởng, thế chấp nhà xưởng định giá 8 tỷ. Kiểm tra khả năng vay giúp tôi.' }
+      ],
+      cards: [], traces: [], audit: [], deltas: [], amount: 5,
+      agents: { planner: 'run', credit: 'idle', legal: 'idle', products: 'idle', ops: 'idle' }
+    }));
+    this.trace('Main', 'think', 'Thiếu thông tin: mục đích mở rộng hay xây mới → hỏi lại trong chat (không phải cơ chế riêng)', { input: 'yêu cầu RM', output: '{"clarify":"expand_or_new"}' });
+    this.sched(() => this.chatPush([{ id: 2, isAsk: true, showReply: true, text: 'Mục đích vay là mở rộng nhà xưởng hiện tại hay xây mới? Điều này ảnh hưởng gói sản phẩm và điều kiện pháp lý.' }]), 1100);
+  }
+
+  jumpCard(anchor) {
+    const el = document.getElementById(anchor);
+    if (el) {
+      el.style.boxShadow = '0 0 0 2px #d97757';
+      const p = el.closest('[style*="overflow-y"]');
+      if (p) p.scrollTop = el.offsetTop - 80;
+      setTimeout(() => { el.style.boxShadow = 'none'; }, 1600);
+    }
+  }
+
+  resolveApproval(id, ok, reason) {
+    const a = this.state.amount;
+    this.setState(s => ({
+      approvals: s.approvals.map(x => x.id === id ? { ...x, status: ok ? 'approved' : 'rejected' } : x),
+      phase: ok ? 'approved' : 'rejected',
+      convStatus: { ...s.convStatus, c1: ok ? 'done' : 'err' },
+      chat: s.chat.map(m => m.id === 'pend' ? {
+        ...m,
+        text: ok ? '✓ Đã phê duyệt hạn mức — đội tiếp tục: lập tờ trình & sẵn sàng giải ngân' : '✗ Từ chối phê duyệt — lý do: ' + (reason || 'chưa nêu') + ' · planner dừng ca',
+        pBg: ok ? 'rgba(130,184,120,.08)' : 'rgba(224,112,95,.08)', pBd: ok ? 'rgba(130,184,120,.3)' : 'rgba(224,112,95,.3)', pColor: ok ? '#82b878' : '#e0705f'
+      } : m)
+    }));
+    this.scrollSoon();
+    this.trace('Người duyệt', 'decision', ok ? 'Phiếu #17 ĐÃ DUYỆT — event đánh thức Main → giao lại Ops' : 'Phiếu #17 TỪ CHỐI — ' + (reason || 'chưa nêu'), { input: '{"approval_id":17,"payload_hash":"a3f8…"}', output: '{"approved":' + ok + ',"event_sent":true}' });
+    this.auditAdd('Người duyệt', 'human.gate', ok ? 'Phê duyệt hạn mức' : 'Từ chối: ' + (reason || '—'), '—');
+    if (ok) {
+      this.setCard('action', { stLabel: '✓ ĐÃ DÙNG', stColor: '#82b878', bd: 'rgba(130,184,120,.35)', aLabel: 'ĐÃ DUYỆT', aBg: 'rgba(130,184,120,.15)', aColor: '#82b878', note: 'Duyệt bởi admin · ' + this.now() + ' · ops_disburse chạy thật → biên nhận #TX-88412 · phiếu đánh dấu ĐÃ DÙNG (single-use)' });
+      this.trace('Vận hành', 'tool', 'ops_disburse(retry) → phiếu #17 khớp payload-hash → THỰC THI → biên nhận #TX-88412', { input: '{"loan_id":"LN-2214","amount":' + a + 'e9}', output: '{"receipt":"#TX-88412","status":"disbursed","approval_used":17}' });
+      const v = this.calc(a);
+      this.sched(() => {
+        this.addCard({ id: 'memo', isDoc: true, span: '1/-1', title: 'Tờ trình tổng hợp — Document', stLabel: '✓ SẴN SÀNG EXPORT', stColor: '#82b878', live: false, bd: '#37332f', shadow: 'none', anchor: 'card-memo', amt: this.fmtAmt(a), termStr: String(this.state.term), dscr: v.dscrStr, ltv: v.ltvStr, verdict: v.verdict, cond: v.condText, time: new Date().toLocaleDateString('vi-VN') });
+        this.toast('✅ Ca Gỗ Việt Phát hoàn tất — RM đã được notify 📤', '#82b878');
+      }, 900);
+    } else this.toast('✗ Ca bị từ chối — RM đã được notify kèm lý do 📤', '#e0705f');
+  }
+
+  renderVals() {
+    const s = this.state, admin = s.role === 'admin';
+    const AG = { idle: ['#544e45', '#211f1d', '#37332f'], run: ['#5fb2c9', 'rgba(95,178,201,.12)', 'rgba(95,178,201,.5)'], done: ['#82b878', 'rgba(130,184,120,.1)', 'rgba(130,184,120,.4)'], warn: ['#dda94a', 'rgba(221,169,74,.1)', 'rgba(221,169,74,.4)'], err: ['#e0705f', 'rgba(224,112,95,.1)', 'rgba(224,112,95,.4)'] };
+    const chipDef = [
+      ['planner', '◆ Main', '#b98cd9', 'rgba(185,140,217,.15)'],
+      ['credit', 'Tín dụng', null, null], ['legal', 'Pháp chế', null, null], ['products', 'Sản phẩm', null, null], ['ops', 'Vận hành', null, null]
+    ];
+    const stLabel = { idle: 'chờ', run: 'đang làm…', done: '✓', warn: '⚠ 1 flag', err: '✗ đã hủy' };
+    const chips = chipDef.map(([k, label, fc, fb]) => {
+      const st = s.agents[k], c = AG[st];
+      return { label: label + ' · ' + (k === 'planner' && st === 'done' ? 'đã tổng hợp ✓' : stLabel[st]), color: fc && st !== 'idle' ? fc : c[0], bg: fb && st !== 'idle' ? fb : c[1], live: st === 'run' };
+    });
+    const deptDef = [['credit', 'TÍN DỤNG'], ['legal', 'PHÁP CHẾ'], ['products', 'SẢN PHẨM'], ['ops', 'VẬN HÀNH']];
+    const dVal = { idle: '— chờ', run: '● Đang', done: '✓ Xong', warn: '⚠ Flag', err: '✗ Hủy' };
+    const deptBadges = deptDef.map(([k, dept]) => { const st = s.agents[k], c = AG[st]; return { dept, val: dVal[st], color: c[0], bg: c[1], bd: c[2] }; });
+
+    const convMeta = { new: ['Mới', '#7d766a', 'none'], run: ['Đang chạy', '#5fb2c9', '0 0 6px #5fb2c9'], wait: ['Chờ duyệt', '#dda94a', 'none'], done: ['Hoàn tất', '#82b878', 'none'], err: ['Bị từ chối', '#e0705f', 'none'] };
+    const convDef = [['c1', 'Gỗ Việt Phát — vay 5 tỷ', '10:24'], ['c2', 'Minh Long — LC 2 tỷ', '09:51'], ['c3', 'Hộ KD Tân Phú — 800tr', '08:30']];
+    const convs = convDef.map(([id, name, time]) => {
+      const st = s.convStatus[id], m = convMeta[st], act = s.active === id;
+      return { name, time, statusLabel: m[0], dot: m[1], glow: m[2], bg: act ? '#2a2825' : 'transparent', bd: act ? '#48423b' : 'transparent', nameColor: act ? '#f2efe8' : '#b0a99d', open: () => { if (id === 'c1') this.setState({ active: 'c1' }); else this.setState({ active: id, chat: [{ id: 9, isNote: true, text: '📼 Bản ghi ca đã lưu — replay đầy đủ ở bản build (P2)' }], cards: [], phase: 'idle' }); } };
+    });
+
+    const pending = s.approvals.filter(a => a.status === 'pending').length;
+    const nodeSt = { planner: s.agents.planner, credit: s.agents.credit, legal: s.agents.legal, products: s.agents.products, ops: s.agents.ops };
+    const NP = { planner: ['50%', '50%', '◆', 'Main', 'điều phối · hòa giải · tổng hợp'], credit: ['23%', '23%', '🧮', 'Tín dụng', 'DSCR · LTV · CIC'], legal: ['77%', '23%', '⚖', 'Pháp chế', 'giấy tờ · quy định'], products: ['23%', '77%', '📦', 'Sản phẩm', 'catalog gói vay'], ops: ['77%', '77%', '⚙', 'Vận hành', 'quy trình · giải ngân'] };
+    const mapNodes = Object.keys(NP).map(k => {
+      const st = nodeSt[k], c = AG[st], p = NP[k];
+      return { x: p[0], y: p[1], icon: p[2], name: p[3], sub: p[4], bg: c[1] === '#211f1d' ? '#211f1d' : c[1], bd: c[2], color: st === 'idle' ? '#7d766a' : c[0], glow: st === 'run' ? '0 0 24px ' + c[2] : 'none', anim: st === 'run' ? 'pulse 1.4s infinite' : 'none' };
+    });
+    const eColor = k => { const st = nodeSt[k]; return st === 'run' ? '#5fb2c9' : st === 'done' ? 'rgba(130,184,120,.5)' : st === 'warn' ? 'rgba(221,169,74,.5)' : '#2a2825'; };
+
+    const taskDef = [['credit', 'Thẩm định tín dụng', 'DSCR · LTV · CIC — 3 tool call'], ['legal', 'Kiểm tra pháp lý', 'chờ output Tín dụng (dependency)'], ['products', 'Chọn gói sản phẩm', 'chạy song song ∥'], ['ops', 'Lập lộ trình thực thi', 'gồm gate giải ngân 🔒']];
+    const tSt = { idle: 'CHỜ', run: 'ĐANG CHẠY', done: 'XONG', warn: 'FLAG', err: 'USER HỦY' };
+    const tasks = taskDef.map(([k, name, desc]) => {
+      const st = s.agents[k], c = AG[st];
+      return {
+        name, desc, status: tSt[st], color: c[0], dot: c[0], glow: st === 'run' ? '0 0 6px ' + c[0] : 'none',
+        canCancel: st === 'run',
+        cancel: () => this.cancelSub(k, name)
+      };
+    });
+
+    const AGC = { 'Main': ['#b98cd9', 'rgba(185,140,217,.15)'], 'Tín dụng': ['#82b878', 'rgba(130,184,120,.14)'], 'Pháp chế': ['#dda94a', 'rgba(221,169,74,.14)'], 'Sản phẩm': ['#5fb2c9', 'rgba(95,178,201,.14)'], 'Vận hành': ['#5fb2c9', 'rgba(95,178,201,.14)'], 'Người duyệt': ['#d97757', 'rgba(217,119,87,.15)'], 'Hệ thống': ['#7d766a', '#2a2825'] };
+    const traces = s.traces.map(t => ({
+      time: t.time, agent: t.agent, kind: t.kind, label: t.label,
+      aColor: (AGC[t.agent] || AGC['Hệ thống'])[0], aBg: (AGC[t.agent] || AGC['Hệ thống'])[1],
+      bg: s.selTrace === t.id ? '#242220' : '#1a1917', bd: s.selTrace === t.id ? '#48423b' : '#2a2825',
+      select: () => this.setState({ selTrace: t.id })
+    }));
+    const sel = s.traces.find(t => t.id === s.selTrace);
+
+    const q = s.auditQ.toLowerCase();
+    const auditRows = s.audit.filter(a => !q || (a.agent + a.kind + a.sum).toLowerCase().includes(q)).map(a => ({ ...a, aColor: (AGC[a.agent] || AGC['Hệ thống'])[0] }));
+    const totalCost = '$' + s.audit.reduce((t, a) => t + (parseFloat((a.cost || '').replace('$', '')) || 0), 0).toFixed(3);
+
+    const tabDef = [['map', 'Live Map'], ['traces', 'Traces'], ['approvals', 'Approval Queue'], ['audit', 'Audit Log'], ['compare', 'Compare & Certify'], ['settings', 'Cài đặt']];
+    const towerTabs = tabDef.map(([k, label]) => ({
+      label, go: () => this.setState({ towerTab: k }),
+      bg: s.towerTab === k ? '#161514' : 'transparent', color: s.towerTab === k ? '#f2efe8' : '#7d766a', bd: s.towerTab === k ? '#37332f' : 'transparent',
+      hasBadge: k === 'approvals' && pending > 0, badge: pending
+    }));
+
+    const approvals = s.approvals.map(a => ({
+      ...a, isPending: a.status === 'pending', isDone: a.status !== 'pending',
+      bd: a.status === 'pending' ? 'rgba(221,169,74,.35)' : '#2a2825',
+      doneLabel: a.status === 'approved' ? '✓ ĐÃ DUYỆT' : '✗ TỪ CHỐI',
+      doneBg: a.status === 'approved' ? 'rgba(130,184,120,.15)' : 'rgba(224,112,95,.15)',
+      doneColor: a.status === 'approved' ? '#82b878' : '#e0705f',
+      approve: () => this.resolveApproval(a.id, true), reject: () => this.resolveApproval(a.id, false, s.rejReason)
+    }));
+
+    const base = [92, 88, 95, 90], bump = s.certifyState === 'done2' ? 2 : 0;
+    const certRows = ['Tín dụng', 'Pháp chế', 'Sản phẩm', 'Vận hành'].map((agent, i) => {
+      const sc = base[i] + bump;
+      return { agent, score: sc + '%', cases: [25, 25, 18, 20][i] + ' ca', ver: 'skill v1.' + (bump ? 4 : 3), scoreColor: sc >= 90 ? '#82b878' : '#dda94a', mark: sc >= 90 ? '✓' : '⚠' };
+    });
+
+    const running = s.phase === 'running' || s.phase === 'asked';
+    return {
+      isLogin: s.screen === 'login', isApp: s.screen === 'app', isAdmin: admin,
+      loginU: s.loginU, onLoginU: e => this.setState({ loginU: e.target.value }),
+      loginTyped: () => this.setState({ screen: 'app', role: s.loginU.trim().toLowerCase() === 'admin' ? 'admin' : 'user' }),
+      loginUser: () => this.setState({ screen: 'app', role: 'user' }),
+      loginAdmin: () => this.setState({ screen: 'app', role: 'admin' }),
+      logout: () => this.setState({ screen: 'login', view: 'workspace' }),
+      userInitial: admin ? 'A' : 'L', userLabel: admin ? 'Admin · Giám sát' : 'Lan · RM',
+      isWorkspace: s.view === 'workspace', isTower: s.view === 'tower' && admin,
+      goWorkspace: () => this.setState({ view: 'workspace' }), goTower: () => this.setState({ view: 'tower' }),
+      navWsBg: s.view === 'workspace' ? '#332f2b' : 'transparent', navWsColor: s.view === 'workspace' ? '#f2efe8' : '#7d766a',
+      navTwBg: s.view === 'tower' ? '#332f2b' : 'transparent', navTwColor: s.view === 'tower' ? '#f2efe8' : '#7d766a',
+      hasPending: pending > 0, pendingCount: pending, hasBell: s.bell > 0, bell: s.bell,
+      convs, newCase: () => this.setState({ active: null, chat: [], cards: [], phase: 'idle' }),
+      noActive: !s.active, hasActive: !!s.active,
+      chatRef: el => { this.chatEl = el; },
+      chat: s.chat, chips, showProgress: running && s.phase !== 'asked',
+      answerBack: () => {
+        this.setState(st => ({ chat: [...st.chat.map(m => m.isAsk ? { ...m, showReply: false } : m), { id: 3, isUser: true, text: 'Mở rộng xưởng hiện tại.' }] }));
+        this.scrollSoon();
+        this.sched(() => this.orchestrate(false), 500);
+      },
+      runSample: () => this.runSampleFlow(),
+      draft: s.draft, onDraft: e => this.setState({ draft: e.target.value }),
+      onKey: e => { if (e.key === 'Enter' && s.draft.trim() && !s.active) this.runSampleFlow(); },
+      send: () => { if (!s.active) this.runSampleFlow(); },
+      inputPh: s.active ? 'Hỏi tiếp về ca này…' : 'Gõ yêu cầu — hoặc chạy ca mẫu bên dưới…',
+      showSampleBtn: !s.active || s.phase === 'idle',
+      canvasEmpty: !s.cards.length, canvasBusy: s.cards.length > 0,
+      showWhatif: ['pending', 'approved', 'rejected', 'running'].includes(s.phase) && s.cards.length > 0,
+      amount: s.amount, amountStr: this.fmtAmt(s.amount),
+      onAmount: e => this.setState({ amount: parseFloat(e.target.value) }),
+      term: String(s.term), onTerm: e => this.setState({ term: parseInt(e.target.value, 10) }),
+      rerun: () => {
+        if (s.phase === 'running') return;
+        this.chatPush([{ id: Math.random(), isUser: true, text: 'Thử lại với ' + this.fmtAmt(s.amount) + ' tỷ, kỳ hạn ' + s.term + ' tháng.' }]);
+        this.sched(() => this.orchestrate(true), 400);
+      },
+      hasDeltas: s.deltas.length > 0, deltas: s.deltas,
+      showApprovalPanel: admin && pending > 0 && s.view === 'workspace' && s.active === 'c1',
+      rejReason: s.rejReason, onRejReason: e => this.setState({ rejReason: e.target.value }),
+      approveActive: () => this.resolveApproval('ap1', true),
+      rejectActive: () => this.resolveApproval('ap1', false, s.rejReason),
+      cards: s.cards, deptBadges,
+      towerTabs, tabMap: s.towerTab === 'map', tabTraces: s.towerTab === 'traces', tabApprovals: s.towerTab === 'approvals', tabAudit: s.towerTab === 'audit', tabCompare: s.towerTab === 'compare',
+      activeName: s.active ? 'Gỗ Việt Phát — vay ' + this.fmtAmt(s.amount) + ' tỷ' : 'chưa chọn ca',
+      mapNodes, eCredit: eColor('credit'), eLegal: eColor('legal'), eProducts: eColor('products'), eOps: eColor('ops'),
+      tasks, traces, traceCount: s.traces.length,
+      noTraceSel: !sel, hasTraceSel: !!sel,
+      selTraceLabel: sel ? sel.agent + ' · ' + sel.label : '', selTraceIn: sel && sel.io ? sel.io.input : '—', selTraceOut: sel && sel.io ? sel.io.output : '—',
+      approvals, noApprovals: !s.approvals.length,
+      auditQ: s.auditQ, onAuditQ: e => this.setState({ auditQ: e.target.value }), auditRows, totalCost,
+      runCompare: () => { this.setState({ compareState: 'running' }); this.sched(() => this.setState({ compareState: 'done' }), 2200); },
+      compareRunning: s.compareState === 'running', compareDone: s.compareState === 'done',
+      runCertify: () => { if (s.certifyState !== 'running') { this.setState({ certifyState: 'running' }); this.sched(() => this.setState({ certifyState: 'done2' }), 1800); } },
+      certifyBtnLabel: s.certifyState === 'running' ? '● Đang chạy bộ test…' : s.certifyState === 'done2' ? '✓ Đã chạy lại — skill v1.4' : '▶ Chạy lại bộ test',
+      certRows, toasts: s.toasts,
+      tabSettings: s.towerTab === 'settings',
+      goLobby: () => this.setState({ canvasTab: 'lobby' }),
+      goWork: () => this.setState({ canvasTab: 'work' }),
+      tabLobbyBg: s.canvasTab === 'lobby' ? '#1a1917' : 'transparent', tabLobbyColor: s.canvasTab === 'lobby' ? '#f2efe8' : '#7d766a', tabLobbyBd: s.canvasTab === 'lobby' ? '#37332f' : 'transparent',
+      tabWorkBg: s.canvasTab === 'work' ? '#1a1917' : 'transparent', tabWorkColor: s.canvasTab === 'work' ? '#f2efe8' : '#7d766a', tabWorkBd: s.canvasTab === 'work' ? '#37332f' : 'transparent',
+      hasCards: s.cards.length > 0, cardCount: s.cards.length,
+      showLobby: !!s.active && s.canvasTab === 'lobby',
+      showWork: !s.active || s.canvasTab === 'work',
+      lobbyAgents: (() => {
+        const LP = { planner: ['50%', '72%', '◆', 'Main', 'điều phối · hòa giải'], credit: ['18%', '42%', '🧮', 'Tín dụng', 'DSCR · LTV · CIC'], legal: ['38%', '28%', '⚖', 'Pháp chế', 'giấy tờ · quy định'], products: ['62%', '28%', '📦', 'Sản phẩm', 'catalog gói vay'], ops: ['82%', '42%', '⚙', 'Vận hành', 'quy trình · disburse'] };
+        return Object.keys(LP).map(k => {
+          const st = s.agents[k], c = AG[st], p = LP[k], focused = s.focusAgent === k;
+          return {
+            x: p[0], y: p[1], icon: p[2], name: p[3], sub: p[4],
+            bg: c[1] === '#211f1d' ? '#211f1d' : c[1],
+            bd: focused ? '#d97757' : c[2],
+            color: focused ? '#d97757' : (st === 'idle' ? '#7d766a' : c[0]),
+            glow: focused ? '0 0 0 3px rgba(217,119,87,.25), 0 0 20px rgba(217,119,87,.2)' : (st === 'run' ? '0 0 24px ' + c[2] : 'none'),
+            bob: st === 'run' ? 'bob 1.6s ease-in-out infinite' : 'none',
+            click: () => this.setState({ focusAgent: k })
+          };
+        });
+      })(),
+      bmCredit: s.agents.credit === 'run' ? 'flow .7s linear infinite' : 'none',
+      bmLegal: s.agents.legal === 'run' ? 'flow .7s linear infinite' : 'none',
+      bmProducts: s.agents.products === 'run' ? 'flow .7s linear infinite' : 'none',
+      bmOps: s.agents.ops === 'run' ? 'flow .7s linear infinite' : 'none',
+      isMainFocus: s.focusAgent === 'planner', isSubFocus: s.focusAgent !== 'planner',
+      backToMain: () => this.setState({ focusAgent: 'planner' }),
+      ...(() => {
+        const k = s.focusAgent;
+        if (k === 'planner') return { subItems: [], subEmpty: false, subCanStop: false };
+        const NAME = { credit: 'Tín dụng', legal: 'Pháp chế', products: 'Sản phẩm', ops: 'Vận hành' }[k];
+        const ICON = { credit: '🧮', legal: '⚖', products: '📦', ops: '⚙' }[k];
+        const st = s.agents[k], c = AG[st];
+        const STL = { idle: 'Chờ việc — chưa được dispatch', run: '● Đang làm việc…', done: '✓ Hoàn tất — kết quả đã bàn giao Main', warn: '⚠ Hoàn tất — có flag', err: '✗ Đã hủy bởi user' }[st];
+        const items = [
+          ...s.traces.filter(t => t.agent === NAME).map(t => ({ isTrace: true, kind: t.kind, label: t.label, time: t.time })),
+          ...s.subMsgs[k].map(m => ({ isTrace: false, isUser: m.who === 'user', isSub: m.who === 'sub', label: m.text }))
+        ];
+        return {
+          subName: NAME, subIcon: ICON, subStatus: STL, subStColor: c[0], subChipBg: c[1] === '#211f1d' ? '#211f1d' : c[1], subChipBd: c[2],
+          subCanStop: st === 'run', subStop: () => this.cancelSub(k, NAME),
+          subItems: items, subEmpty: items.length === 0,
+          subDraft: s.subDraft, onSubDraft: e => this.setState({ subDraft: e.target.value }),
+          sendSub: () => this.sendSubMsg(k, NAME),
+          onSubKey: e => { if (e.key === 'Enter') this.sendSubMsg(k, NAME); }
+        };
+      })(),
+      prefsOpen: s.prefsOpen,
+      togglePrefs: () => this.setState({ prefsOpen: !s.prefsOpen }),
+      savePrefs: () => { this.setState({ prefsOpen: false }); this.toast('✓ Đã lưu tuỳ chọn thông báo cá nhân', '#82b878'); },
+      prefRows: [['done', 'Ca xử lý XONG', 'không phải ngồi nhìn màn hình'], ['reject', 'Ca bị TỪ CHỐI', 'kèm lý do từ người duyệt'], ['digest', 'Digest cuối ngày', 'tổng ca · % tự động · hàng chờ']].map(([k, name, desc]) => ({
+        name, desc,
+        chans: [['app', 'IN-APP'], ['email', 'EMAIL'], ['zalo', 'ZALO']].map(([ck, label]) => {
+          const on = s.prefs[k][ck];
+          return { label, bg: on ? 'rgba(130,184,120,.15)' : 'transparent', color: on ? '#82b878' : '#544e45', bd: on ? 'rgba(130,184,120,.35)' : '#37332f', click: () => this.setState(st => ({ prefs: { ...st.prefs, [k]: { ...st.prefs[k], [ck]: !on } } })) };
+        })
+      })),
+      modelRows: [['planner', '◆ Main', '#b98cd9', '$0.033'], ['credit', 'Tín dụng', '#82b878', '$0.006'], ['legal', 'Pháp chế', '#dda94a', '$0.006'], ['products', 'Sản phẩm', '#5fb2c9', '$0.004'], ['ops', 'Vận hành', '#5fb2c9', '$0.006']].map(([k, label, dot, cost]) => ({
+        label, dot, cost, val: s.models[k],
+        onChange: e => { this.setState(st => ({ models: { ...st.models, [k]: e.target.value } })); this.toast('✓ ' + label + ' → ' + e.target.value + ' (version-lock ghi audit)', '#5fb2c9'); }
+      })),
+      cfgDiscord: s.cfgDiscord, onCfgDiscord: e => this.setState({ cfgDiscord: e.target.value }),
+      testWebhook: () => { this.toast('📤 Test alert đã bắn Discord — 200 OK · 230ms', '#82b878'); this.auditAdd('Hệ thống', 'webhook.test', 'Test Discord webhook — OK', '—'); },
+      alertRows: s.alertsCfg.map((a, i) => {
+        const T = (on, key) => ({ [key + 'Bg']: on ? '#82b878' : '#37332f', [key + 'Knob']: on ? '17px' : '2px', [key + 'Click']: () => this.setState(st => ({ alertsCfg: st.alertsCfg.map((x, j) => j === i ? { ...x, [key]: !on } : x) })) });
+        return { name: a.name, ...T(a.d, 'd'), ...T(a.e, 'e'), ...T(a.z, 'z') };
+      }),
+      killRows: [['credit', 'Tín dụng'], ['legal', 'Pháp chế'], ['products', 'Sản phẩm'], ['ops', 'Vận hành']].map(([k, label]) => {
+        const on = s.kill[k];
+        return {
+          label, color: on ? '#f2efe8' : '#e0705f', status: on ? 'ĐANG HOẠT ĐỘNG' : '⛔ ĐÃ TẮT KHẨN', stColor: on ? '#82b878' : '#e0705f',
+          bg: on ? '#82b878' : '#e0705f', knob: on ? '19px' : '2px',
+          click: () => { this.setState(st => ({ kill: { ...st.kill, [k]: !on } })); this.toast(on ? '⛔ Kill-switch ' + label + ' — agent ngừng nhận việc, ca đang chạy escalate người' : '✓ ' + label + ' hoạt động trở lại', on ? '#e0705f' : '#82b878'); this.auditAdd('Admin', 'kill.switch', (on ? 'TẮT ' : 'BẬT ') + label, '—'); }
+        };
+      }),
+      togglePii: () => { this.setState({ pii: !s.pii }); this.toast(s.pii ? '⚠ PII masking TẮT — log hiện dữ liệu thô' : '✓ PII masking BẬT', s.pii ? '#dda94a' : '#82b878'); },
+      piiBg: s.pii ? '#82b878' : '#37332f', piiKnob: s.pii ? '19px' : '2px',
+      paramRows: [
+        { name: 'Ngưỡng DSCR tối thiểu', note: 'quy định tín dụng', val: '1,2' },
+        { name: 'Trần LTV', note: 'theo loại TSBĐ', val: '70%' },
+        { name: 'Lãi tham chiếu SME', note: 'catalog sản phẩm', val: '8,2%' },
+        { name: 'Hạn mức tự-động (không cần duyệt)', note: 'trên mức này → gate', val: '0 ₫' }
+      ],
+      saveCfg: () => { this.toast('✓ Đã lưu cấu hình — version-lock ghi audit log', '#82b878'); this.auditAdd('Admin', 'config.save', 'Cập nhật cấu hình hệ thống', '—'); }
+    };
+  }
+}
+</script>
+</body>
+</html>
