@@ -163,11 +163,18 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
         TextBlock,
     )
 
-    # ContextVar set dòng ĐẦU (brief §E · lab-joint §7): actor='main'. QUAN TRỌNG cho re-entrant
-    # path (sub done → _report → _event_sink → handle_room_event → run_main_turn chạy TRONG task
-    # của sub): không set lại thì CTX_ACTOR leak = role sub → audit mis-attribute lượt main (T1-3).
+    # ContextVar set dòng ĐẦU (brief §E · lab-joint §7): actor='main' + task='' . QUAN TRỌNG cho
+    # re-entrant path (sub done → _report → _event_sink → handle_room_event → run_main_turn chạy
+    # TRONG task của sub, đường D-33 inline — KHÔNG task mới nên ContextVar KHÔNG tự reset): không
+    # set lại thì CTX_ACTOR leak = role sub (audit mis-attribute) VÀ CTX_TASK leak = task.id sub →
+    # MAIN present bị stamp task_id sub thay vì null (vi phạm T2-1 N5 "main present → task_id null").
+    # Reset CẢ 3 — mirror nhau (fix CTX_TASK leak: tester T2-4 bắt).
+    # ⚠️ S3+ BUILDER: THÊM ContextVar mới (set trong _run_sub) → PHẢI thêm reset TƯƠNG ỨNG Ở ĐÂY.
+    # Chi phí ẩn của D-33 inline-await: contextvar không auto-reset trên re-entrant path — reset TAY
+    # ĐỦ MỌI cái. Grep `registry.CTX_` để thấy danh sách; set ở sub thì reset ở main.
     registry.CTX_CONV.set(conv_id)
     registry.CTX_ACTOR.set("main")
+    registry.CTX_TASK.set("")  # main present ngoài sub → task_id null (T2-1)
 
     expected = await store.get_conv_session_id(conv_id)
     try:

@@ -219,3 +219,73 @@ async def test_ctx_actor_not_leaked_from_sub_to_main_reentrant():
             st.mark_running, st.finish_task, st.task_board = monkeypatch_store["orig"]
         room.set_turn_runner(None)
         registry.reset_room("ctx-conv")
+
+
+@pytest.mark.asyncio
+async def test_ctx_task_not_leaked_from_sub_to_main_reentrant(monkeypatch):
+    """Tester T2-4 bug: CTX_TASK phải reset '' đầu run_main_turn — nếu không, re-entrant D-33 inline
+    (sub set CTX_TASK=task.id → _report → sink → run_main_turn TRONG task sub) leak CTX_TASK = sub
+    task.id → MAIN present bị stamp task_id sub thay vì null (vi phạm T2-1 N5).
+
+    Test đường THẬT: sub _run_sub (set CTX_TASK=task.id) → _report → sink → _turn_runner THẬT →
+    run_main_turn THẬT. Monkeypatch phần SDK của run_main_turn (chặn TRƯỚC ClaudeSDKClient) để đọc
+    CTX_TASK NGAY SAU 3 dòng reset — verify DÒNG FIX thật, không mirror tự-xác-nhận."""
+    from app.orch import main_session
+
+    registry.reset_room("ctxt-conv")
+    seen_task = []
+
+    # Chặn run_main_turn tại ClaudeSDKClient: dòng reset CTX (đầu hàm) ĐÃ chạy → đọc CTX_TASK thật.
+    class _StopHere(Exception):
+        pass
+
+    def _boom(*a, **k):
+        seen_task.append(registry.CTX_TASK.get() or None)  # đọc SAU 3 dòng reset thật
+        raise _StopHere
+
+    # run_main_turn LOCAL-import ClaudeSDKClient từ claude_agent_sdk → monkeypatch tại nguồn
+    import claude_agent_sdk
+
+    monkeypatch.setattr(claude_agent_sdk, "ClaudeSDKClient", _boom, raising=False)
+
+    async def noop(*a, **k):
+        return None
+
+    monkeypatch.setattr(main_session.store, "get_conv_session_id", noop)
+
+    async def fake_turn(conv_id, event, data):
+        try:
+            await main_session.run_main_turn(conv_id, "prompt")  # THẬT — chạy 3 dòng reset rồi _boom
+        except _StopHere:
+            pass
+
+    room.set_turn_runner(fake_turn)
+
+    async def sink(conv_id, event, data):
+        await room.handle_room_event(conv_id, event, data)
+
+    sub_runner.set_event_sink(sink)
+
+    async def runner_done(task):
+        assert registry.CTX_TASK.get() == "ctxt-t", "trong sub, CTX_TASK=task.id"
+        return {"ok": True}
+
+    monkeypatch.setattr(sub_runner.store, "mark_running", noop)
+    monkeypatch.setattr(sub_runner.store, "finish_task", noop)
+    monkeypatch.setattr(sub_runner.store, "get_task", noop)  # _emit_task_status (T2-1 SSE) không chạm DB
+
+    async def board(*a, **k):
+        return []
+
+    monkeypatch.setattr(sub_runner.store, "task_board", board)
+    try:
+        await sub_runner._run_sub(
+            Task(id="ctxt-t", conv_id="ctxt-conv", role="products", title="t", status="queued"),
+            runner=runner_done,
+        )
+        await asyncio.sleep(0.02)
+        # run_main_turn THẬT reset CTX_TASK='' → MAIN present thấy None (không leak 'ctxt-t')
+        assert seen_task == [None], f"MAIN present phải thấy task_id=None (dòng reset thật), thấy {seen_task}"
+    finally:
+        room.set_turn_runner(None)
+        registry.reset_room("ctxt-conv")
