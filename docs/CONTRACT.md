@@ -87,6 +87,22 @@ interface SSEEnvelope<T> { type: SSEEventType; conversation_id: string; seq: num
 - **Ghi DB xong mới emit** (trừ chat.delta chunk). Header SSE: `X-Accel-Buffering:no` + `Cache-Control:no-cache` + heartbeat 15s (streaming-sse §4).
 - Reconnect: FE `GET /conversations/{id}` full state rồi nghe tiếp — KHÔNG replay-cursor (SPEC §14).
 
+### 4b. Nhánh FAILED — chốt để bubble không treo (architect, 2 gap FE surface trước T1-3)
+
+**Gap 1 — MỌI kết lượt main bắn `chat.delta {done:true}` (khớp streaming-sse §3):** dù lượt
+XONG / LỖI / INTERRUPT, BE PHẢI bắn `chat.delta {turn_id, done:true, full_text=<phần đã stream, có thể rỗng>}`
++ pop seq-counter TRƯỚC/CÙNG `conversation.status:failed`. **Không được** kết lượt fail mà thiếu
+`done` → FE đóng bubble streaming KHI nhận done; thiếu done = bubble treo lastSeq lơ lửng tới refetch.
+(BE nào emit conversation.status:failed thì emit done trước — 1 điểm bắn, streaming-sse §5.)
+
+**Gap 2 — user thấy LÝ DO lỗi ở đâu (KHÔNG thêm field vào conversation.status — giữ nó chỉ badge, N4):**
+- **Lỗi ở SUB** (credit timeout/fail): qua `task.status {task}` với `task.status='failed'` + `task.result.reason`
+  (§3 — result.reason giữ chi tiết). FE render reason từ task result (badge task đỏ + tooltip/dòng reason).
+- **Lỗi ở MAIN** (lượt main hết trần retry): main ghi 1 message `sender='system'` nội dung lỗi
+  (multi-agent §9 — persist DB để user thấy trong LỊCH SỬ chat, F5 không mất) → về FE qua chat.delta
+  thường HOẶC message trong full-state refetch. Rồi `conversation.status:failed` (badge).
+- `conversation.status.data` = `{status}` THÔI — không mang message/hint. Error 4-field là shape REST/tool (§0), KHÔNG phải SSE payload.
+
 ## 5. S1 dùng gì (lát cắt dọc tối thiểu)
 
 FE/BE S1 chỉ cần: auth login · conversations list/create/get · chat POST · SSE (`chat.delta`+`task.created`+`task.status`+`conversation.status`). Card/approval/toolcall = sprint sau (shape đã khai sẵn để FE không phải sửa type khi tới).
