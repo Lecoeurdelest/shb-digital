@@ -1,0 +1,153 @@
+/*
+ * tokens.css — port của object `T` trong design/workspace/shared.jsx (D-14).
+ * Nguồn tham khảo look-and-feel (D-13) — KHÔNG phải scope cứng, chỉ port màu/font/tone.
+ * Giữ tên biến bám sát field gốc của T để đối chiếu ngược dễ (bg, bg2, p1..p3, bd, bd2,
+ * tx, dim, mute, faint, acc, accBg, run/pass/fail/warn/main, font, mono).
+ */
+
+:root {
+  /* nền */
+  --bg: #1a1917;
+  --bg2: #161514;
+  --p1: #211f1d;
+  --p2: #2a2825;
+  --p3: #332f2b;
+
+  /* viền */
+  --bd: #37332f;
+  --bd2: #48423b;
+
+  /* chữ */
+  --tx: #f2efe8;
+  --dim: #b0a99d;
+  --mute: #7d766a;
+  --faint: #544e45;
+
+  /* accent + tone */
+  --acc: #d97757;
+  --acc-bg: rgba(217, 119, 87, 0.16);
+  --run: #5fb2c9;
+  --pass: #82b878;
+  --fail: #e0705f;
+  --warn: #dda94a;
+  --main: #b98cd9;
+
+  /* tone → [chữ, nền dim, viền] — mirror T.tone */
+  --tone-idle-fg: var(--faint);
+  --tone-idle-bg: var(--p1);
+  --tone-idle-bd: var(--bd);
+
+  --tone-run-fg: var(--run);
+  --tone-run-bg: rgba(95, 178, 201, 0.12);
+  --tone-run-bd: rgba(95, 178, 201, 0.5);
+
+  --tone-pass-fg: var(--pass);
+  --tone-pass-bg: rgba(130, 184, 120, 0.1);
+  --tone-pass-bd: rgba(130, 184, 120, 0.4);
+
+  --tone-warn-fg: var(--warn);
+  --tone-warn-bg: rgba(221, 169, 74, 0.1);
+  --tone-warn-bd: rgba(221, 169, 74, 0.4);
+
+  --tone-fail-fg: var(--fail);
+  --tone-fail-bg: rgba(224, 112, 95, 0.1);
+  --tone-fail-bd: rgba(224, 112, 95, 0.4);
+
+  --tone-main-fg: var(--main);
+  --tone-main-bg: rgba(185, 140, 217, 0.15);
+  --tone-main-bd: rgba(185, 140, 217, 0.4);
+
+  /* font */
+  --font: 'Be Vietnam Pro', system-ui, sans-serif;
+  --mono: ui-monospace, Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--tx);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+/* ── primitives dùng chung (mirror shared.jsx: StatusDot, Pill, Btn) ── */
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex: none;
+  background: var(--tone-idle-fg);
+}
+.status-dot--run { background: var(--tone-run-fg); box-shadow: 0 0 6px var(--tone-run-fg); }
+.status-dot--pass { background: var(--tone-pass-fg); }
+.status-dot--warn { background: var(--tone-warn-fg); }
+.status-dot--fail { background: var(--tone-fail-fg); }
+.status-dot--main { background: var(--tone-main-fg); }
+
+.pill {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-block;
+  background: var(--tone-idle-bg);
+  color: var(--tone-idle-fg);
+}
+.pill--run { background: var(--tone-run-bg); color: var(--tone-run-fg); }
+.pill--pass { background: var(--tone-pass-bg); color: var(--tone-pass-fg); }
+.pill--warn { background: var(--tone-warn-bg); color: var(--tone-warn-fg); }
+.pill--fail { background: var(--tone-fail-bg); color: var(--tone-fail-fg); }
+.pill--main { background: var(--tone-main-bg); color: var(--tone-main-fg); }
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  user-select: none;
+  border: none;
+  display: inline-block;
+}
+.btn--primary { background: var(--acc); color: var(--bg); }
+.btn--ghost { background: none; color: var(--dim); border: 1px solid var(--bd2); }
+.btn--danger { background: none; color: var(--fail); border: 1px solid rgba(224, 112, 95, 0.4); }
+.btn--ok { background: var(--pass); color: var(--bg); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@keyframes deg-fadein {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes deg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.deg-fadein { animation: deg-fadein 0.3s; }
+.deg-pulse { animation: deg-pulse 1.2s infinite; }
+
+/* scrollbar nhẹ tay cho panel tối */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bd2) transparent;
+}

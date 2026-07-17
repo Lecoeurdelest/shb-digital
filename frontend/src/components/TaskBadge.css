@@ -1,0 +1,23 @@
+.task-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 14px;
+  font-size: 10.5px;
+  font-weight: 500;
+  background: var(--tone-idle-bg);
+  color: var(--tone-idle-fg);
+}
+.task-badge--idle { background: var(--tone-idle-bg); color: var(--tone-idle-fg); }
+.task-badge--run { background: var(--tone-run-bg); color: var(--tone-run-fg); }
+.task-badge--pass { background: var(--tone-pass-bg); color: var(--tone-pass-fg); }
+.task-badge--fail { background: var(--tone-fail-bg); color: var(--tone-fail-fg); }
+
+.task-badge__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 5px currentColor;
+}

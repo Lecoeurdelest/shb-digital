@@ -1,0 +1,48 @@
+.composer {
+  flex: none;
+  padding: 12px 14px;
+  border-top: 1px solid var(--bd);
+}
+
+.composer__box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--p1);
+  border: 1px solid var(--bd2);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.composer__input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--tx);
+  font: 400 12.5px var(--font);
+}
+.composer__input::placeholder {
+  color: var(--faint);
+}
+.composer__input:disabled {
+  opacity: 0.6;
+}
+
+.composer__send {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--acc);
+  border: none;
+  display: grid;
+  place-items: center;
+  color: var(--bg);
+  font-weight: 700;
+  cursor: pointer;
+  flex: none;
+}
+.composer__send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

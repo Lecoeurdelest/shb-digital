@@ -1,0 +1,49 @@
+.msg-bubble {
+  flex: none;
+  max-width: 85%;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg-bubble--user {
+  align-self: flex-end;
+  background: var(--p3);
+  border-radius: 14px 14px 4px 14px;
+  color: var(--tx);
+}
+
+.msg-bubble--assistant {
+  align-self: flex-start;
+  max-width: 92%;
+  background: var(--p1);
+  border: 1px solid var(--bd2);
+  border-radius: 4px 14px 14px 14px;
+  color: var(--tx);
+}
+
+.msg-bubble--streaming {
+  border-color: rgba(217, 119, 87, 0.35);
+}
+
+.msg-bubble__cursor {
+  display: inline-block;
+  width: 6px;
+  height: 12px;
+  margin-left: 2px;
+  background: var(--acc);
+  vertical-align: -2px;
+  animation: deg-pulse 0.9s infinite;
+}
+
+.msg-bubble--note {
+  align-self: center;
+  max-width: 92%;
+  font-size: 10.5px;
+  color: var(--mute);
+  padding: 4px 12px;
+  background: var(--p1);
+  border-radius: 10px;
+}
