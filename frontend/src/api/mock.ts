@@ -109,23 +109,41 @@ class MockBackend {
     const turnId = uid('turn');
     const seq = { n: 0 }; // seq TĂNG DẦN theo lượt (turn) — hook re-order/dedup theo (turn_id, seq)
 
+    // Trigger nhánh FAILED để drive contract §4b (test/demo được) — từ khoá trong câu hỏi.
+    const mainFail = /(main fail|lỗi main|quá tải|hết trần)/i.test(question);
+    const subFail = /(sub fail|credit fail|lỗi tín dụng|timeout)/i.test(question);
+    const wantsCredit = /dscr|c001|tín dụng|vay/i.test(question);
+
+    // ── Nhánh MAIN FAIL (§4b Gap2 B): main hết trần retry → ghi system message lỗi +
+    //    VẪN bắn chat.delta done (full_text = phần đã stream) + conversation.status:failed ──
+    if (mainFail) {
+      await delay(MOCK_LATENCY_MS);
+      // §4b Gap1 (a): main stream phần mở đầu rồi lỗi — VẪN kết lượt bằng done (full_text =
+      // phần main ĐÃ nói) để bubble không treo.
+      const opener = 'Dạ em đang xử lý…';
+      await this.streamText(convId, turnId, seq, opener, true); // persist assistant opener + done
+      await delay(MOCK_LATENCY_MS);
+      // §4b Gap2 B: nội dung lỗi = message sender='system' persist DB → user thấy trong lịch sử.
+      // FE lấy qua full-state refetch (App refetch khi status→failed). Bản thật: BE INSERT messages.
+      r.messages.push({
+        id: uid('m'), conv_id: convId, ts: nowIso(), sender: 'system',
+        content: '⚠ Lượt xử lý gặp lỗi: MAIN hết trần retry khi điều phối. Vui lòng thử lại — nếu lặp lại, báo quản trị.',
+        meta: { error: true },
+      });
+      r.conversation.status = 'failed';
+      this.emit(convId, envelope(convId, 'conversation.status', { status: 'failed' }));
+      return;
+    }
+
     // 1) main "nhận diện" cần tra credit → dispatch task
     await delay(MOCK_LATENCY_MS);
-    const wantsCredit = /dscr|c001|tín dụng|vay/i.test(question);
     let task: OrchTask | null = null;
     if (wantsCredit) {
       task = {
-        id: uid('t'),
-        conv_id: convId,
-        role: 'credit',
+        id: uid('t'), conv_id: convId, role: 'credit',
         title: 'Thẩm định tín dụng — DSCR khách hàng C001',
-        status: 'running',
-        input: { customer_id: 'C001' },
-        result: null,
-        queued_at: nowIso(),
-        started_at: nowIso(),
-        ended_at: null,
-        cost: null,
+        status: 'running', input: { customer_id: 'C001' }, result: null,
+        queued_at: nowIso(), started_at: nowIso(), ended_at: null, cost: null,
       };
       r.tasks.push(task);
       this.emit(convId, envelope(convId, 'task.created', { task }));
@@ -137,21 +155,33 @@ class MockBackend {
       : 'Dạ em ghi nhận câu hỏi, em đang xử lý ạ…';
     await this.streamText(convId, turnId, seq, opener, false);
 
+    // ── Nhánh SUB FAIL (§4b Gap2 A): task.status='failed' + result.reason. Main VẪN kết
+    //    lượt bằng done (§4b Gap1) rồi conversation.status:failed ──
+    if (task && subFail) {
+      await delay(MOCK_LATENCY_MS * 2);
+      task = {
+        ...task, status: 'failed',
+        result: { reason: 'Sub Tín dụng timeout sau 120s — không lấy được hồ sơ CIC của C001 (nguồn cic_records không phản hồi).' },
+        ended_at: nowIso(), cost: { tool_calls: 0 },
+      };
+      r.tasks = r.tasks.map((t) => (t.id === task!.id ? task! : t));
+      this.emit(convId, envelope(convId, 'task.status', { task }));
+
+      const answer = ' Rất tiếc, phần Tín dụng gặp sự cố nên em chưa thể đưa kết luận cho ca này. Chi tiết lỗi hiển thị ở thẻ công việc bên cạnh.';
+      await this.streamText(convId, turnId, seq, answer, true);
+      r.conversation.status = 'failed';
+      this.emit(convId, envelope(convId, 'conversation.status', { status: 'failed' }));
+      return;
+    }
+
     if (task) {
       await delay(MOCK_LATENCY_MS * 2);
       // sub credit "xong" — kết quả có nguồn (mock đúng shape credit_assess thật sẽ trả)
       const dscr = 3.709;
       task = {
-        ...task,
-        status: 'done',
-        result: {
-          dscr,
-          source: 'credit_assess',
-          monthly_income: 30_000_000,
-          monthly_debt: 8_000_000,
-        },
-        ended_at: nowIso(),
-        cost: { tool_calls: 1 },
+        ...task, status: 'done',
+        result: { dscr, source: 'credit_assess', monthly_income: 30_000_000, monthly_debt: 8_000_000 },
+        ended_at: nowIso(), cost: { tool_calls: 1 },
       };
       r.tasks = r.tasks.map((t) => (t.id === task!.id ? task! : t));
       this.emit(convId, envelope(convId, 'task.status', { task }));

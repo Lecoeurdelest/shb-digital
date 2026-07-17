@@ -52,4 +52,40 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
     // không có bảng task
     expect(screen.queryByLabelText('Đội đang làm việc')).not.toBeInTheDocument();
   });
+
+  it('SUB fail (§4b Gap2 A) → badge failed + render task.result.reason + badge ca "Lỗi"', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
+    const input = await screen.findByLabelText('Ô nhập câu hỏi');
+    fireEvent.change(input, { target: { value: 'C001 vay — credit fail đi' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // reason từ task.result.reason hiển thị (không phải chỉ badge)
+    await waitFor(
+      () => expect(screen.getByText(/timeout sau 120s/i)).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
+    // badge task đỏ
+    const tasksPanel = screen.getByLabelText('Đội đang làm việc');
+    expect(within(tasksPanel).getByText(/Tín dụng · ✗ lỗi/)).toBeInTheDocument();
+    // badge trạng thái ca = Lỗi
+    await waitFor(() => expect(screen.getAllByText(/^Lỗi$/).length).toBeGreaterThan(0));
+  });
+
+  it('MAIN fail (§4b Gap2 B) → system message lỗi + badge ca "Lỗi", KHÔNG treo bubble streaming', async () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
+    const input = await screen.findByLabelText('Ô nhập câu hỏi');
+    fireEvent.change(input, { target: { value: 'lỗi main mô phỏng quá tải' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // nội dung lỗi hiển thị (đến qua chat.delta done full_text — §4b Gap2 B)
+    await waitFor(
+      () => expect(screen.getByText(/MAIN hết trần retry/i)).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
+    // bubble streaming đã đóng (done kết lượt — không treo)
+    await waitFor(() => expect(screen.queryByTestId('streaming-bubble')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText(/^Lỗi$/).length).toBeGreaterThan(0));
+  });
 });

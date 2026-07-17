@@ -13,7 +13,13 @@ export function MessageBubble({ msg }: { msg: Message }) {
     return <div className="msg-bubble msg-bubble--user deg-fadein">{msg.content}</div>;
   }
   if (msg.sender === 'system') {
-    return <div className="msg-bubble msg-bubble--note deg-fadein">{msg.content}</div>;
+    // system message lỗi (CONTRACT §4b Gap2 B — main fail) nổi bật hơn note thường.
+    const isError = Boolean((msg.meta as { error?: boolean } | null | undefined)?.error);
+    return (
+      <div className={`msg-bubble msg-bubble--note deg-fadein${isError ? ' msg-bubble--note-error' : ''}`}>
+        {msg.content}
+      </div>
+    );
   }
   return <div className="msg-bubble msg-bubble--assistant deg-fadein">{msg.content}</div>;
 }

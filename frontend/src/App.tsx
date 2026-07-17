@@ -12,6 +12,7 @@ import { ConversationSidebar } from './components/ConversationSidebar';
 import { Composer } from './components/Composer';
 import { MessageBubble, StreamingMessageBubble, type StreamingBubble } from './components/MessageBubble';
 import { TaskBadge } from './components/TaskBadge';
+import { roleLabel } from './roles';
 import type {
   Conversation,
   ConversationFullState,
@@ -50,6 +51,9 @@ export default function App() {
   const [listError, setListError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // ref theo activeId — dùng trong callback async (refetch) để kiểm còn đúng ca không (tránh race).
+  const activeIdRef = useRef<string | null>(null);
+  activeIdRef.current = activeId;
 
   // ── load danh sách ca lúc mount ──
   useEffect(() => {
@@ -119,7 +123,21 @@ export default function App() {
     setConversations((prev) =>
       activeId ? prev.map((c) => (c.id === activeId ? { ...c, status: status as ConversationStatus } : c)) : prev,
     );
-  }, [activeId]);
+    // Lượt kết thúc (done/failed) → refetch full-state: đồng bộ message DB chính thức (gồm
+    // system message lỗi ở nhánh MAIN fail — CONTRACT §4b Gap2 B; DB là nguồn sự thật §0).
+    if ((status === 'done' || status === 'failed') && activeId) {
+      const id = activeId;
+      conversationApi
+        .getConversation(id)
+        .then((state) => {
+          // chỉ áp nếu vẫn đang ở đúng ca (tránh race khi user đã chuyển ca)
+          if (id === activeIdRef.current) applyFullState(state);
+        })
+        .catch(() => {
+          // refetch lỗi không chí mạng — state realtime đã đủ dùng, reconnect sẽ tự lành
+        });
+    }
+  }, [activeId, applyFullState]);
 
   const handlers: ConversationSSEHandlers = useMemo(
     () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus }),
@@ -239,6 +257,17 @@ export default function App() {
                         <TaskBadge key={t.id} task={t} />
                       ))}
                     </div>
+                    {/* lý do lỗi từ task.result.reason khi sub failed (CONTRACT §4b Gap2 A) */}
+                    {tasks
+                      .filter((t) => t.status === 'failed')
+                      .map((t) => {
+                        const reason = taskReason(t);
+                        return reason ? (
+                          <div key={`reason-${t.id}`} className="ws__task-reason" role="alert">
+                            ✗ {roleLabel(t.role)}: {reason}
+                          </div>
+                        ) : null;
+                      })}
                   </div>
                 )}
               </div>
@@ -274,4 +303,10 @@ function describeError(err: unknown, fallback: string): string {
   }
   if (err instanceof Error && err.message) return `${fallback}: ${err.message}`;
   return fallback;
+}
+
+// lý do lỗi từ task.result.reason (CONTRACT §4b Gap2 A — result là dict tự do, đọc an toàn).
+function taskReason(task: OrchTask): string | null {
+  const reason = task.result?.reason;
+  return typeof reason === 'string' && reason.trim() ? reason : null;
 }
