@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,11 @@ from app.mount.schema import schema_to_input
 # repo root = 3 cấp lên từ backend/app/mount/ ; roles/ nằm tại repo root (D-08/D-26 layout)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ROLES_DIR = REPO_ROOT / "roles"
+
+# repo root LÊN sys.path để `import roles.<role>.functions` chạy dù cwd nào (uvicorn từ backend/
+# KHÔNG có repo root trên path — pytest có nhờ pyproject pythonpath, prod thì không). Idempotent.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 def _text(payload: dict[str, Any]) -> dict[str, Any]:

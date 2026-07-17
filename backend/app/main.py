@@ -12,6 +12,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.conversations import router as conversations_router
+from app.api.sse import router as sse_router
 from app.auth.router import router as auth_router
 from app.errors import register_error_handler
 
@@ -38,6 +40,8 @@ app = FastAPI(title="SHB Digital Expert Guild", lifespan=lifespan)
 
 register_error_handler(app)  # ApiError + validation → body 4-field trần (CONTRACT §0)
 app.include_router(auth_router)
+app.include_router(conversations_router)  # conversations + chat (T1-3)
+app.include_router(sse_router)  # SSE stream (T1-3)
 
 
 @app.get("/api/health")

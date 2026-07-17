@@ -62,13 +62,27 @@ async def orch_dispatch_impl(conv_id: str, role: str, title: str, brief: str) ->
             "hint": "Sub role này ĐANG chạy — xem orch_status, KHÔNG giao lại.",
         }
 
-    sub_runner.spawn_sub(task)  # FIRE-AND-FORGET: đăng ký sub_tasks + create_task async nền
+    await _emit_task_created(task)  # SSE task.created (streaming-sse §5) — sau ghi DB
+    sub_runner.spawn_sub(task)  # FIRE-AND-FORGET: đăng ký sub_tasks + spawn _run_sub nền
     return {
         "created": True,
         "role": role,
         "status": "running",
         "hint": "Sub chạy nền, xong sẽ có sự kiện báo lại. KHÔNG chờ — giao việc khác hoặc kết thúc lượt.",
     }
+
+
+async def _emit_task_created(task: Any) -> None:
+    """SSE task.created (nguyên row). Lazy import; lỗi SSE KHÔNG fail dispatch (fire-and-forget)."""
+    try:
+        from app.orch.store import task_to_dict
+        from app.sse.emit import emit_task
+
+        emit_task(task.conv_id, "task.created", task_to_dict(task))
+    except Exception as e:  # noqa: BLE001
+        import logging
+
+        logging.getLogger("orch").warning("emit task.created lỗi (bỏ qua): %s", e)
 
 
 def to_mcp_text(payload: dict[str, Any]) -> dict[str, Any]:

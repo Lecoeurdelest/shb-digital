@@ -3,7 +3,11 @@ không block event loop). DB = kho render (SPEC §8); nguồn "đang chạy" là
 
 Task = dataclass nhẹ (không ORM session — INSERT raw, id server_default D-28c). conv_id là TEXT
 toàn hệ (D-31: tasks.conv_id text tự do — tester dùng 'tester-ca-a-conv'; T1-3 dùng str(uuid)).
-"""
+
+D-34: store dùng `psycopg2.connect()` PER-CALL (KHÔNG qua pool get_pool()/acquire()/release()
+của mount/pg_adapter.py) → 2 connection strategy. Có chủ đích S1: render DB (ops tables) ≠ tool
+conn (business tables qua pool cho executor). Ổn dưới 1-worker (bounded to_thread executor cap).
+S2 khi tải cao / connection churn → thống nhất về 1 pool. Xem D-34."""
 
 from __future__ import annotations
 
@@ -202,8 +206,7 @@ def _get_conversation_sync(conv_id: str) -> dict[str, Any] | None:
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, user_id, title, status, sdk_session_id, created_at "
-                "FROM conversations WHERE id::text=%s",
+                "SELECT id, user_id, title, status, sdk_session_id, created_at FROM conversations WHERE id::text=%s",
                 (conv_id,),
             )
             row = cur.fetchone()
@@ -268,8 +271,7 @@ def _list_messages_sync(conv_id: str) -> list[dict[str, Any]]:
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, conv_id, ts, sender, content, meta FROM messages "
-                "WHERE conv_id=%s ORDER BY ts",
+                "SELECT id, conv_id, ts, sender, content, meta FROM messages WHERE conv_id=%s ORDER BY ts",
                 (conv_id,),
             )
             return [_msg_to_dict(dict(r)) for r in cur.fetchall()]

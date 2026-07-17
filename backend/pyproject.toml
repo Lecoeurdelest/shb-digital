@@ -36,3 +36,5 @@ extend-exclude = ["app/db/migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+# B008: Depends() ở default arg là IDIOM CHUẨN FastAPI (không phải bug) — false positive.
+ignore = ["B008"]

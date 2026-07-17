@@ -48,6 +48,23 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-33 · main lượt-2 (sau task_done) chạy INLINE `await` trong `_report` (không spawn §6) —
+  ACCEPT S1, S2 tech-debt** (backend nêu T1-3 honest — architect ACCEPT sau advisor + verify code)
+  — `_report` dòng `await _event_sink → handle_room_event` = main lượt 2 chạy trong task của sub
+  (finally shielded). **S1-safe, verify 5 discriminator:** (1) semaphore đã release (async-with
+  trong try, _report trong finally) → không giữ concurrency cap; (2) disconnect same-task (inline
+  await giữ cùng task sub) → KHÔNG vi phạm landmine #1; (3) multi-sub không nest (try_acquire busy
+  → enqueue, drain=ensure_future không await → depth hằng số); (4) shield không trap main-interrupt
+  (interrupt qua main_clients cross-task, sub đã pop khỏi sub_tasks trước _event_sink); (5) audit
+  attribution guarded (CTX_ACTOR.set('main') đầu run_main_turn — re-entrant fix). **KHÔNG refactor
+  §6-spawn ở S1**: convert re-open spine vừa verify (chạy lại cancel-3×/race-5×) cho lợi ích chỉ
+  hiện S2 (khi §9 main-retry + concurrency thật → main turn cần task riêng + retry riêng). Backend
+  đã đánh dấu 2-line switch — đúng lúc-sửa là S2. Comment tại site `await _event_sink` để S2 builder
+  không giả định §6 spawn. — Đổi: S2 khi thêm §9/concurrency → chuyển spawn.
+- **D-34 · `store` per-call `psycopg2.connect` (bypass T1-1 pool) — note S1, revisit S2** (backend
+  nêu T1-3) — store tạo conn mỗi call thay vì get_pool()/acquire()/release() của T1-1 → 2 connection
+  strategy. Ổn dưới 1-worker S1 (bounded to_thread cap). S2 khi tải cao → thống nhất về pool. — Đổi:
+  thống nhất pool ngay nếu thấy connection churn.
 - **D-31 · `tasks.conv_id` + `messages.conv_id` = TEXT ràng-buộc-mềm (drop FK cứng);
   `conversations.id` VẪN uuid PK** (backend nêu T1-2 — architect RATIFY sau review spine) —
   conv_id là ĐỊNH DANH XUYÊN TẦNG dạng string (registry key idempotency `(conv_id,role)` +
@@ -127,15 +144,15 @@
   - **ĐÃ THI HÀNH (T1-2):** migration `448101c1915d` (alter_column server_default 3 bảng ops —
     autogenerate KHÔNG detect server_default trên bảng đã tồn tại, viết tay). Verify: INSERT raw
     3 bảng tự sinh id. no-drift.
-- **D-31 · `tasks.conv_id` + `messages.conv_id` = TEXT (bỏ FK → conversations)** (backend T1-2 —
-  decide-and-log) — conv_id là ĐỊNH DANH XUYÊN SUỐT (registry key idempotency + SDK cwd folder +
-  SSE topic) dùng dạng string; FK cứng uuid cản (1) spine/test dùng conv_id tự do (tester ghi cứng
-  `conv_id='tester-ca-a-conv'` trong contract test T1-2), (2) linh hoạt orchestrator. conversations.id
-  vẫn uuid PK (nguồn ca thật); tasks/messages.conv_id text ràng-buộc-mềm (T1-3 dùng `str(uuid)`).
-  Migration `4b282d74ff31` (drop 2 FK + alter text). **Downgrade DESTRUCTIVE** (xoá rows conv_id
-  non-uuid trước convert về uuid — data phụ thuộc tính-năng-conv_id-tự-do thì mất khi đảo tính năng;
-  regex `!~ uuid-pattern`). Full round-trip base↔head verify 5↔5 steps sạch. — Đổi: người/architect
-  muốn FK cứng lại (thì spine test phải tạo conversation uuid trước mỗi dispatch).
+- **D-32 · `mount_role.py` tự thêm REPO_ROOT vào `sys.path`** (backend T1-3 — bug fix ca
+  end-to-end; decide-and-log) — `roles/` nằm ở repo root (D-26), `mount_role` `import roles.<role>
+  .functions`. pytest có `roles` trên path nhờ pyproject `pythonpath=[".",".."]`, NHƯNG uvicorn
+  chạy từ `backend/` KHÔNG có repo root trên path → `ModuleNotFoundError: No module named 'roles'`
+  khi sub credit chạy qua server thật (ca end-to-end lộ, test không lộ vì pytest path khác). Fix
+  N1-sạch: `mount_role.py` (điểm ghép LAB, biết REPO_ROOT) tự `sys.path.insert(0, REPO_ROOT)`
+  idempotent lúc import → `import roles.*` chạy dù cwd nào. Verify: ca C001 end-to-end ra
+  DSCR 3.709 có nguồn. — Đổi: cài `roles` thành package qua pip -e, hoặc set PYTHONPATH ở
+  docker/entrypoint (thì bỏ dòng sys.path).
 - **Auth cấu trúc (T1-1):** router/service/security/deps tách tầng (backend.md). JWT HS256
   (PyJWT) secret env `JWT_SECRET` (default dev-only, D-12 .env gitignored) qua cookie httponly
   `shb_token` (EventSource không set header — CONTRACT §1) + fallback Bearer header cho REST/test.

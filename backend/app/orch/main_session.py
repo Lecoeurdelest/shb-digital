@@ -200,10 +200,48 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
 
 
 async def _turn_runner(conv_id: str, event: str, data: dict) -> None:
-    """Nối handle_room_event → run_main_turn. Dựng prompt theo loại event (vỏ đưa dữ kiện, não
-    quyết — N1: KHÔNG lệnh 'đợi đủ N con')."""
+    """Nối handle_room_event → run_main_turn + SSE stream (T1-3). Vỏ đưa dữ kiện, não quyết (N1).
+
+    Stream chat.delta chunk qua on_text; MỌI kết lượt (xong/lỗi) bắn chat.delta done (Gap1) +
+    persist message assistant/system + conversation.status. Lỗi main → message sender='system'
+    (Gap2 — user thấy lịch sử). uuid turn_id cho seq per-turn (streaming-sse §3)."""
+    import uuid
+
+    from app.sse.emit import emit_chat_delta, emit_chat_done, emit_conversation_status
+
     prompt = _build_event_prompt(event, data)
-    await run_main_turn(conv_id, prompt)
+    turn_id = str(uuid.uuid4())
+
+    await store.set_conv_status(conv_id, "running")
+    emit_conversation_status(conv_id, "running")
+
+    async def on_text(chunk: str) -> None:
+        emit_chat_delta(conv_id, turn_id, chunk)
+
+    try:
+        result = await run_main_turn(conv_id, prompt, on_text=on_text)
+        text = result["text"]
+        if result["is_error"]:
+            # lỗi main trong lượt (is_error) — Gap2: message system + status failed
+            await store.add_message(conv_id, "system", text or "Lượt xử lý gặp lỗi.")
+            emit_chat_done(conv_id, turn_id, text)
+            await store.set_conv_status(conv_id, "failed")
+            emit_conversation_status(conv_id, "failed")
+        else:
+            if text:
+                await store.add_message(conv_id, "assistant", text)  # persist TRƯỚC done (§5)
+            emit_chat_done(conv_id, turn_id, text)  # Gap1: MỌI kết lượt bắn done
+            await store.set_conv_status(conv_id, "idle")
+            emit_conversation_status(conv_id, "idle")
+    except Exception as e:  # noqa: BLE001 — lượt main nổ (SDK/provider): Gap1+Gap2, không chết im
+        import logging
+
+        logging.getLogger("orch.session").error("lượt main lỗi conv %s: %s", conv_id, e)
+        msg = f"Hệ thống gặp lỗi khi xử lý: {str(e)[:200]}. Anh/chị gửi lại tin nhắn để tiếp tục."
+        await store.add_message(conv_id, "system", msg)
+        emit_chat_done(conv_id, turn_id, "")  # Gap1: done dù rỗng → bubble FE không treo
+        await store.set_conv_status(conv_id, "failed")
+        emit_conversation_status(conv_id, "failed")
 
 
 def _build_event_prompt(event: str, data: dict) -> str:

@@ -287,13 +287,6 @@ async def test_release_does_not_reacquire_ghost_slot():
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────
-# Ca GATE S1 end-to-end (chờ T1-3 SSE/chat API) — placeholder, KHÔNG chạy tới lúc đó.
-# ─────────────────────────────────────────────────────────────────────────
-
-
-@pytest.mark.skip(reason="Chờ T1-3 (chat API + SSE) để chạy end-to-end thật — xem T1-5 Verification #4.")
-def test_gate_s1_dscr_end_to_end_via_sse():
-    """Câu hỏi C001 → SSE chat.delta chứa '3.709' + citation nguồn credit_assess.
-    Verify QUA tool-trace/tasks (main thực sự gọi tool), KHÔNG tin text main tự xưng —
-    main nhẩm DSCR thay vì gọi tool = FAIL dù số ra đúng (T1-5 brief, defensive case)."""
+# Ca GATE S1 end-to-end: T1-3 đã hạ cánh — bài test THẬT chuyển sang file riêng
+# `test_gate_s1_e2e.py` (giữ tách khỏi pytestmark module-level skipif ở đầu file này,
+# và theo đúng pattern opt-in live-SDK backend đã dùng ở test_orch_live_smoke.py).

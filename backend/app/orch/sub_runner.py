@@ -78,6 +78,11 @@ async def _report(task: Task, outcome: str, result: dict[str, Any] | None) -> No
             "board": board,
         }
         if _event_sink is not None:  # đường HÀNG ĐỢI PHÒNG (đánh thức main) — TÁCH khỏi SSE
+            # D-33: INLINE await (không spawn §6) — main lượt 2 chạy TRONG task sub (finally
+            # shielded). ACCEPT S1 (architect verify 5 discriminator: sema-released, disconnect
+            # same-task, multi-sub-không-nest, shield-không-trap-interrupt, CTX-actor-guarded).
+            # S2 (khi thêm §9 main-retry/concurrency) → chuyển thành asyncio.ensure_future (2-line).
+            # S2 BUILDER: ĐỪNG giả định đây là spawn — nó là await inline có chủ đích. Xem D-33.
             await _event_sink(task.conv_id, "task_done", payload)
     except Exception as e:  # đường đỡ cuối — không nuốt im
         import logging

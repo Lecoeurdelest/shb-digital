@@ -1,0 +1,52 @@
+"""SSE endpoint (streaming-sse §4). GET /conversations/{id}/sse → text/event-stream.
+
+4 header sống-còn (X-Accel-Buffering:no THIẾU = chết im sau nginx) + heartbeat 15s +
+finally unsubscribe (mọi đường thoát dọn subscriber). Cap connection/conv. Auth cookie
+(EventSource không set custom header — require_user đọc cookie shb_token).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
+
+from app.auth.deps import require_user
+from app.errors import ApiError
+from app.sse import bus
+
+router = APIRouter(prefix="/api/conversations", tags=["sse"])
+
+_HEARTBEAT = 15.0
+
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache",  # chặn cache proxy/browser
+    "X-Accel-Buffering": "no",  # tắt buffering nginx — THIẾU LÀ SSE CHẾT IM
+    "Connection": "keep-alive",
+    "Content-Encoding": "identity",  # chặn middleware gzip gom frame
+}
+
+
+@router.get("/{conv_id}/sse")
+async def sse(conv_id: str, request: Request, _claims: dict = Depends(require_user)) -> StreamingResponse:
+    if bus.conn_count(conv_id) >= bus.MAX_CONN_PER_CONV:
+        raise ApiError(429, "too_many_connections", "Quá số kết nối SSE cho ca này.", "Đóng bớt tab.", retryable=True)
+    q = bus.subscribe(conv_id)
+
+    async def gen():
+        try:
+            yield ": connected\n\n"  # flush frame đầu, mở đường ống ngay
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    ev = await asyncio.wait_for(q.get(), timeout=_HEARTBEAT)
+                    yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+                except TimeoutError:
+                    yield ": heartbeat\n\n"  # comment-line — giữ conn, FE không thấy
+        finally:
+            bus.unsubscribe(conv_id, q)  # MỌI đường thoát dọn subscriber
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=_SSE_HEADERS)
