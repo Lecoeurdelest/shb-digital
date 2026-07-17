@@ -8,7 +8,84 @@
 
 - (trống)
 
+## ① VƯỢT-SPEC
+
+- **D-21 · Data nghiệp vụ → POSTGRES (đúng cấu trúc system thật); tool/skill LÀ VIỆC LAB, vỏ
+  cấp conn — cách A2** (người chốt 18/7 — ĐẢO SPEC §7/§10/§12) — SQLite của LAB là ĐỒ THÍ NGHIỆM
+  (xoá/sửa/bơm liên tục để train, rẻ+nhanh), KHÔNG phải thành phần system thật. System thật build
+  data nghiệp vụ (`customers·businesses·loans·collaterals·cic_records·assumptions` + legal tables)
+  trong **1 Postgres** cùng render+audit (1 pool, sạch dưới 1 worker). Từ LAB dựng lại SCHEMA +
+  seed-values trong PG; KHÔNG mount file `.db`.
+  - **RANH GIỚI CỨNG N1 (người chốt 18/7 — "bạn chỉ lo system, tool+skill để LAB lo"):** đội build
+    lo **VỎ** (mount_role, cấp conn, dispatch, event, phanh, canvas, UI) — **KHÔNG viết/sửa tool
+    nghiệp vụ, KHÔNG viết skill**. TRÍ KHÔN (tool+skill) = LAB nuôi.
+  - **Cách A2 (giữ N3 vỏ-mù + LAB-thả-file):** contract §7 giữ `fn(conn, **kwargs)->dict`; **vỏ
+    truyền PG conn từ pool** (thay SQLite). **Tool LAB viết SQL PORTABLE** (ANSI: `%s`/param bind,
+    KHÔNG cú pháp SQLite-riêng như `?`, `INSERT OR`, `strftime`). Vỏ KHÔNG đụng logic tool — tool
+    nào lỡ dùng cú pháp SQLite-riêng → LAB sửa cho portable, không phải vỏ reimplement. LAB vẫn
+    "thả file functions + dán SCHEMAS + xoá stub" (D-18 GIỮ NGUYÊN, chỉ đổi: conn giờ là PG,
+    SQL portable).
+  - **Write-back (tự quyết theo nghiệp vụ, decide-and-log):** `disburse` GHI NGƯỢC
+    `loans.status='disbursed'` (nghiệp vụ thật). Biên nhận vẫn ở `approvals.receipt` = nguồn-sự-thật
+    chống-thực-thi-đôi (§4.4); loan status là hệ quả. → business tables CẦN write path → PG đúng.
+    (Tool ghi vẫn là LAB viết; vỏ chỉ cấp conn ghi-được thay vì read-only.) — Đổi: người nói disburse
+    không chạm data nghiệp vụ.
+  - **Sequencing (giữ prove-spine-first):** B2 dựng PG path NHỎ NHẤT — chỉ bảng `credit_assess`
+    cần (customers/loans/cic/assumptions) — chạy thông xương sống (chat→dispatch→sub→tool THẬT→
+    event→main) TRƯỚC; legal/products/ops + schema còn lại fan-out sau. KHÔNG front-load full
+    migration trước xương sống.
+  - — Đổi: người quay lại mount SQLite, hoặc chuyển sang A1 (báo LAB viết tool cho PG trực tiếp).
+- **D-22 · Conn cấp cho tool LAB = psycopg2 SYNC conn chạy trong `run_in_executor`** (team-lead
+  chốt 18/7, decide-and-log — backend nêu, verify nguồn LAB) — fn LAB là **hàm THUẦN SYNC**
+  (`def credit_assess(conn, ...)` + `conn.execute().fetchone()`, DB-API style — verify tại
+  `../shb-digital-experts/missions/shb-132/tools/functions/`). Interface §7 "fn thuần, không
+  import SDK/async" GIỮ NGUYÊN. Vỏ `mount_role`: pool **psycopg2** (sync conn, `%s` param bind
+  — DB-API giống SQLite `?`, fn gần như chỉ đổi placeholder), mỗi call `acquire` 1 conn rồi chạy
+  `fn(conn, **kwargs)` qua `loop.run_in_executor` → **không block event loop** (khớp rủi ro (b)),
+  giữ được fn sync (không ép LAB async). Ghi (disburse) = conn transaction ghi-được, bỏ ràng
+  read-only. KHÔNG dùng asyncpg (async-only → ép fn async → phá interface). — Đổi: người/architect
+  chọn asyncpg + LAB async, hoặc A1.
+
 ## ② TỰ-QUYẾT
+
+- **D-27 · Conn cấp cho tool LAB = ADAPTER bọc psycopg2 conn "quack như sqlite3.Connection"
+  (architect chốt kickoff S1 — decide-and-log; verify bằng đọc credit.py thật)** — psycopg2 conn
+  KHÔNG chạy được `functions/credit.py` như-là kể cả sau `?`→`%s`, vì credit.py dùng: (a)
+  `conn.execute(sql,args)` — psycopg2 connection KHÔNG có `.execute()` (chỉ `.cursor()`); (b)
+  placeholder `?` — psycopg2 chỉ nhận `%s`; (c) row access HỖN HỢP trong cùng file (`dict(row)`
+  ở `_one` + `row[0]/row[1]` ở `_assumptions` + `pay_row[0]` ở SUM) — KHÔNG cursor stock nào phủ
+  cả 3 (RealDictCursor phá index, NamedTupleCursor phá `dict(row)`). **Fix N1-sạch = adapter ở
+  LỚP CẤP-CONN của vỏ** (đúng D-21 A2 "vỏ chỉ đổi lớp cấp-conn, KHÔNG đụng logic tool"): 1 class
+  bọc pooled psycopg2 conn cấp `.execute(sql, params)` (tự rewrite `?`→`%s`, mở cursor) trả
+  cursor có row factory 3-mode (index + `dict(row)` như `sqlite3.Row`). credit.py copy vào
+  BYTE-NGUYÊN, swap vẫn drop-file. **KHÔNG sửa credit.py** (vỏ chạm logic tool = phá N1, vỡ lại
+  mỗi lần LAB re-drop). **KHÔNG chờ LAB viết portable** (kẹt spine, phá D-18 "vỏ chủ động không
+  để LAB block"). — Đổi: LAB tự viết tool cho psycopg2 trực tiếp (A1), hoặc dùng SQLAlchemy Core
+  làm lớp adapter thay vì tự viết.
+- **D-26 · Lệnh/layout dev chốt: uv + pytest + ruff (BE) · vite+vitest+tsc (FE) · PG qua docker
+  compose** (architect chốt kickoff S1 — decide-and-log, CLAUDE.md §1 đã cho quyền) — đã điền
+  CLAUDE.md §1. Layout: `backend/app/` (FastAPI+orchestrator+mount+db), `frontend/`, `roles/<role>/`
+  (SKILL.md+functions.py từ D-08), `docker-compose.yml`. DB dev `postgresql://shb:shb@localhost:5432/shb`
+  (env `DATABASE_URL`). ruff check = "typecheck sạch" Gate 2. — Đổi: người/architect đổi toolchain.
+- **D-23 · "Nhắn riêng cho sub" = UI-only, KHÔNG có API/endpoint riêng** (team-lead chốt 18/7,
+  decide-and-log — FE+tester cùng hỏi; SPEC §11 im lặng) — mock có Composer trong SubAgentView
+  nhưng SPEC §4.3 chốt "sub không nói với user, mọi bàn giao qua Main" + không liệt kê endpoint.
+  → Cửa nhắn-sub là **cửa sổ GIÁM SÁT** (D-20): FE hiển thị trace sống của sub; ô "nhắn" là
+  note lưu LOCAL (UI-only) hoặc để sau — KHÔNG tạo endpoint gọi thẳng sub (phá luật "chỉ Main
+  giao việc"). Muốn tác động sub → user chat với Main, Main tự re-dispatch. — Đổi: người muốn
+  kênh nhắn-sub thật (thì mới cần API + đổi luật §4.3).
+- **D-24 · Lobby 3D = polish (B6), sprint đầu placeholder 2D được** (team-lead chốt 18/7,
+  decide-and-log — FE hỏi) — three.js nặng; chức năng lõi (canvas card, approval flow, chat,
+  trace) ưu tiên trước. Build-order §16 xếp "UI theo mock" ở B6 Polish. FE build placeholder 2D
+  cho "phòng làm việc" (grid phòng ban + status dot) ở sprint chức năng, nâng 3D ở polish nếu
+  kịp. Ghi deviation, không FAIL vì thiếu 3D sớm. — Đổi: người/architect kéo 3D lên sớm.
+- **D-25 · Tester lấy PG conn trực tiếp để verify (đọc `.env`/docker-compose dev)** (team-lead
+  chốt 18/7 — tester hỏi) — tester cần `SELECT` thẳng PG (không qua tool MCP) để đối chiếu
+  `approvals.status`/`loans.status`/`tool_calls` append-only sau mỗi ca. Conn string dev = từ
+  `docker-compose`/`.env` architect chốt ở kickoff (§1 CLAUDE.md). Đúng §5 (query lại row, kiểm
+  field). Tool-layer verify: gọi thẳng `REGISTRY[tool](conn, **kw)` (test fn thuần contract §7)
+  + gọi qua `mount_role` MCP in-process (test wrapper gated/envelope bad_param) — KHÔNG cần spawn
+  SDK session thật. Tester hiểu đúng kiến trúc. — Đổi: architect cấp harness verify chuẩn khác.
 
 - **D-16 · SDK auth = dùng auth máy (claude-cli subscription), KHÔNG env/key trong build**
   (người chốt 18/7) — port pattern `Providers` từ `battle/core/runtime/providers.py`:

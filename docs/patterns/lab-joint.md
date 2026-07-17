@@ -1,5 +1,11 @@
 # Pattern: Mối ghép LAB → SYSTEM + mount tool MCP in-process
 
+> ⚠️ **D-21 (18/7) ĐÈ doc này**: data nghiệp vụ nay ở **Postgres** (1 kho với render+audit),
+> KHÔNG SQLite. `conn` do vỏ cấp = **PG conn từ pool** (không `sqlite3.connect(mode=ro)`);
+> tool LAB viết **SQL portable**; disburse GHI được (không read-only cứng). Mọi snippet
+> `sqlite3.*` / `mode=ro` / `row_factory=Row` bên dưới là bản CŨ — architect adapt sang PG
+> pool ở B1 (cách A2: vỏ chỉ đổi lớp cấp-conn, KHÔNG đụng logic tool). Xem DECISIONS D-21.
+>
 > Bản "cách build" cho `SPEC.md` §7 (contract 4 interface + `mount_role`),
 > phủ luôn §5 (tool chung) và nguyên lý N3 (vỏ mù). Đọc doc này + spec là viết được
 > `mount_role` và stub 3 role — không cần đọc thêm gì.

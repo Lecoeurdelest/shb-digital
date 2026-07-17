@@ -197,7 +197,9 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
 ## 7. Contract ghép LAB → SYSTEM
 
 **Bốn interface khoá cứng — vỏ mù mọi thứ phía sau:**
-1. **Tool** = hàm thuần `fn(conn, **kwargs) -> dict` (conn = SQLite read-only vào seed DB).
+1. **Tool** = hàm thuần `fn(conn, **kwargs) -> dict` — conn = **Postgres từ pool** do VỎ cấp (D-21,
+   cách A2). Data nghiệp vụ nằm CÙNG Postgres với render+audit (không SQLite). Tool viết **SQL
+   PORTABLE** (param bind, không cú pháp SQLite-riêng); tool+skill là việc LAB, vỏ không đụng logic.
 2. **Schema** = entry `{tên: {"mô tả": str, "params": {tên: {type, required?, default?, values?, desc}}}}`
    (+ annotations). Đây là docs duy nhất agent thấy.
 3. **Skill** = `SKILL.md` text thô → system_prompt của sub. Không parse.
@@ -206,13 +208,14 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
 **Điểm ghép duy nhất — `mount_role(role)`:**
 ```
 đọc roles/<role>/  →  {SKILL.md, functions.py, SCHEMAS, ANNOTATIONS}
-  → wrap từng fn:  mở conn read-only (row_factory=Row) mỗi call
+  → wrap từng fn:  lấy conn PG từ pool mỗi call (D-21 A2; đọc mặc định,
+                   ghi cho tool gated như disburse)
                    + try/except → error 4-field (db_error/bad_type/tool_error)
                    + wrapper gated nếu tên trong whitelist phanh
   → build MCP server in-process "banking_<role>"  →  allowed_tools cho sub role đó
 ```
-- **Swap tool thật = 3 thao tác**: thả file functions + dán cụm SCHEMAS/REGISTRY + xoá stub.
-  `mount_role` và toàn bộ orchestrator/FE KHÔNG đổi.
+- **Swap tool thật = 3 thao tác**: thả file functions (SQL portable — D-21) + dán cụm
+  SCHEMAS/REGISTRY + xoá stub. `mount_role` và toàn bộ orchestrator/FE KHÔNG đổi.
 - Schema build bằng full JSON Schema (required/enum/default nằm TRONG schema) — không dùng
   shorthand ép mọi param thành required (vỡ tool có param optional).
 - **Hiện trạng theo thời điểm — kiểm nguồn D-08 lúc kickoff**: role nào lab ĐÃ đẻ thật
@@ -222,8 +225,9 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
   wiki markdown trên disk (mục lục inject vào prompt + tool đọc-trang) — là 1 tool retrieval
   lab đẻ, vỏ không dựng hạ tầng RAG. Chọn cách lấy dữ liệu theo bài (time/accuracy/cost):
   có id rõ → query DB thẳng · cô đọng → skill/wiki · triệu bản ghi không cấu trúc → mới tính vector.
-- Seed DB (lab giữ nguồn): `customers · businesses · loans · collaterals · cic_records · assumptions`
-  (con số nghiệp vụ = bảng assumptions, swap được — không hardcode).
+- Data nghiệp vụ (D-21 — trong Postgres, cùng kho render+audit): `customers · businesses · loans ·
+  collaterals · cic_records · assumptions` (+ legal tables). Con số nghiệp vụ = bảng `assumptions`,
+  swap được — không hardcode. Schema + seed-values dựng lại từ nguồn LAB (D-08), KHÔNG mount `.db`.
 
 ## 8. Session & sự cố
 
@@ -252,9 +256,10 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
   KHÔNG có replay-cursor/outbox.
 - Header SSE production: `X-Accel-Buffering: no` (thiếu là chết im sau nginx) + heartbeat.
 
-## 10. Data model (Postgres — kho render + audit)
+## 10. Data model (Postgres — 1 kho: NGHIỆP VỤ + render + audit — D-21)
 
 ```sql
+-- ── VẬN HÀNH / render / audit (BE ghi lúc chạy) ──
 users(id, username, pass_hash, role)                    -- 2 account: user(RM) / admin
 conversations(id, user_id, title, status, sdk_session_id, created_at)
 messages(id, conv_id, ts, sender, content, meta jsonb)
@@ -266,6 +271,15 @@ approvals(id, conv_id, task_id, action, payload jsonb, payload_hash,
           status,                 -- pending | approved | rejected | used (§4.4)
           decided_by, decided_at, reason,
           used_at, receipt jsonb) -- biên nhận thực thi — chống thực-thi-đôi (§4.4)
+
+-- ── NGHIỆP VỤ (tool LAB đọc; disburse ghi loans.status — D-21; schema+seed dựng từ nguồn LAB) ──
+customers(id, full_name, occupation, monthly_income, region, ...)
+businesses(id, name, sector, annual_revenue, ...)
+loans(id, owner_id, amount, monthly_payment, outstanding, status, ...)   -- status: active|disbursed…
+collaterals(id, owner_id, type, appraised_value, docs_status, ...)
+cic_records(owner_id, cic_group, history_note, ...)
+assumptions(key, value)                                 -- con số nghiệp vụ, swap được
+-- + legal tables (legal_requirements, owner_documents, restricted_purposes, …) khi mount legal
 ```
 
 ## 11. API
