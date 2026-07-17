@@ -1,0 +1,21 @@
+.cite-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font: 600 10.5px var(--mono);
+  color: var(--run);
+  background: rgba(95, 178, 201, 0.1);
+  border: 1px solid rgba(95, 178, 201, 0.28);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cite-chip:hover {
+  background: rgba(95, 178, 201, 0.2);
+  border-color: rgba(95, 178, 201, 0.5);
+}
+.cite-chip__icon {
+  font-size: 9px;
+  opacity: 0.8;
+}

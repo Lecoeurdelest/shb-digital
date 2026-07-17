@@ -13,9 +13,11 @@ import { ConversationSidebar } from './components/ConversationSidebar';
 import { Composer } from './components/Composer';
 import { MessageBubble, StreamingMessageBubble, type StreamingBubble } from './components/MessageBubble';
 import { TaskBadge } from './components/TaskBadge';
+import { Canvas } from './components/Canvas';
 import { roleLabel } from './roles';
 import type {
   AuthUser,
+  Card,
   Conversation,
   ConversationFullState,
   ConversationStatus,
@@ -53,6 +55,7 @@ export function Workspace({ user, onAuthExpired }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [tasks, setTasks] = useState<OrchTask[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [convStatus, setConvStatus] = useState<ConversationStatus>('idle');
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [creating, setCreating] = useState(false);
@@ -99,11 +102,18 @@ export function Workspace({ user, onAuthExpired }: Props) {
   const applyFullState = useCallback((state: ConversationFullState) => {
     setMessages(state.messages);
     setTasks(state.tasks);
+    setCards(buildCanvas(state.cards ?? []));
     setConvStatus(state.conversation.status);
     setConversations((prev) => upsertById(prev, state.conversation));
     setStreaming(null);
     setLoadError(null);
   }, []);
+
+  // SSE card → upsert canvas (upsert theo id + replace theo (task_id,type) giữ ts mới — §4).
+  const upsertCard = useCallback((card: Card) => {
+    setCards((prev) => upsertCardInto(prev, card));
+  }, []);
+
 
   const appendText = useCallback((turnId: string, chunk: string) => {
     setStreaming((cur) =>
@@ -159,8 +169,8 @@ export function Workspace({ user, onAuthExpired }: Props) {
   }, [applyFullState]);
 
   const handlers: ConversationSSEHandlers = useMemo(
-    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus }),
-    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus],
+    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard }),
+    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard],
   );
 
   useConversationSSE(activeId, handlers);
@@ -170,6 +180,7 @@ export function Workspace({ user, onAuthExpired }: Props) {
     setActiveId(id);
     setMessages([]);
     setTasks([]);
+    setCards([]);
     setStreaming(null);
     setConvStatus('idle');
     setLoadError(null);
@@ -302,20 +313,33 @@ export function Workspace({ user, onAuthExpired }: Props) {
           )}
         </section>
 
-        {/* canvas placeholder — 7 card types là S3 (task brief OUT) */}
-        <section className="ws__canvas">
-          <div className="ws__canvas-head">▦ Công việc chi tiết</div>
-          <div className="ws__canvas-body">
-            <div className="ws__canvas-placeholder">
-              Sản phẩm công việc (case-file · chỉ số · tờ trình…) sẽ hiện ở đây khi đội chạy.
-              <br />
-              <span className="ws__canvas-sub">Canvas &amp; 7 loại card — sprint sau (S3).</span>
-            </div>
-          </div>
-        </section>
+        {/* canvas: live map 2D + bảng việc + card render (S2 — T2-3) */}
+        <Canvas cards={cards} tasks={tasks} />
       </div>
     </div>
   );
+}
+
+// canvas-present §4: dựng canvas từ full-state cards[] — replace theo (task_id,type) giữ ts mới nhất
+// (1 role trình lại cùng loại card → thay bản cũ, không nhân đôi). Sort theo ts để thứ tự ổn định.
+function buildCanvas(cards: Card[]): Card[] {
+  const byKey = new Map<string, Card>();
+  for (const c of [...cards].sort((a, b) => (a.ts ?? '').localeCompare(b.ts ?? ''))) {
+    byKey.set(canvasKey(c), c); // ts sau ghi đè ts trước
+  }
+  return [...byKey.values()];
+}
+
+// upsert 1 card (SSE) vào canvas: cùng id → replace; cùng (task_id,type) khác id → thay bản cũ giữ mới.
+function upsertCardInto(prev: Card[], card: Card): Card[] {
+  const key = canvasKey(card);
+  const next = prev.filter((c) => c.id !== card.id && canvasKey(c) !== key);
+  next.push(card);
+  return next.sort((a, b) => (a.ts ?? '').localeCompare(b.ts ?? ''));
+}
+
+function canvasKey(c: Card): string {
+  return `${c.task_id ?? 'null'}::${c.type}`;
 }
 
 function describeError(err: unknown, fallback: string): string {

@@ -1,0 +1,152 @@
+/* Canvas.css — panel phải: tabs, live map 2D, bảng việc, card grid. Màu từ tokens.css. */
+
+.canvas {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.canvas__tabs {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 10px 16px 0;
+}
+.canvas__tab {
+  padding: 7px 15px;
+  border-radius: 9px 9px 0 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: var(--mute);
+  border: 1px solid transparent;
+  border-bottom: none;
+}
+.canvas__tab--active {
+  background: var(--bg);
+  color: var(--tx);
+  border-color: var(--bd);
+}
+
+/* ── lobby: live map + bảng việc ── */
+.canvas__lobby {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.livemap {
+  background: radial-gradient(70% 60% at 50% 40%, rgba(217, 119, 87, 0.05), transparent), var(--bg);
+  border: 1px solid var(--bd);
+  border-radius: 14px;
+  padding: 20px;
+}
+.livemap__main {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--main);
+  padding: 10px;
+  margin-bottom: 16px;
+  background: var(--tone-main-bg);
+  border: 1px solid var(--tone-main-bd);
+  border-radius: 10px;
+}
+.livemap__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.livemap__node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 10px;
+  border-radius: 12px;
+  background: var(--p1);
+  border: 1px solid var(--bd);
+}
+.livemap__node--run { border-color: var(--tone-run-bd); background: var(--tone-run-bg); }
+.livemap__node--pass { border-color: var(--tone-pass-bd); }
+.livemap__node--fail { border-color: var(--tone-fail-bd); background: var(--tone-fail-bg); }
+.livemap__icon { font-size: 22px; }
+.livemap__name { font-size: 11.5px; font-weight: 700; color: var(--tx); }
+.livemap__status { font-size: 10px; color: var(--mute); }
+
+.canvas__tasks {
+  background: var(--p1);
+  border: 1px solid var(--bd);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.canvas__tasks-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--faint);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+.canvas__tasks-empty { font-size: 11px; color: var(--faint); }
+.canvas__tasks-list { display: flex; flex-direction: column; gap: 7px; }
+.canvas__task-row { display: flex; align-items: center; gap: 9px; }
+.canvas__task-title {
+  font-size: 11px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── work: card grid ── */
+.canvas__work {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+.canvas__empty {
+  text-align: center;
+  color: var(--faint);
+  font-size: 12px;
+  padding: 60px 20px;
+  line-height: 1.6;
+}
+.canvas__cite-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+  color: var(--run);
+  background: rgba(95, 178, 201, 0.1);
+  border: 1px solid rgba(95, 178, 201, 0.3);
+}
+.canvas__cite-banner b { color: var(--tx); }
+.canvas__cite-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--mute);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.canvas__cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-content: start;
+}
+
+@media (max-width: 1200px) {
+  .canvas__cards { grid-template-columns: 1fr; }
+}

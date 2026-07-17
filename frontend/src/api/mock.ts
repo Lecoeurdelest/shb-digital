@@ -5,6 +5,7 @@
 // Đây LÀ đường dây thay cho backend thật — swap: đổi VITE_USE_MOCK_API=false, không đụng UI.
 
 import type {
+  Card,
   ChatDeltaData,
   Conversation,
   ConversationFullState,
@@ -31,6 +32,7 @@ interface MockRoom {
   conversation: Conversation;
   messages: Message[];
   tasks: OrchTask[];
+  cards: Card[];
   listeners: Set<(ev: SSEEnvelope) => void>;
 }
 
@@ -62,7 +64,7 @@ class MockBackend {
       status: 'idle',
       created_at: nowIso(),
     };
-    this.rooms.set(id, { conversation: conv, messages: [], tasks: [], listeners: new Set() });
+    this.rooms.set(id, { conversation: conv, messages: [], tasks: [], cards: [], listeners: new Set() });
     return conv;
   }
 
@@ -72,6 +74,7 @@ class MockBackend {
       conversation: r.conversation,
       messages: r.messages,
       tasks: r.tasks,
+      cards: r.cards,
     };
   }
 
@@ -79,7 +82,7 @@ class MockBackend {
     // subscribing to a room we don't know about yet is fine — room may be created after mount
     let r = this.rooms.get(convId);
     if (!r) {
-      r = { conversation: { id: convId, title: convId, status: 'idle', created_at: nowIso() }, messages: [], tasks: [], listeners: new Set() };
+      r = { conversation: { id: convId, title: convId, status: 'idle', created_at: nowIso() }, messages: [], tasks: [], cards: [], listeners: new Set() };
       this.rooms.set(convId, r);
     }
     r.listeners.add(cb);
@@ -186,9 +189,28 @@ class MockBackend {
       r.tasks = r.tasks.map((t) => (t.id === task!.id ? task! : t));
       this.emit(convId, envelope(convId, 'task.status', { task }));
 
+      // credit sub present card metric (DSCR có nguồn) — shape đúng CONTRACT §3 (value mixed, pass nullable)
+      this.presentCard(convId, task.id, 'metric', 'Chỉ số thẩm định — C001', [
+        { name: 'DSCR', value: dscr, threshold: '>= 1.2', pass: true, source: 'credit_assess' },
+        { name: 'Nhóm CIC', value: 1, threshold: 'nhóm 1-2', pass: true, source: 'credit_cic_get' },
+        { name: 'Thu nhập/tháng', value: '30,000,000 VND', threshold: 'N/A', pass: null, source: 'cust_get' },
+        { name: 'Nợ hiện tại/tháng', value: '8,088,576 VND', threshold: 'N/A', pass: null, source: 'cust_get' },
+      ]);
+      await delay(MOCK_LATENCY_MS);
+      // main present thêm options + timeline + document để canvas đủ nhiều loại (mock demo canvas)
+      this.presentCard(convId, null, 'options', 'Gói vay phù hợp', [
+        { name: 'Vay tiêu dùng 700tr', rate: '13.5%/năm', tenor: '60 tháng', source: 'products_catalog' },
+        { name: 'Vay thế chấp 5 tỷ', rate: '9.2%/năm', tenor: '120 tháng', source: 'products_catalog' },
+      ], { recommended: 'Vay thế chấp 5 tỷ' });
+      this.presentCard(convId, null, 'timeline', 'Lộ trình xử lý', [
+        { step: 'Thẩm định tín dụng', owner: 'Tín dụng', eta: 'xong' },
+        { step: 'Bổ sung tài sản đảm bảo', owner: 'RM', eta: '2 ngày' },
+        { step: 'Trình duyệt + giải ngân', owner: 'Vận hành', eta: '3 ngày' },
+      ], { total_days: 5 });
+
       const answer =
         ` Đã có kết quả từ Tín dụng: DSCR = ${dscr.toFixed(3)} (thu nhập 30tr/tháng, nợ hiện tại 8tr/tháng — nguồn: credit_assess). ` +
-        'DSCR > 1 nên khả năng trả nợ đạt ngưỡng an toàn cơ bản, cần đối chiếu thêm CIC trước khi kết luận.';
+        'Bảng chỉ số + gói vay + lộ trình đã trình bên canvas. Cần đối chiếu thêm CIC trước khi kết luận.';
       await this.streamText(convId, turnId, seq, answer, true);
     } else {
       await this.streamText(convId, turnId, seq, ' (mock không nhận diện yêu cầu cần tra tín dụng — gõ câu có "C001" hoặc "DSCR" để xem luồng đầy đủ)', true);
@@ -196,6 +218,17 @@ class MockBackend {
 
     r.conversation.status = 'done';
     this.emit(convId, envelope(convId, 'conversation.status', { status: 'done' }));
+  }
+
+  // present 1 card: ghi vào room.cards (persist reload) + emit SSE card event. id VỎ-inject (mock sinh).
+  // extra = field top-level tuỳ type (recommended, total_days, flags...).
+  private presentCard(convId: string, taskId: string | null, type: string, title: string, items: unknown[], extra: Record<string, unknown> = {}): void {
+    const r = this.room(convId);
+    const card: Card = { id: uid('card'), conv_id: convId, task_id: taskId, type, ts: nowIso(), title, items, ...extra };
+    // replace theo (task_id,type) giữ mới nhất (canvas-present §4) — mock giữ nhất quán với FE
+    r.cards = r.cards.filter((c) => !(c.task_id === taskId && c.type === type));
+    r.cards.push(card);
+    this.emit(convId, envelope(convId, 'card', { card }));
   }
 
   // Stream 1 đoạn text theo từng "từ". seq TĂNG DẦN xuyên suốt lượt (dùng chung counter cho

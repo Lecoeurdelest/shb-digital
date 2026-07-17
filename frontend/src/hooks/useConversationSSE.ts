@@ -6,6 +6,7 @@
 import { useEffect, useRef } from 'react';
 import { conversationApi } from '../api';
 import type {
+  Card,
   ChatDeltaData,
   ConversationFullState,
   OrchTask,
@@ -18,6 +19,7 @@ export interface ConversationSSEHandlers {
   turnDone: (turnId: string, fullText: string) => void;
   upsertTask: (task: OrchTask) => void;
   setConversationStatus: (status: string) => void;
+  upsertCard: (card: Card) => void;
 }
 
 interface TurnBuffer {
@@ -71,7 +73,12 @@ export function useConversationSSE(convId: string | null, handlers: Conversation
           handlersRef.current.setConversationStatus(data.status);
           return;
         }
-        if (ev.type !== 'chat.delta') return; // card/toolcall/approval — sprint sau (S3+)
+        if (ev.type === 'card') {
+          const data = ev.data as { card: Card };
+          if (data.card) handlersRef.current.upsertCard(data.card);
+          return;
+        }
+        if (ev.type !== 'chat.delta') return; // toolcall/approval — sprint sau (S4)
 
         const d = ev.data as ChatDeltaData;
         const t = turns.get(d.turn_id) ?? { last: 0, buf: new Map<number, ChatDeltaData>() };

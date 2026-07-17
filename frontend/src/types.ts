@@ -54,10 +54,31 @@ export interface OrchTask {
   cost?: Record<string, unknown> | null;
 }
 
+// ── Card (canvas — CONTRACT §3 · canvas-present §3). N3 vỏ-mù: agent bơm items TỰ DO, vỏ chỉ
+// khoá {type, title, items}. FE render DEFENSIVE — field thiếu → bỏ qua, type lạ → default branch.
+// items = unknown[] (KHÔNG ép shape cứng); từng component tự đọc field an toàn qua helper.
+export interface Card {
+  id: string;
+  conv_id: string;
+  task_id: string | null;
+  type: string; // metric | checklist | options | timeline | case_file | document | approval | (lạ)
+  ts: string;
+  title?: string;
+  items?: unknown[];
+  sources?: string[];
+  // field tuỳ type (agent bơm): flags?, recommended?, total_days?, action?... — đọc qua record[key]
+  [key: string]: unknown;
+}
+
+export interface CardEventData {
+  card: Card;
+}
+
 export interface ConversationFullState {
   conversation: Conversation;
   messages: Message[];
   tasks: OrchTask[];
+  cards?: Card[]; // S2: canvas reload (CONTRACT §3). optional — S1 backend có thể chưa trả.
 }
 
 // ── SSE envelope (streaming-sse.md §2) ──

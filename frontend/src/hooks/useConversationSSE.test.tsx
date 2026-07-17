@@ -47,7 +47,7 @@ function taskEv(type: 'task.created' | 'task.status', task: OrchTask): SSEEnvelo
 }
 
 function makeHandlers(): ConversationSSEHandlers & { calls: Record<string, unknown[][]> } {
-  const calls: Record<string, unknown[][]> = { appendText: [], turnDone: [], upsertTask: [], setConversationStatus: [], applyFullState: [] };
+  const calls: Record<string, unknown[][]> = { appendText: [], turnDone: [], upsertTask: [], setConversationStatus: [], applyFullState: [], upsertCard: [] };
   return {
     calls,
     applyFullState: (s) => calls.applyFullState.push([s]),
@@ -55,6 +55,7 @@ function makeHandlers(): ConversationSSEHandlers & { calls: Record<string, unkno
     turnDone: (t, f) => calls.turnDone.push([t, f]),
     upsertTask: (t) => calls.upsertTask.push([t]),
     setConversationStatus: (s) => calls.setConversationStatus.push([s]),
+    upsertCard: (c) => calls.upsertCard.push([c]),
   };
 }
 
@@ -132,6 +133,18 @@ describe('useConversationSSE — ghép chunk streaming', () => {
     expect(h.calls.upsertTask.length).toBe(2);
     expect((h.calls.upsertTask[1][0] as OrchTask).status).toBe('done');
     expect(h.calls.setConversationStatus).toEqual([['done']]);
+  });
+
+  it('card event → upsertCard với full card row', async () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    const card = { id: 'card1', conv_id: 'c1', task_id: 't', type: 'metric', ts: '', title: 'DSCR', items: [] };
+    await act(async () => {
+      fakeES.fire('open');
+      fakeES.emit({ type: 'card', conversation_id: 'c1', seq: null, ts: '', data: { card } });
+    });
+    expect(h.calls.upsertCard.length).toBe(1);
+    expect((h.calls.upsertCard[0][0] as { id: string }).id).toBe('card1');
   });
 
   it('frame malformed (JSON hỏng) → không crash, bỏ qua', async () => {
