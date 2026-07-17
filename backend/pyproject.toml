@@ -1,0 +1,38 @@
+[project]
+name = "backend"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.18.5",
+    "bcrypt>=5.0.0",
+    "claude-agent-sdk>=0.1.0",
+    "fastapi[standard]>=0.139.2",
+    "psycopg2-binary>=2.9.12",
+    "pydantic>=2",
+    "pyjwt>=2.13.0",
+    "sqlalchemy>=2.0",
+    "uvicorn[standard]>=0.51.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.15.22",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# app.* nằm ở backend/ (.), roles.* nằm ở repo root (..) — D-26 layout
+pythonpath = [".", ".."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+# roles/ = labpack COPY từ LAB (N1 — VỎ không sửa logic); loại khỏi lint của vỏ.
+extend-exclude = ["app/db/migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
