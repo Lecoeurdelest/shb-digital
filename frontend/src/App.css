@@ -59,6 +59,20 @@
   color: var(--dim);
   font-weight: 500;
 }
+.ws__logout {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--mute);
+  background: none;
+  border: 1px solid var(--bd2);
+  border-radius: 8px;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+.ws__logout:hover {
+  color: var(--tx);
+  border-color: var(--dim);
+}
 
 /* ── body: 3 panel ── */
 .ws__body {

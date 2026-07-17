@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, Conversation, ConversationFullState } from '../types';
+import type { ApiError, Conversation, ConversationFullState, LoginResult } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -45,6 +45,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const apiClient = {
+  // login: cookie httponly shb_token do server set (credentials:'include' → browser tự lưu +
+  // gửi lại mọi call sau, gồm EventSource withCredentials). CONTRACT §1.
+  login(username: string, password: string): Promise<LoginResult> {
+    return request<LoginResult>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+  },
+
   listConversations(): Promise<Conversation[]> {
     return request<Conversation[]>('/api/conversations');
   },

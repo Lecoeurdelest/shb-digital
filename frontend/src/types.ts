@@ -2,6 +2,20 @@
 // bản thi hành gọn của SPEC §5/§9/§10/§11. BE define, FE ăn theo (1 codepath render).
 // Đổi shape → sửa CONTRACT.md TRƯỚC. KHÔNG tự chế field ngoài CONTRACT.
 
+// ── Auth (CONTRACT §1) ──
+export type UserRole = 'user' | 'admin';
+
+export interface AuthUser {
+  username: string;
+  role: UserRole;
+}
+
+// POST /api/auth/login trả {token, user} + set cookie httponly shb_token.
+export interface LoginResult {
+  token: string;
+  user: AuthUser;
+}
+
 export type ConversationStatus = 'running' | 'waiting_approval' | 'done' | 'failed' | 'idle';
 
 export interface Conversation {

@@ -5,11 +5,12 @@
 
 import { apiClient } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { Conversation, ConversationFullState } from '../types';
+import type { Conversation, ConversationFullState, LoginResult } from '../types';
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 
 export interface ConversationApi {
+  login(username: string, password: string): Promise<LoginResult>;
   listConversations(): Promise<Conversation[]>;
   createConversation(title: string): Promise<Conversation>;
   getConversation(id: string): Promise<ConversationFullState>;
@@ -18,6 +19,10 @@ export interface ConversationApi {
 }
 
 const mockApi: ConversationApi = {
+  async login(username: string) {
+    // mock không auth — chấp nhận mọi credential, trả role theo username (admin→admin, còn lại user).
+    return { token: 'mock-token', user: { username, role: username === 'admin' ? 'admin' as const : 'user' as const } };
+  },
   async listConversations() {
     return mockBackend.listConversations();
   },
@@ -51,6 +56,7 @@ function browserEventSource(convId: string): MinimalEventSource {
 }
 
 const realApi: ConversationApi = {
+  login: apiClient.login,
   listConversations: apiClient.listConversations,
   createConversation: apiClient.createConversation,
   getConversation: apiClient.getConversation,

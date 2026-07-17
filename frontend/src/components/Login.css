@@ -1,0 +1,112 @@
+.login {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(60% 50% at 50% 30%, rgba(217, 119, 87, 0.08), transparent), var(--bg);
+  padding: 24px;
+}
+
+.login__card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--p1);
+  border: 1px solid var(--bd);
+  border-radius: 16px;
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.login__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.login__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--acc);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--bg);
+  flex: none;
+}
+.login__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tx);
+}
+.login__sub {
+  font-size: 11px;
+  color: var(--mute);
+  margin-top: 2px;
+}
+
+.login__mockflag {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--warn);
+  background: var(--tone-warn-bg);
+  border: 1px solid var(--tone-warn-bd);
+  border-radius: 8px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.login__field span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+}
+.login__field input {
+  background: var(--bg2);
+  border: 1px solid var(--bd2);
+  border-radius: 9px;
+  padding: 10px 12px;
+  color: var(--tx);
+  font: 400 13px var(--font);
+  outline: none;
+}
+.login__field input:focus {
+  border-color: var(--acc);
+}
+
+.login__error {
+  font-size: 11.5px;
+  color: var(--fail);
+  background: var(--tone-fail-bg);
+  border: 1px solid var(--tone-fail-bd);
+  border-radius: 8px;
+  padding: 8px 11px;
+}
+
+.login__submit {
+  margin-top: 4px;
+  padding: 11px;
+  font-size: 13px;
+  width: 100%;
+}
+.login__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login__hint {
+  font-size: 10.5px;
+  color: var(--mute);
+  text-align: center;
+}
+.login__hint b {
+  color: var(--dim);
+}

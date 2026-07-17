@@ -1,13 +1,18 @@
 // App.test.tsx — vòng lõi chat qua mock API (VITE_USE_MOCK_API mặc định bật trong test).
 // Chứng minh: tạo ca → gõ câu C001 → mock stream chat.delta + task credit → DSCR 3.709 render +
 // badge task "xong". Bổ trợ Chrome verify (không thay thế — Gate 2 vẫn đòi browser).
+// Test Workspace TRỰC TIẾP (auth gate ở App = test riêng App.gate.test.tsx) — inject user giả.
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import App from './App';
+import { describe, it, expect, vi } from 'vitest';
+import { Workspace } from './Workspace';
+import type { AuthUser } from './types';
+
+const USER: AuthUser = { username: 'user', role: 'user' };
+const noop = vi.fn();
 
 describe('Workspace chat — vòng lõi S1 (mock API)', () => {
   it('tạo ca → gõ câu C001 → hiển thị DSCR 3.709 + badge Tín dụng xong', async () => {
-    render(<App />);
+    render(<Workspace user={USER} onAuthExpired={noop} />);
 
     // ban đầu: empty state
     expect(screen.getByText(/Chưa mở ca nào/i)).toBeInTheDocument();
@@ -39,7 +44,7 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
   });
 
   it('câu không liên quan tín dụng → vẫn stream trả lời, không tạo task credit', async () => {
-    render(<App />);
+    render(<Workspace user={USER} onAuthExpired={noop} />);
     fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
     const input = await screen.findByLabelText('Ô nhập câu hỏi');
     fireEvent.change(input, { target: { value: 'Xin chào' } });
@@ -54,7 +59,7 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
   });
 
   it('SUB fail (§4b Gap2 A) → badge failed + render task.result.reason + badge ca "Lỗi"', async () => {
-    render(<App />);
+    render(<Workspace user={USER} onAuthExpired={noop} />);
     fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
     const input = await screen.findByLabelText('Ô nhập câu hỏi');
     fireEvent.change(input, { target: { value: 'C001 vay — credit fail đi' } });
@@ -73,7 +78,7 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
   });
 
   it('MAIN fail (§4b Gap2 B) → system message lỗi + badge ca "Lỗi", KHÔNG treo bubble streaming', async () => {
-    render(<App />);
+    render(<Workspace user={USER} onAuthExpired={noop} />);
     fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
     const input = await screen.findByLabelText('Ô nhập câu hỏi');
     fireEvent.change(input, { target: { value: 'lỗi main mô phỏng quá tải' } });

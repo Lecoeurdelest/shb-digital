@@ -13,6 +13,20 @@ Backend T1-3 đã cung cấp (bám CONTRACT.md §1/§2/§4):
 - `GET /api/conversations/{id}/sse` → text/event-stream, envelope 1 shape, `chat.delta` có **seq per-turn**
 - (auth) `POST /api/auth/login` → `{token, user}` + JWT qua **cookie** (S1 có thể bypass)
 
+## ✅ ĐÃ RÁP THẬT (2026-07-18) — auth seam đóng
+Ráp mock→thật xong. Auth seam (architect cảnh báo) ĐÃ LỘ + ĐÓNG:
+- **Finding**: routes `Depends(require_user)` → không cookie = 401 (confirmed bằng curl: no-cookie→401,
+  with-cookie→200/201/202). FE T1-4 "bypass auth" → flip mock=false hit 401 như dự đoán.
+- **Fix**: thêm LOGIN flow FE — `src/components/Login.tsx` (form user/pass) + `App.tsx` = auth gate
+  (chưa login→Login, login→Workspace) + `Workspace.tsx` (tách từ App, nhận user + onAuthExpired 401→logout).
+  `client.ts login()` POST /api/auth/login → server set cookie httponly `shb_token` → mọi call sau +
+  EventSource `withCredentials` authenticated. `mock.login()` = accept mọi cred (mock không auth).
+- **Verified API thật**: login (user/user) → Workspace → ca "Probe ca DSCR" full-state render **DSCR=3.709
+  THẬT** + nguồn credit_assess + badge credit done (Chrome). SSE live: chat POST 202 → chat.delta seq
+  per-turn + task.created credit + conversation.status, shape khớp CONTRACT (curl verify).
+- **Deviation S1**: F5 reload mất user-state (cookie httponly FE không đọc được) → về Login. Chấp nhận
+  S1; mở rộng = gọi /me lúc mount nếu backend thêm endpoint.
+
 ## 1. Bật API thật (1 dòng)
 ```bash
 # frontend/.env  (hoặc export trước npm run dev)
