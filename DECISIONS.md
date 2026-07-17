@@ -48,6 +48,16 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-35 · Gate S2 (canvas) = MAIN present + STUB-role present (vỏ-controlled); real-sub card
+  (credit/legal) = BONUS không-gate — vì skill LAB KHÔNG gọi present (N1 cấm vỏ sửa)** (architect
+  chốt kickoff S2 — advisor bắt + grep verify) — `present` là việc VỎ (T2-1), nhưng AI-GỌI-present
+  là SKILL = việc LAB (N1). Grep xác nhận: credit SKILL + legal SKILL (copy từ LAB world không có
+  canvas) KHÔNG gọi present → real-sub card KHÔNG xuất hiện, và N1 CẤM vỏ sửa skill thật để thêm.
+  → Gate mechanism trên vỏ-controlled: (a) MAIN skill (vỏ tự viết) thêm present-call; (b) stub role
+  products/ops SKILL (vỏ viết) có present-call. Real credit/legal card = bonus. **Nợ LAB: skill cần
+  dạy present khi có canvas** (việc LAB nuôi, không phải vỏ — flag team-lead/LAB). — Đổi: LAB cập nhật
+  SKILL dạy present → real-sub card thành gating; hoặc người cho phép vỏ thêm 1 dòng present vào skill
+  (phá N1 — cần user chốt).
 - **D-33 · main lượt-2 (sau task_done) chạy INLINE `await` trong `_report` (không spawn §6) —
   ACCEPT S1, S2 tech-debt** (backend nêu T1-3 honest — architect ACCEPT sau advisor + verify code)
   — `_report` dòng `await _event_sink → handle_room_event` = main lượt 2 chạy trong task của sub
