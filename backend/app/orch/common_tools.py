@@ -78,22 +78,89 @@ async def calc_tool(args: dict[str, Any]) -> dict[str, Any]:
     return _text(safe_eval(args.get("expression", "")))
 
 
+# 6 loại HIỂN THỊ (canvas-present §1). "approval" NGOÀI enum — N2 rào CỨNG ở SDK schema:
+# sub/main gọi present type=approval bị SDK reject TRƯỚC handler. Card approval CHỈ 1 cửa sinh:
+# wrapper phanh (S4). Không có đường "agent tự chế card phanh giả".
+PRESENT_TYPES = ["case_file", "metric", "checklist", "options", "timeline", "document"]
+
+
 @tool(
     name="present",
-    description="[S1 STUB] Trình 1 card có cấu trúc ra canvas. S1 chưa render canvas — trả ok. "
-    "Card thật (7 loại) ở sprint sau.",
+    description="Trình 1 card CÓ CẤU TRÚC lên canvas (sản phẩm công việc: verdict thẩm định, tờ "
+    "trình...). Gọi khi có kết quả đáng trình — KHÔNG cho mỗi câu nói. type ∈ 6 loại hiển thị. "
+    "Mọi số trên card kèm 'source' = tên tool đã trả số đó (không bịa số). id do hệ thống sinh — "
+    "KHÔNG tự bơm id.",
     input_schema={
         "type": "object",
         "properties": {
-            "type": {"type": "string", "description": "loại card"},
-            "title": {"type": "string"},
-            "items": {"type": "array", "items": {"type": "object"}},
+            "type": {"type": "string", "enum": PRESENT_TYPES, "description": "loại card"},
+            "title": {"type": "string", "description": "tiêu đề card"},
+            "items": {
+                "type": "array",
+                "items": {"type": "object"},
+                "description": "nội dung card theo type (vd metric: [{name,value,threshold,pass,source}])",
+            },
         },
-        "required": ["type", "title"],
+        "required": ["type", "title", "items"],
     },
 )
 async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
-    return _text({"ok": True, "isStub": True, "hint": "[STUB S1] card đã ghi nhận — canvas render ở sprint sau."})
+    """present THẬT (canvas-present §1): validate shape → persist cards → SSE card → rendered.
+    id VỎ-inject (§15 — model không bơm id). conv/task từ ContextVar (set trước mỗi call)."""
+    from app.orch import registry, store
+    from app.sse.emit import emit
+
+    card_type = args.get("type")
+    title = args.get("title")
+    items = args.get("items")
+    # Shape tối thiểu (N3 — vỏ mù nội dung items). enum đã chặn ở SDK, nhưng validate lại defensive.
+    if card_type not in PRESENT_TYPES or not isinstance(title, str) or not isinstance(items, list):
+        return _text(
+            {
+                "code": "bad_card",
+                "message": f"card cần {{type, title, items}}; type ∈ {PRESENT_TYPES}",
+                "hint": "Sửa shape rồi gọi lại present.",
+                "retryable": False,  # retry y nguyên vô ích — phải sửa shape
+            }
+        )
+
+    conv_id = registry.CTX_CONV.get()
+    task_id = registry.CTX_TASK.get() or None  # main gọi ngoài sub → None → card task_id null
+
+    # Persist TRƯỚC (§4 — card không ghi DB là card ma). id VỎ sinh lúc insert (§15).
+    # LỚP 1 phòng thủ (N5/§15): LỌC field VỎ-OWNED khỏi data — model KHÔNG được bơm id/conv_id/
+    # task_id/ts (chỉ có thể BỊA). Card content (title/items/sources/recommended/total_days/flags...)
+    # tự do (N3 — vỏ mù nội dung); nhưng id là của vỏ, agent bơm 'id' vào args sẽ bị bỏ.
+    # RANH (S3+ builder đọc): CHỈ chặn field VỎ-QUẢN cụ thể, KHÔNG dùng additionalProperties:false ở
+    # input_schema — vì nó sẽ chặn CẢ field nội dung top-level N3-hợp-lệ (sources/recommended/...) mà
+    # skill bơm theo card type (canvas-present §3). 2 lớp lọc cứng {id,conv_id,task_id,ts} thoả CẢ
+    # N5/§15 (id vỏ-inject) VÀ N3 (nội dung tự do) — additionalProperties:false phá N3.
+    _VO_OWNED = {"id", "conv_id", "task_id", "ts"}
+    card_data = {k: v for k, v in args.items() if k not in _VO_OWNED}  # title/items/sources/...
+    try:
+        card_row = await store.insert_card(conv_id, task_id, card_type, card_data)
+    except Exception as e:  # noqa: BLE001 — DB lỗi → error 4-field, không stacktrace tới agent
+        return _text(
+            {
+                "code": "card_persist_error",
+                "message": str(e)[:200],
+                "hint": "Thử lại 1 lần; lặp thì báo main.",
+                "retryable": True,
+            }
+        )
+
+    # SSE SAU persist (streaming-sse §5). Fire-and-forget: SSE lỗi KHÔNG fail present.
+    try:
+        emit(conv_id, "card", {"card": card_row})
+    except Exception:  # noqa: BLE001
+        pass
+
+    return _text(
+        {
+            "rendered": True,
+            "hint": f"card {card_type} đã lên canvas — tiếp tục việc, xong hết thì trả lời text.",
+        }
+    )
 
 
 COMMON_SERVER = create_sdk_mcp_server(name="common", version="1.0.0", tools=[calc_tool, present_tool])

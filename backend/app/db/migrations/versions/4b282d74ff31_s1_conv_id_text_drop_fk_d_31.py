@@ -39,9 +39,15 @@ def downgrade() -> None:
     không có conversation cha) không map ngược được → XOÁ trước khi convert (downgrade destructive,
     đúng bản chất: đảo bỏ tính năng conv_id-tự-do thì mất data phụ thuộc nó). Rows conv_id-uuid giữ."""
     _UUID_RE = "'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'"
+    # (1) xoá rows conv_id KHÔNG-uuid (không convert được về uuid)
     op.execute(f"DELETE FROM tasks WHERE conv_id !~ {_UUID_RE}")
     op.execute(f"DELETE FROM messages WHERE conv_id !~ {_UUID_RE}")
+    # (2) convert text → uuid (giờ mọi row còn lại đều uuid hợp lệ)
     op.alter_column("tasks", "conv_id", type_=sa.UUID(), postgresql_using="conv_id::uuid")
     op.alter_column("messages", "conv_id", type_=sa.UUID(), postgresql_using="conv_id::uuid")
+    # (3) xoá rows conv_id uuid nhưng KHÔNG có conversation cha (orphan — FK sẽ chặn); destructive
+    op.execute("DELETE FROM tasks WHERE conv_id NOT IN (SELECT id FROM conversations)")
+    op.execute("DELETE FROM messages WHERE conv_id NOT IN (SELECT id FROM conversations)")
+    # (4) re-create FK (mọi row còn lại đều có cha)
     op.create_foreign_key("tasks_conv_id_fkey", "tasks", "conversations", ["conv_id"], ["id"])
     op.create_foreign_key("messages_conv_id_fkey", "messages", "conversations", ["conv_id"], ["id"])

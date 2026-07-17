@@ -132,6 +132,7 @@ async def _run_sub(task: Task, runner: SubRunner | None = None) -> None:
             # ContextVar set dòng ĐẦU (lab-joint §7) — actor = role (không phải 'main')
             registry.CTX_CONV.set(task.conv_id)
             registry.CTX_ACTOR.set(task.role)
+            registry.CTX_TASK.set(task.id)  # present-tool inject task_id vào card (T2-1)
             await store.mark_running(task.id)
             if run is None:
                 raise RuntimeError("no sub runner set (SDK chưa boot / test chưa inject)")

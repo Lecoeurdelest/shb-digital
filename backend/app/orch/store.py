@@ -279,6 +279,53 @@ def _list_messages_sync(conv_id: str) -> list[dict[str, Any]]:
         conn.close()
 
 
+def _insert_card_sync(conv_id: str, task_id: str | None, card_type: str, data: dict) -> dict[str, Any]:
+    """INSERT card → trả row với id VỎ sinh (server_default). task_id null OK (main gọi ngoài sub)."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "INSERT INTO cards (conv_id, task_id, type, data, ts) "
+                "VALUES (%s, %s, %s, %s, now()) RETURNING id, conv_id, task_id, type, data, ts",
+                (conv_id, task_id or None, card_type, json.dumps(data)),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return _card_to_dict(dict(row))
+    finally:
+        conn.close()
+
+
+def _card_to_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """Card render dict. data (jsonb) merge lên top-level cho FE (type/title/items ở data).
+
+    LỚP 2 phòng thủ (N5/§15): spread **data TRƯỚC, field VỎ-OWNED (id/conv_id/task_id/type/ts)
+    đặt SAU → LUÔN THẮNG dù data lỡ chứa key trùng. id vỏ-inject không bao giờ bị agent ghi đè.
+    """
+    data = row.get("data") or {}
+    return {
+        **data,  # title, items, sources... (nội dung agent bơm — vỏ mù N3)
+        "id": str(row["id"]),  # VỎ-owned — đặt SAU, thắng mọi key 'id' lọt trong data
+        "conv_id": str(row["conv_id"]),
+        "task_id": str(row["task_id"]) if row.get("task_id") else None,
+        "type": row["type"],
+        "ts": row["ts"].isoformat() if row.get("ts") else None,
+    }
+
+
+def _list_cards_sync(conv_id: str) -> list[dict[str, Any]]:
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id, conv_id, task_id, type, data, ts FROM cards WHERE conv_id=%s ORDER BY ts",
+                (conv_id,),
+            )
+            return [_card_to_dict(dict(r)) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 def _list_tasks_sync(conv_id: str) -> list[dict[str, Any]]:
     conn = psycopg2.connect(DATABASE_URL)
     try:
@@ -324,6 +371,14 @@ async def list_messages(conv_id: str) -> list[dict[str, Any]]:
 
 async def list_tasks(conv_id: str) -> list[dict[str, Any]]:
     return await asyncio.to_thread(_list_tasks_sync, conv_id)
+
+
+async def insert_card(conv_id: str, task_id: str | None, card_type: str, data: dict) -> dict[str, Any]:
+    return await asyncio.to_thread(_insert_card_sync, conv_id, task_id, card_type, data)
+
+
+async def list_cards(conv_id: str) -> list[dict[str, Any]]:
+    return await asyncio.to_thread(_list_cards_sync, conv_id)
 
 
 async def mark_running(task_id: str) -> None:

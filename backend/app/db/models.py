@@ -88,6 +88,43 @@ class Collateral(Base):
     docs_status: Mapped[str | None] = mapped_column(Text)
 
 
+# ── Legal tables (T2-2 — mount legal thật; cột khớp SQLite LAB) ──────────────
+# PK tổng hợp (không có id đơn) — dùng đủ cột phân biệt làm composite PK.
+class LegalRequirement(Base):
+    __tablename__ = "legal_requirements"
+
+    loan_type: Mapped[str] = mapped_column(Text, primary_key=True)
+    doc_code: Mapped[str] = mapped_column(Text, primary_key=True)
+    doc_name: Mapped[str | None] = mapped_column(Text)
+    mandatory: Mapped[int | None] = mapped_column(Integer)
+
+
+class OwnerDocument(Base):
+    __tablename__ = "owner_documents"
+
+    owner_id: Mapped[str] = mapped_column(String, primary_key=True)
+    doc_code: Mapped[str] = mapped_column(Text, primary_key=True)
+    status: Mapped[str | None] = mapped_column(Text)
+
+
+class CollateralLegal(Base):
+    __tablename__ = "collateral_legal"
+
+    collateral_id: Mapped[str] = mapped_column(String, primary_key=True)
+    dispute_status: Mapped[str | None] = mapped_column(Text)
+    zoning_status: Mapped[str | None] = mapped_column(Text)
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class RestrictedPurpose(Base):
+    __tablename__ = "restricted_purposes"
+
+    purpose_code: Mapped[str] = mapped_column(Text, primary_key=True)
+    purpose_name: Mapped[str | None] = mapped_column(Text)
+    restriction: Mapped[str | None] = mapped_column(Text)
+    legal_basis: Mapped[str | None] = mapped_column(Text)
+
+
 # ---------------------------------------------------------------------------
 # Vận hành tối thiểu (render + audit — spec §10, đủ cột cho T1-3 persist)
 # ---------------------------------------------------------------------------
@@ -133,6 +170,21 @@ class Message(Base):
     sender: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str | None] = mapped_column(Text)
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class Card(Base):
+    # SPEC §10 — canvas reload. id vỏ-inject (server_default D-28c); card CHỈ từ present-tool (N5).
+    # conv_id text (D-31 pattern). task_id null OK (main gọi present ngoài sub task).
+    __tablename__ = "cards"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4
+    )
+    conv_id: Mapped[str] = mapped_column(Text)
+    task_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    type: Mapped[str] = mapped_column(Text)
+    data: Mapped[dict] = mapped_column(JSONB)
+    ts: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
 
 
 class Task(Base):

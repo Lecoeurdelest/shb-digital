@@ -16,9 +16,12 @@ import asyncio
 from contextvars import ContextVar
 from typing import Any
 
-# ── Attribution (audit/log biết ca nào, ai gọi) ─────────────────────────────
+# ── Attribution (audit/log biết ca nào, ai gọi, task nào) ───────────────────
 CTX_CONV: ContextVar[str] = ContextVar("conversation_id", default="")
 CTX_ACTOR: ContextVar[str] = ContextVar("actor", default="")
+# CTX_TASK: task_id của sub đang chạy (present-tool inject vào card). Main gọi present ngoài
+# sub task → default "" → card task_id null (main tờ trình không thuộc task nào — OK, T2-1 §C).
+CTX_TASK: ContextVar[str] = ContextVar("task_id", default="")
 
 # ── Slot + hàng đợi phòng (room.py) — 1 lượt/phòng ──────────────────────────
 _busy_rooms: set[str] = set()

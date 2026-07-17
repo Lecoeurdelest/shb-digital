@@ -108,6 +108,11 @@ def mount_role(role: str) -> tuple[str, McpSdkServerConfig, list[str]]:
     mod = importlib.import_module(f"roles.{role}.functions")
     skill_path = ROLES_DIR / role / "SKILL.md"
     skill = skill_path.read_text()
+    # D-36: append PROVISIONAL present-skill (vỏ viết, file CẠNH — KHÔNG sửa SKILL.md gốc LAB).
+    # LAB drop skill thật có present → xoá SKILL.present.md, mount tự bỏ append. N1 giữ (file tách).
+    present_path = ROLES_DIR / role / "SKILL.present.md"
+    if present_path.exists():
+        skill = skill + "\n\n" + present_path.read_text()
 
     sdk_tools = []
     for name, fn in mod.REGISTRY.items():

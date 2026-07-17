@@ -49,7 +49,8 @@ async def get_conversation(conv_id: str, claims: dict = Depends(require_user)) -
         raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
     messages = await store.list_messages(conv_id)
     tasks = await store.list_tasks(conv_id)
-    return {"conversation": conv, "messages": messages, "tasks": tasks}
+    cards = await store.list_cards(conv_id)  # canvas reload (canvas-present §4)
+    return {"conversation": conv, "messages": messages, "tasks": tasks, "cards": cards}
 
 
 @router.post("/{conv_id}/chat")

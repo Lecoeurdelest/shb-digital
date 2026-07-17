@@ -26,6 +26,11 @@ TABLES: list[tuple[str, list[str]]] = [
     ("collaterals", ["id", "owner_id", "type", "appraised_value", "docs_status"]),
     ("cic_records", ["owner_id", "cic_group", "history_note"]),
     ("assumptions", ["key", "value"]),
+    # Legal tables (T2-2 — mount legal thật)
+    ("legal_requirements", ["loan_type", "doc_code", "doc_name", "mandatory"]),
+    ("owner_documents", ["owner_id", "doc_code", "status"]),
+    ("collateral_legal", ["collateral_id", "dispute_status", "zoning_status", "note"]),
+    ("restricted_purposes", ["purpose_code", "purpose_name", "restriction", "legal_basis"]),
 ]
 
 

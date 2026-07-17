@@ -48,14 +48,55 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-33 ĐÓNG (T2-2 concurrency test GREEN) · inline-await giữ, KHÔNG cần §6-spawn** (backend
+  T2-2 — advisor: green đóng note, chỉ red mới license convert) — test STAGGERED 3× (`tests/
+  test_concurrency_d33.py`): main-turn CHẬM giữ slot in-flight → 2 sub delay khác nhau báo
+  task_done KHI main busy → mỗi task_done ĐÚNG 1 main wake, no lost/double, board consistent.
+  + 4-sub no-event-lost. → inline-await `_report→handle_room_event` AN TOÀN dưới concurrency
+  thật. D-33 note S2 tech-debt ĐÓNG — không convert §6-spawn (convert re-open spine cho lợi ích
+  không có). 2-line switch vẫn để dành nếu S3+ đổi. — Đổi: RED ở test tương lai → convert.
+- **T2-2 · Legal mount THẬT + products/ops STUB (skill vỏ có present) — 4 role đủ** (backend
+  T2-2) — legal.py byte-identical LAB (diff xác nhận) mount qua adapter D-27 (verdict clear chạy
+  thật); 4 bảng legal (legal_requirements/owner_documents/collateral_legal/restricted_purposes)
+  migration + seed từ LAB (9/71/7/6 rows). products/ops = STUB vỏ-viết (isMock:true MỌI return,
+  1 tool/role, SKILL vỏ CÓ present type=options/timeline — D-35). discovered_roles = {credit,
+  legal, products, operations}. Legal skill LAB KHÔNG present → legal real-card = bonus (không
+  provisional cho legal S2 — D-35 nợ LAB). — Đổi: LAB đẻ products/ops thật → xoá stub (mount không đổi).
+- **D-36 THI HÀNH · Provisional present-skill `roles/<role>/SKILL.present.md` (vỏ viết, file CẠNH)
+  → real-sub card GATING** (user nới ranh D-35; backend thi hành T2-1, verify live trong timebox)
+  — vỏ ĐƯỢC viết bản mồi dạy sub gọi present, NHƯNG file TÁCH (`SKILL.present.md`) mark
+  `<!-- PROVISIONAL — LAB đè -->`, KHÔNG sửa `SKILL.md` gốc LAB (N1 giữ). `mount_role` đọc
+  SKILL.md + append SKILL.present.md nếu tồn tại. LAB drop skill thật có present → xoá file
+  provisional, mount tự bỏ append (drop-in, 0 dòng code đổi). **Verify LIVE:** credit sub
+  tool_calls=[cust_get,credit_assess,credit_cic_get,PRESENT] → card metric task_id=task.id
+  (vỏ-inject) items có source → real-sub card từ BONUS lên GATING. Nguyên tắc D-36: thiếu
+  skill/tool → dựng CƠ BẢN + PROVISIONAL mark + đi tiếp, KHÔNG flag-chờ-LAB. — Đổi: LAB dạy
+  present trong skill thật → xoá provisional.
+- **CONTRACT §3/§4 +cards (T2-1, D-30 đổi-shape-báo-trước):** GET full-state thêm `cards[]`
+  (canvas reload — canvas-present §4); SSE `card` event S1→S2 dùng. `interface Card {id, conv_id,
+  task_id, type, ts, ...data}` (data=title/items/sources agent bơm; id VỎ-inject §15). FE thêm
+  render cards; tester cập nhật assert full-state 3-key→4-key. — Đổi: người đổi shape canvas.
+
+- **D-36 · Tool/skill THIẾU → vỏ dựng bản CƠ BẢN (PROVISIONAL) để hệ chạy — LAB bổ sung/đè sau**
+  (NGƯỜI chốt 18/7, nới ranh D-21/D-35) — việc của đội là HOÀN THIỆN SYSTEM + tính năng; tool/skill
+  KHÔNG BAO GIỜ là lý do block. Thiếu skill/tool cho tính năng hệ cần (vd skill chưa dạy `present`)
+  → vỏ VIẾT BẢN CƠ BẢN đủ chạy, đánh dấu `PROVISIONAL — LAB đè` (comment đầu file/section riêng,
+  không trộn vào phần LAB gốc), LAB nuôi bản thật thay sau (drop-in). Ranh vẫn giữ: KHÔNG sửa đè
+  file LAB gốc đã copy — bản provisional để CẠNH/append tách biệt, swap sạch. — Đổi: người siết
+  lại "chỉ LAB được viết skill".
+
 - **D-35 · Gate S2 (canvas) = MAIN present + STUB-role present (vỏ-controlled); real-sub card
   (credit/legal) = BONUS không-gate — vì skill LAB KHÔNG gọi present (N1 cấm vỏ sửa)** (architect
   chốt kickoff S2 — advisor bắt + grep verify) — `present` là việc VỎ (T2-1), nhưng AI-GỌI-present
   là SKILL = việc LAB (N1). Grep xác nhận: credit SKILL + legal SKILL (copy từ LAB world không có
   canvas) KHÔNG gọi present → real-sub card KHÔNG xuất hiện, và N1 CẤM vỏ sửa skill thật để thêm.
   → Gate mechanism trên vỏ-controlled: (a) MAIN skill (vỏ tự viết) thêm present-call; (b) stub role
-  products/ops SKILL (vỏ viết) có present-call. Real credit/legal card = bonus. **Nợ LAB: skill cần
-  dạy present khi có canvas** (việc LAB nuôi, không phải vỏ — flag team-lead/LAB). — Đổi: LAB cập nhật
+  products/ops SKILL (vỏ viết) có present-call. Real credit/legal card = bonus.
+  - **CẬP NHẬT (D-36 nới ranh — architect quyết gate):** vỏ ĐƯỢC viết PROVISIONAL present-skill cho
+    credit/legal (file cạnh `SKILL.present.md` append lúc mount, mark `PROVISIONAL — LAB đè`, KHÔNG
+    sửa file LAB gốc) → **real-sub card NÂNG từ bonus lên GATING** nếu provisional làm được trong
+    timebox ~30ph (T2-1). Không kịp → giữ gate vỏ-controlled (main+stub), provisional ở T2-sau.
+    Nợ LAB (skill thật dạy present) VẪN còn — provisional chỉ là mồi tạm, drop-in thay sạch. — Đổi: LAB cập nhật
   SKILL dạy present → real-sub card thành gating; hoặc người cho phép vỏ thêm 1 dòng present vào skill
   (phá N1 — cần user chốt).
 - **D-33 · main lượt-2 (sau task_done) chạy INLINE `await` trong `_report` (không spawn §6) —

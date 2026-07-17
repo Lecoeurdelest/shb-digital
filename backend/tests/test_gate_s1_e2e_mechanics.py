@@ -236,13 +236,16 @@ async def test_get_full_state_shape_matches_contract_after_mechanics_flow():
                     bus.unsubscribe(conv_id, q)
 
                 state = (await client.get(f"/api/conversations/{conv_id}")).json()
-                assert set(state.keys()) == {"conversation", "messages", "tasks"}
+                # S2 (T2-1, CONTRACT.md §3 D-30): ConversationFullState +cards[] (canvas reload).
+                # 4-key giờ là shape ĐÚNG — 3-key là baseline S1 đã lỗi thời.
+                assert set(state.keys()) == {"conversation", "messages", "tasks", "cards"}
                 assert state["conversation"]["id"] == conv_id
                 assert state["conversation"]["status"] == "idle"
                 assert isinstance(state["messages"], list) and len(state["messages"]) == 2
                 for m in state["messages"]:
                     assert set(m.keys()) >= {"id", "conv_id", "ts", "sender", "content"}
                 assert state["tasks"] == []  # câu "test" không dispatch — mechanics đúng route thật
+                assert state["cards"] == []  # không present() gọi trong mechanics flow này
 
     conn = psycopg2.connect(DATABASE_URL)
     try:

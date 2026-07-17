@@ -55,7 +55,8 @@ type TaskStatus = 'queued' | 'running' | 'done' | 'failed';  // + 'timeout' map 
 interface OrchTask { id; conv_id; role: string; title; status: TaskStatus;
                      input?; result?: object|null; queued_at?; started_at?; ended_at?; cost?; }
 
-interface ConversationFullState { conversation: Conversation; messages: Message[]; tasks: OrchTask[]; }
+interface Card { id: string; conv_id: string; task_id: string|null; type: string; ts: string; title?: string; items?: object[]; sources?: string[]; }  // S2: card canvas — id VỎ-inject; nội dung (title/items/sources) agent bơm
+interface ConversationFullState { conversation: Conversation; messages: Message[]; tasks: OrchTask[]; cards: Card[]; }  // S2: +cards (canvas reload)
 
 interface ApiError { code: string; message: string; hint: string; retryable: boolean; }  // CHỈ error
 ```
@@ -81,7 +82,7 @@ interface SSEEnvelope<T> { type: SSEEventType; conversation_id: string; seq: num
 | ✓ `task.created` | `{task: OrchTask}` | full row, FE upsert theo id |
 | ✓ `task.status` | `{task: OrchTask}` | full row (status/result/ended_at) |
 | ✓ `conversation.status` | `{status: ConversationStatus}` | badge |
-| (S3) `card` | `{card}` | canvas — chưa dùng S1 |
+| ✓(S2) `card` | `{card}` — full row cards (id VỎ-inject, task_id, type, title, items, sources...) | canvas render; FE upsert theo id, replace theo (task_id,type) giữ ts mới nhất |
 | (S4) `approval.pending`/`approval.decided` | `{phieu}` | phanh — chưa dùng S1 |
 | (S4) `toolcall` | `{task_id, tool, summary, cost}` | trace/cost — chưa dùng S1 |
 
