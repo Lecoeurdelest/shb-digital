@@ -48,6 +48,18 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-31 · `tasks.conv_id` + `messages.conv_id` = TEXT ràng-buộc-mềm (drop FK cứng);
+  `conversations.id` VẪN uuid PK** (backend nêu T1-2 — architect RATIFY sau review spine) —
+  conv_id là ĐỊNH DANH XUYÊN TẦNG dạng string (registry key idempotency `(conv_id,role)` +
+  SDK cwd folder `data/conversations/<conv_id>/` sanitize + SSE topic + event routing), KHÔNG
+  chỉ là FK con trỏ. FK uuid cứng cản: (1) test spine dùng conv_id tự do (`"tester-ca-a-conv"`)
+  chứng minh mechanics KHÔNG cần tạo conversation thật; (2) conv_id đi qua nhiều tầng string.
+  **RATIFY** vì: conversations.id vẫn uuid PK (referential ở tầng app — T1-3 tạo conversation
+  trước chat, orchestrator đảm bảo conv tồn tại), ratify-ngay churn ít hơn revert (tester test
+  against text + FE mock string đã có), đảo được (downgrade destructive 5↔5 sẵn). **CONTRACT §3
+  cập nhật:** `OrchTask.conv_id`/`Message.conv_id` = string (khớp — FE đã dùng string). — Đổi:
+  người muốn FK cứng referential integrity ở tầng DB (chấp nhận orchestrator tạo conversation
+  uuid trước mỗi dispatch + tester sửa test dùng uuid).
 - **D-30 · CONTRACT API+SSE+envelope chốt ở `docs/CONTRACT.md` = 1 nguồn sự thật FE↔BE**
   (architect chốt kickoff S1) — FE/BE tự đoán shape → lệch → ráp đau. BE define, FE ăn theo,
   1 codepath render. Nội dung hợp nhất SPEC §5/§9/§10/§11 + `frontend/src/types.ts` (con FE viết
@@ -86,6 +98,51 @@
     role. KHÔNG phải việc S1. — Đổi: người/LAB fix credit._assumptions cho lọc numeric ngay.
   - Bài học architect: verify gate phải CHẠY code-path thật (gọi credit_assess), không tính lại
     bằng SQL tay — kickoff tao verify DSCR bằng query tay nên miss bug này.
+- **D-28b · S1 TẠO + SEED THẬT bảng `businesses`(5) + `collaterals`(7), không để rỗng/thiếu**
+  (backend tự quyết T1-1 — decide-and-log; brief §A uỷ quyền "có thể tạo cho an toàn, ghi
+  DECISIONS") — brief gốc nói "KHÔNG tạo businesses/collaterals ở S1 (prove-spine-first)", nhưng
+  verify thực nghiệm: credit-pack (`cust_search`/`cust_get`/`credit_assess`) query 2 bảng này
+  **VÔ ĐIỀU KIỆN** (cust_search luôn `SELECT ... FROM businesses`; credit_assess fallback DN;
+  cust_get fallback + collaterals). Thiếu bảng → psycopg2 `UndefinedTable` → `db_error` **MỌI
+  call 3/4 tool**, không phải "path hiếm C001". Tạo RỖNG cũng hết lỗi, nhưng cùng công sức nên
+  seed THẬT (data có sẵn LAB, 5+7 rows) để cust_get(DN)/credit_assess(DN) chạy đúng — khớp ca
+  demo "DN X vay 5 tỷ". Migration revision `53a8d21ecbe9` (down_revision đúng chuỗi); models +
+  seed TABLES cập nhật; autogenerate-probe xác nhận KHÔNG drift model↔migration. Đảo được:
+  drop 2 bảng + gỡ khỏi TABLES. — Đổi: người muốn giữ đúng "chỉ 7 bảng S1", chấp nhận
+  cust_search/cust_get trả db_error tới sprint có businesses.
+- **D-28c · Bảng `users` (auth) + uuid PK ops dùng `server_default=gen_random_uuid()`**
+  (backend T1-1 — scaffold nền auth theo re-scope; decide-and-log) — CONTRACT §1 đòi 2 account
+  seed + `POST /api/auth/login`. Thêm bảng `users(id uuid, username unique, pass_hash, role)`
+  (SPEC §10) + migration `1aef6233c6ac`. **Bẫy đã xử:** SQLAlchemy `default=uuid.uuid4` là
+  app-side (chỉ áp khi INSERT qua ORM); seed/audit/orchestrator INSERT qua **psycopg2 raw** (nhất
+  quán seed_from_lab) → id NULL → NotNullViolation. Fix: `server_default=text('gen_random_uuid()')`
+  ở cột id (DB-level, áp cho MỌI INSERT kể cả raw). Áp cho `users`; conversations/messages/tasks
+  (do scaffold) hiện CHỈ có app-default → **T1-2/T1-3 khi INSERT raw phải hoặc tự sinh uuid trong
+  Python, hoặc thêm server_default tương tự** (khuyến nghị: thêm server_default cho nhất quán —
+  1 migration nhỏ). Ghi để orchestrator không vấp lại bẫy này. — Đổi: dùng SQLAlchemy ORM session
+  cho mọi INSERT (thì app-default đủ, bỏ server_default).
+  - **PHÁN QUYẾT ARCHITECT (chốt hướng a):** thêm `server_default gen_random_uuid()` cho
+    conversations/messages/tasks NGAY đầu T1-2 (nhất quán users, an toàn bất kể raw/ORM, đảo
+    được). Backend xử trong T1-2. Không để orchestrator tự-sinh-uuid-Python rải rác (2 nguồn).
+  - **ĐÃ THI HÀNH (T1-2):** migration `448101c1915d` (alter_column server_default 3 bảng ops —
+    autogenerate KHÔNG detect server_default trên bảng đã tồn tại, viết tay). Verify: INSERT raw
+    3 bảng tự sinh id. no-drift.
+- **D-31 · `tasks.conv_id` + `messages.conv_id` = TEXT (bỏ FK → conversations)** (backend T1-2 —
+  decide-and-log) — conv_id là ĐỊNH DANH XUYÊN SUỐT (registry key idempotency + SDK cwd folder +
+  SSE topic) dùng dạng string; FK cứng uuid cản (1) spine/test dùng conv_id tự do (tester ghi cứng
+  `conv_id='tester-ca-a-conv'` trong contract test T1-2), (2) linh hoạt orchestrator. conversations.id
+  vẫn uuid PK (nguồn ca thật); tasks/messages.conv_id text ràng-buộc-mềm (T1-3 dùng `str(uuid)`).
+  Migration `4b282d74ff31` (drop 2 FK + alter text). **Downgrade DESTRUCTIVE** (xoá rows conv_id
+  non-uuid trước convert về uuid — data phụ thuộc tính-năng-conv_id-tự-do thì mất khi đảo tính năng;
+  regex `!~ uuid-pattern`). Full round-trip base↔head verify 5↔5 steps sạch. — Đổi: người/architect
+  muốn FK cứng lại (thì spine test phải tạo conversation uuid trước mỗi dispatch).
+- **Auth cấu trúc (T1-1):** router/service/security/deps tách tầng (backend.md). JWT HS256
+  (PyJWT) secret env `JWT_SECRET` (default dev-only, D-12 .env gitignored) qua cookie httponly
+  `shb_token` (EventSource không set header — CONTRACT §1) + fallback Bearer header cho REST/test.
+  Password bcrypt. 2 account seed pass=username (`user`/`admin`) — override qua env
+  `SEED_USER_PASSWORD`/`SEED_ADMIN_PASSWORD`. Error 4-field toàn hệ qua `app/errors.py`
+  (`ApiError` + validation handler → body trần, không bọc `{detail}`). `require_user`/
+  `require_admin` deps sẵn cho endpoints T1-2+/S4.
 - **D-27 · Conn cấp cho tool LAB = ADAPTER bọc psycopg2 conn "quack như sqlite3.Connection"
   (architect chốt kickoff S1 — decide-and-log; verify bằng đọc credit.py thật)** — psycopg2 conn
   KHÔNG chạy được `functions/credit.py` như-là kể cả sau `?`→`%s`, vì credit.py dùng: (a)

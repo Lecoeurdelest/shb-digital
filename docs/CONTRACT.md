@@ -62,6 +62,8 @@ interface ApiError { code: string; message: string; hint: string; retryable: boo
 
 - `OrchTask.role` = string tự do (role động SPEC §3) — FE KHÔNG hardcode enum cứng. S1 chỉ thấy `credit`.
 - `outcome` của sub (done/failed/timeout) map vào `tasks.status`: timeout → `failed` (render), result.reason giữ chi tiết.
+- **`conv_id` = string** (D-31): định danh xuyên tầng (registry/cwd/SSE), ràng-buộc-mềm ở DB;
+  `conversations.id` vẫn uuid PK. FE dùng string conv_id (đã đúng) — không cần đổi.
 
 ## 4. SSE (SPEC §9 · streaming-sse.md §2)
 

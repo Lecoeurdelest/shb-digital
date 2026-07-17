@@ -40,3 +40,17 @@ def pg_conn():
     yield conn
     conn.rollback()
     conn.close()
+
+
+@pytest.fixture(autouse=True)
+def _reset_orch_registry():
+    """Reset state điều phối in-process giữa các test (tránh leak (conv,role)/slot/queue).
+    No-op nếu app.orch chưa hạ cánh."""
+    try:
+        from app.orch import registry
+    except ImportError:
+        yield
+        return
+    registry.reset_all()
+    yield
+    registry.reset_all()
