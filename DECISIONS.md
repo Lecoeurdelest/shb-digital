@@ -48,6 +48,44 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-30 · CONTRACT API+SSE+envelope chốt ở `docs/CONTRACT.md` = 1 nguồn sự thật FE↔BE**
+  (architect chốt kickoff S1) — FE/BE tự đoán shape → lệch → ráp đau. BE define, FE ăn theo,
+  1 codepath render. Nội dung hợp nhất SPEC §5/§9/§10/§11 + `frontend/src/types.ts` (con FE viết
+  khớp SPEC tốt → dùng làm nền). Đổi shape → sửa CONTRACT.md TRƯỚC + báo cả 2 phía. — Đổi: người
+  đổi API design.
+- **D-29 · Gate mỗi sprint = SPINE SỐNG (không phụ thuộc chất lượng tool LAB) · LAB-timebox
+  30ph · roadmap stub-first** (team-lead+user chốt 18/7 — nắn altitude) — (1) **Tiêu chí gate
+  KHÔNG phụ thuộc tool/skill LAB**: gate S1 = "spine sống" (chat→Main dispatch→sub→event→tổng
+  hợp CÓ NGUỒN→SSE→FE), KHÔNG phải "credit thật ra đúng số". Tool LAB chạy được thì dùng = bonus
+  test đường-ghép; giở chứng → STUB ngay (đúng shape), ghi 1 dòng "chờ LAB", đi tiếp. (2)
+  **LAB-timebox cứng**: mọi sự cố tool/skill LAB = tối đa ~30ph HOẶC 1 vòng trao đổi → quá thì
+  stub+note, KHÔNG phân xử sâu, KHÔNG D-entry dài. (3) **Roadmap xoáy SYSTEM (90% công)**: S2
+  canvas+present+4 sub song song (role chưa có = stub) · S3 PHANH end-to-end (khó nhất — attention
+  lớn nhất) · S4 control tower+interrupt+trace · S5 polish+demo+swap tool thật. (4) **Nguyên tắc
+  cứng: LAB KHÔNG BAO GIỜ là lý do 1 sprint SYSTEM chậm/chặn.** Adapter+mount_role+PG pool = SYSTEM
+  thật (lớp cấp-conn của vỏ, N1) — giữ dù stub hay real. — Đổi: người kéo real-tool thành điều
+  kiện gate, hoặc đổi thứ tự roadmap.
+  - **Bài học điều phối (18/7 — user bắt lỗi):** architect ĐÃ SAI khi dùng tool `Agent` spawn
+    subagent ẩn danh cho backend/frontend TRONG KHI roster teammate (backend/frontend/tester) ĐÃ
+    SỐNG sẵn → 2 con cùng role đè nhau (roster-backend ∥ spawn-backend cùng ghi backend/). Luật
+    cứng: **DISPATCH = SendMessage tới teammate roster theo TÊN, KHÔNG spawn Agent cho role đã có**
+    (CLAUDE.md §4/§9 "mỗi role MỘT người — check roster trước khi spawn"). Team-lead điều phối
+    roster; architect giao việc qua SendMessage. 2 con spawn đã kill theo lệnh user.
+- **D-28 · Seed-load S1 KHÔNG nạp `assumptions.legal_docs_source` (assumption role legal);
+  seed_from_lab.py chỉ nạp dòng value parse-được-float** (architect chốt kickoff S1 — phân xử
+  technical sau khi backend phát hiện bug) — bảng `assumptions` LAB có dòng `legal_docs_source
+  ='gia-thuyet-lab'` (CHỮ). credit.py `_assumptions()` làm `float(r[1])` trên MỌI dòng + chỉ
+  `except sqlite3.Error` (KHÔNG bắt ValueError) → credit_assess CRASH trước khi tính DSCR. Đây là
+  bug tích hợp cross-role nguồn LAB (dòng legal thêm ở commit sau, credit không lường). **Xử
+  N1-sạch = seed-load lọc**: S1 chỉ mount credit (D-17/D-18) → `legal_docs_source` là assumption
+  role LEGAL, ngoài scope credit → seed_from_lab.py chỉ nạp assumptions số (value parse float
+  được) → PG `assumptions` = **8 rows** (không 9). KHÔNG sửa credit.py (giữ N1/D-27), KHÔNG chạm
+  nguồn LAB (D-08 read-only).
+  - **Nợ kỹ thuật khi mount LEGAL (sprint sau):** cần nạp `legal_docs_source` cho legal → LÚC ĐÓ
+    hoặc LAB fix `_assumptions` lọc numeric (việc LAB, portable), hoặc tách bảng assumptions theo
+    role. KHÔNG phải việc S1. — Đổi: người/LAB fix credit._assumptions cho lọc numeric ngay.
+  - Bài học architect: verify gate phải CHẠY code-path thật (gọi credit_assess), không tính lại
+    bằng SQL tay — kickoff tao verify DSCR bằng query tay nên miss bug này.
 - **D-27 · Conn cấp cho tool LAB = ADAPTER bọc psycopg2 conn "quack như sqlite3.Connection"
   (architect chốt kickoff S1 — decide-and-log; verify bằng đọc credit.py thật)** — psycopg2 conn
   KHÔNG chạy được `functions/credit.py` như-là kể cả sau `?`→`%s`, vì credit.py dùng: (a)
