@@ -5,12 +5,15 @@
 // Đây LÀ đường dây thay cho backend thật — swap: đổi VITE_USE_MOCK_API=false, không đụng UI.
 
 import type {
+  ApprovalRow,
   AuditRow,
   Card,
   ChatDeltaData,
+  CompareResult,
   Conversation,
   ConversationFullState,
   Message,
+  ModelsResponse,
   OrchTask,
   SSEEnvelope,
 } from '../types';
@@ -41,6 +44,13 @@ class MockBackend {
   private rooms = new Map<string, MockRoom>();
   private turnText = new Map<string, string>(); // tích lũy text trọn lượt (cho full_text ở done)
 
+  // reset toàn bộ state — test-isolation (mockBackend là singleton module-level; không reset thì
+  // rooms/tasks leak giữa test, ca cũ auto-select lúc mount làm panel task test khác hiện nhầm).
+  reset(): void {
+    this.rooms.clear();
+    this.turnText.clear();
+  }
+
   private room(id: string): MockRoom {
     const r = this.rooms.get(id);
     if (!r) throw new ApiErrorLike(404, 'not_found', 'Ca không tồn tại (mock)');
@@ -57,13 +67,16 @@ class MockBackend {
     return [...this.rooms.values()].map((r) => r.conversation).sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
 
-  createConversation(title: string): Conversation {
+  // provider/model optional (D-45b c) — mock chấp nhận để khớp signature thật; lưu để phản ánh nếu cần.
+  createConversation(title: string, provider?: string, model?: string): Conversation {
     const id = uid('c');
     const conv: Conversation = {
       id,
       title: title || `Ca ${this.rooms.size + 1}`,
       status: 'idle',
       created_at: nowIso(),
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
     };
     this.rooms.set(id, { conversation: conv, messages: [], tasks: [], cards: [], listeners: new Set() });
     return conv;
@@ -88,6 +101,48 @@ class MockBackend {
     }
     r.listeners.add(cb);
     return () => r!.listeners.delete(cb);
+  }
+
+  // ── Control Tower (T4-6) — mock data giả đúng shape ──
+  async listApprovals(status: string): Promise<ApprovalRow[]> {
+    // gom phiếu approval từ mọi room (card type=approval) → row queue.
+    const out: ApprovalRow[] = [];
+    for (const r of this.rooms.values()) {
+      for (const c of r.cards) {
+        if (c.type === 'approval' && (status === 'all' || c.status === status)) {
+          out.push({
+            id: String(c.approval_id ?? c.id), conv_id: r.conversation.id, task_id: c.task_id ?? null,
+            action: String(c.action ?? 'disburse'), payload: { items: c.items ?? [] },
+            status: (c.status as ApprovalRow['status']) ?? 'pending', decided_by: (c.decided_by as string) ?? null,
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  async auditFiltered(filters: Record<string, string>): Promise<AuditRow[]> {
+    if (filters.conv_id) return this.auditByConv(filters.conv_id);
+    if (filters.task_id) return this.auditByTask(filters.task_id);
+    return [];
+  }
+
+  async getModels(): Promise<ModelsResponse> {
+    return {
+      providers: [
+        { name: 'claude-cli', kind: 'subscription', base_url: null, models: ['haiku', 'sonnet', 'opus'], default: true, has_key: true, note: 'đường chính (mock)' },
+        { name: 'zai', kind: 'api', base_url: 'https://api.z.ai', models: ['glm-4.6', 'glm-4.5'], default: false, has_key: true, note: 'GLM z.ai (mock)' },
+      ],
+      default: 'claude-cli',
+    };
+  }
+
+  async runCompare(question: string): Promise<CompareResult> {
+    await delay(MOCK_LATENCY_MS * 3);
+    return {
+      single: { text: `[Single-agent] Trả lời trực tiếp cho: ${question}. DSCR ước ~0.24, không đủ điều kiện.`, duration_s: 4.2, tool_calls: 0, cards: 0, conv_id: null },
+      multi: { text: `[Multi-agent] Đội thẩm định: DSCR 0.236 (credit_assess), CIC nhóm 1, khuyến nghị vay nhỏ hơn — có nguồn từng số.`, duration_s: 38.5, tool_calls: 4, cards: 2, conv_id: uid('c') },
+    };
   }
 
   // trace history toàn ca (TraceBlock reload) — mock trả vài tool-call giả (main + sub credit).

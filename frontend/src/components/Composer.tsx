@@ -1,14 +1,15 @@
 // components/Composer.tsx — input chat (mirror shared look-and-feel design/workspace/chat.jsx Composer).
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import './Composer.css';
 
 interface Props {
   placeholder: string;
   disabled?: boolean;
   onSend: (text: string) => void;
+  extras?: ReactNode; // ModelPicker (D-45b) — chọn provider/model, đặt cạnh ô nhập/nút gửi
 }
 
-export function Composer({ placeholder, disabled, onSend }: Props) {
+export function Composer({ placeholder, disabled, onSend, extras }: Props) {
   const [value, setValue] = useState('');
 
   const fire = () => {
@@ -24,6 +25,7 @@ export function Composer({ placeholder, disabled, onSend }: Props) {
 
   return (
     <div className="composer">
+      {extras && <div className="composer__extras">{extras}</div>}
       <div className="composer__box">
         <input
           className="composer__input"

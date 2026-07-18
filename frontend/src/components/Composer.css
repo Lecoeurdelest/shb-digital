@@ -4,6 +4,15 @@
   border-top: 1px solid var(--bd);
 }
 
+/* dải chọn provider/model — cạnh ô nhập/nút gửi (D-45b) */
+.composer__extras {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
 .composer__box {
   display: flex;
   align-items: center;

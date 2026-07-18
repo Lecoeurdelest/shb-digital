@@ -46,6 +46,7 @@ from app.db.config import DATABASE_URL
 from app.main import app
 
 from .conftest import requires_db
+from .conftest import wait_for_conversation_idle as _wait_for_conversation_idle
 
 _LIVE = os.environ.get("RUN_LIVE_SDK") == "1"
 
@@ -114,20 +115,6 @@ async def _wait_for_approval_pending(client: AsyncClient, conv_id: str, timeout_
         f"architect trước khi chạy), (2) MAIN không dispatch Ops, (3) Ops không gọi disburse. "
         f"Kiểm tra state cuối: {state if 'state' in dir() else 'chưa lấy được'}"
     )
-
-
-async def _wait_for_conversation_idle(client: AsyncClient, conv_id: str, timeout_s: float = 90.0) -> None:
-    """Poll tới khi conversation.status='idle' — main đã kết thúc lượt resume."""
-    elapsed = 0.0
-    interval = 3.0
-    while elapsed < timeout_s:
-        r = await client.get(f"/api/conversations/{conv_id}")
-        state = r.json()
-        if state["conversation"]["status"] == "idle":
-            return
-        await asyncio.sleep(interval)
-        elapsed += interval
-    pytest.fail(f"conversation KHÔNG về idle sau {timeout_s}s resume — main có thể đang kẹt/lỗi")
 
 
 @pytest.mark.asyncio

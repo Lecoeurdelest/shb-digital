@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react';
 import { conversationApi } from './api';
 import { Login } from './components/Login';
 import { Workspace } from './Workspace';
+import { ControlTower } from './components/ControlTower';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import type { AuthUser } from './types';
 import './components/Login.css';
 
@@ -16,8 +18,19 @@ type BootState =
   | { phase: 'anon' }
   | { phase: 'authed'; user: AuthUser };
 
+// App = ErrorBoundary bọc AppInner: 1 lỗi render bất kỳ nhánh nào (Login/Tower/Workspace)
+// → fallback UI thay vì trắng màn. Boundary ở ngoài cùng để bắt cả lỗi trong boot/gate.
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppInner />
+    </ErrorBoundary>
+  );
+}
+
+function AppInner() {
   const [boot, setBoot] = useState<BootState>({ phase: 'checking' });
+  const [view, setView] = useState<'workspace' | 'tower'>('workspace'); // Control Tower toggle (admin)
 
   // boot-check /me lúc mount (D-39). Lỗi/401 → anon (Login). 200 → authed (skip Login).
   useEffect(() => {
@@ -47,5 +60,17 @@ export default function App() {
     return <Login onSuccess={(user) => setBoot({ phase: 'authed', user })} />;
   }
 
-  return <Workspace user={boot.user} onAuthExpired={() => setBoot({ phase: 'anon' })} />;
+  // Control Tower = màn admin (D-19). Admin toggle sang tower; user chỉ Workspace.
+  const isAdmin = boot.user.role === 'admin';
+  if (view === 'tower' && isAdmin) {
+    return <ControlTower onBack={() => setView('workspace')} />;
+  }
+
+  return (
+    <Workspace
+      user={boot.user}
+      onAuthExpired={() => setBoot({ phase: 'anon' })}
+      onOpenTower={isAdmin ? () => setView('tower') : undefined}
+    />
+  );
 }

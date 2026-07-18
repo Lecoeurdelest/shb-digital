@@ -10,6 +10,7 @@ import { conversationApi, USE_MOCK_API } from './api';
 import { ApiRequestError } from './api/client';
 import { useConversationSSE, type ConversationSSEHandlers } from './hooks/useConversationSSE';
 import { ConversationSidebar } from './components/ConversationSidebar';
+import { ModelPicker } from './components/ModelPicker';
 import { Composer } from './components/Composer';
 import { MessageBubble, StreamingMessageBubble, type StreamingBubble } from './components/MessageBubble';
 import { TaskBadge } from './components/TaskBadge';
@@ -53,9 +54,10 @@ const ROLE_LABEL_USER: Record<AuthUser['role'], string> = { user: 'RM', admin: '
 interface Props {
   user: AuthUser;
   onAuthExpired: () => void;
+  onOpenTower?: () => void; // admin: mở Control Tower (D-19)
 }
 
-export function Workspace({ user, onAuthExpired }: Props) {
+export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -66,6 +68,11 @@ export function Workspace({ user, onAuthExpired }: Props) {
   const [convStatus, setConvStatus] = useState<ConversationStatus>('idle');
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [creating, setCreating] = useState(false);
+  const [pickProvider, setPickProvider] = useState(''); // D-45b — provider/model cho ca MỚI ('' = server-default)
+  const [pickModel, setPickModel] = useState('');
+  // draft mode (D-45b): "+ Ca mới" KHÔNG tạo ca ngay — mở khung soạn (composer + picker hiện) để user
+  // chọn provider/model TRƯỚC, ca tạo LAZY lúc gửi câu đầu (kèm model đã chọn). Fix dây "chọn-sau-khi-tạo".
+  const [drafting, setDrafting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -208,6 +215,7 @@ export function Workspace({ user, onAuthExpired }: Props) {
   const openConversation = useCallback((id: string) => {
     activeIdRef.current = id; // set NGAY (trước async) — guard trong auditByConv/.then dùng đúng id
     setActiveId(id);
+    setDrafting(false); // mở ca thật → rời draft mode
     setMessages([]);
     setTasks([]);
     setCards([]);
@@ -234,37 +242,72 @@ export function Workspace({ user, onAuthExpired }: Props) {
       });
   }, [applyFullState, handleError]);
 
-  const createConversation = useCallback(() => {
-    if (creating) return;
-    setCreating(true);
-    conversationApi
-      .createConversation('Ca mới')
-      .then((conv) => {
-        setConversations((prev) => upsertById(prev, conv));
-        setListError(null);
-        openConversation(conv.id);
-      })
-      .catch((err: unknown) => setListError(handleError(err, 'Không tạo được ca')))
-      .finally(() => setCreating(false));
-  }, [creating, openConversation, handleError]);
+  // "+ Ca mới" = MỞ KHUNG SOẠN (draft), KHÔNG POST. Ca tạo lazy lúc gửi câu đầu (kèm provider/model
+  // user chọn ở picker). Vậy picker cạnh nút gửi mới THẬT áp vào ca — không còn "chọn sau khi đã tạo".
+  const startDraft = useCallback(() => {
+    activeIdRef.current = null;
+    setActiveId(null);
+    setDrafting(true);
+    setMessages([]);
+    setTasks([]);
+    setCards([]);
+    setTrace([]);
+    setFocusSub(null);
+    setStreaming(null);
+    setConvStatus('idle');
+    setLoadError(null);
+    setListError(null);
+  }, []);
+
+  // tạo ca THẬT (lazy) với provider/model đã chọn → trả conv để gửi câu đầu vào. Fail → ném cho caller.
+  const createConversationForSend = useCallback(async (): Promise<Conversation> => {
+    const conv = await conversationApi.createConversation('Ca mới', pickProvider || undefined, pickModel || undefined);
+    setConversations((prev) => upsertById(prev, conv));
+    setListError(null);
+    return conv;
+  }, [pickProvider, pickModel]);
 
   const sendChat = useCallback((text: string) => {
-    const id = activeIdRef.current;
-    if (!id) return;
-    // optimistic: user message hiện ngay (DB refetch/SSE sẽ xác nhận lại)
-    setMessages((prev) => [
-      ...prev,
-      { id: `local_user_${Date.now()}`, conv_id: id, ts: new Date().toISOString(), sender: 'user', content: text, meta: null },
-    ]);
-    setConvStatus('running');
-    conversationApi
-      .sendChat(id, text)
+    const pushUserMsg = (convId: string) => {
+      // optimistic: user message hiện ngay (DB refetch/SSE sẽ xác nhận lại)
+      setMessages((prev) => [
+        ...prev,
+        { id: `local_user_${Date.now()}`, conv_id: convId, ts: new Date().toISOString(), sender: 'user', content: text, meta: null },
+      ]);
+      setConvStatus('running');
+    };
+
+    const existingId = activeIdRef.current;
+    if (existingId) {
+      pushUserMsg(existingId);
+      conversationApi
+        .sendChat(existingId, text)
+        .catch((err: unknown) => {
+          setLoadError(handleError(err, 'Gửi câu hỏi thất bại'));
+          setConvStatus('idle');
+        });
+      return;
+    }
+
+    // draft mode: chưa có ca → tạo LAZY với provider/model đã chọn, rồi gửi câu đầu vào ca đó.
+    // KHÔNG dùng openConversation (nó getConversation→applyFullState set messages=[] → xoá optimistic
+    // user-msg). Ca vừa tạo rỗng → chỉ cần gắn activeId + push optimistic; SSE lượt này dựng nội dung.
+    if (creating) return;
+    setCreating(true);
+    createConversationForSend()
+      .then((conv) => {
+        activeIdRef.current = conv.id; // set NGAY trước SSE/refetch (tránh race — như openConversation)
+        setActiveId(conv.id);
+        setDrafting(false);
+        pushUserMsg(conv.id);
+        return conversationApi.sendChat(conv.id, text);
+      })
       .catch((err: unknown) => {
-        // POST /chat fail (backend timeout/lỗi) → báo lỗi + reset status (không kẹt "đang xử lý").
-        setLoadError(handleError(err, 'Gửi câu hỏi thất bại'));
+        setListError(handleError(err, 'Không tạo được ca / gửi câu hỏi thất bại'));
         setConvStatus('idle');
-      });
-  }, [handleError]);
+      })
+      .finally(() => setCreating(false));
+  }, [creating, handleError, createConversationForSend]);
 
   // admin quyết phiếu (T3-2 · D-40). SSE approval.decided + card sẽ cập nhật panel (KHÔNG xoá card §6).
   // 409 approval_already_decided (2 admin bấm) → thông báo + refetch full-state (DB nguồn sự thật §0).
@@ -303,6 +346,7 @@ export function Workspace({ user, onAuthExpired }: Props) {
         <div className="ws__spacer" />
         {USE_MOCK_API && <span className="ws__mockflag" title="VITE_USE_MOCK_API != false — dữ liệu mock, chưa nối backend thật">● MOCK API</span>}
         <span className="ws__user">{user.username} · {ROLE_LABEL_USER[user.role]}</span>
+        {onOpenTower && <button className="ws__logout" onClick={onOpenTower} type="button" data-testid="open-tower">🗼 Control Tower</button>}
         <button className="ws__logout" onClick={onAuthExpired} type="button">Đăng xuất</button>
       </header>
 
@@ -311,14 +355,14 @@ export function Workspace({ user, onAuthExpired }: Props) {
           conversations={conversations}
           activeId={activeId}
           onOpen={openConversation}
-          onNew={createConversation}
+          onNew={startDraft}
           creating={creating}
         />
 
         {/* khung giữa: chat với Main */}
         <section className="ws__chat">
           {listError && <div className="ws__banner ws__banner--error">{listError}</div>}
-          {!activeId ? (
+          {!activeId && !drafting ? (
             <div className="ws__empty">
               <div className="ws__empty-title">Chưa mở ca nào</div>
               <div className="ws__empty-sub">Bấm “+ Ca mới” bên trái để bắt đầu một ca tư vấn.</div>
@@ -326,10 +370,10 @@ export function Workspace({ user, onAuthExpired }: Props) {
           ) : (
             <>
               <div className="ws__chat-head">
-                <div className="ws__chat-title">{activeConv?.title ?? 'Ca'}</div>
+                <div className="ws__chat-title">{drafting ? 'Ca mới (nháp)' : activeConv?.title ?? 'Ca'}</div>
                 <div className={`ws__chat-status ws__chat-status--${convStatus}`}>
                   {busy && <span className="status-dot status-dot--run deg-pulse" />}
-                  {CONV_STATUS_LABEL[convStatus]}
+                  {drafting ? 'Chọn model rồi gõ câu hỏi đầu tiên' : CONV_STATUS_LABEL[convStatus]}
                 </div>
               </div>
 
@@ -374,9 +418,17 @@ export function Workspace({ user, onAuthExpired }: Props) {
               </div>
 
               <Composer
-                placeholder="Hỏi Main về ca này…"
+                placeholder={drafting ? 'Gõ câu hỏi đầu tiên — ca sẽ tạo với model đã chọn…' : 'Hỏi Main về ca này…'}
                 onSend={sendChat}
-                disabled={busy}
+                disabled={busy || creating}
+                extras={
+                  <ModelPicker
+                    provider={pickProvider}
+                    model={pickModel}
+                    disabled={creating || hasContent}
+                    onChange={(p, m) => { setPickProvider(p); setPickModel(m); }}
+                  />
+                }
               />
             </>
           )}

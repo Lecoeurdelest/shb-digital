@@ -5,7 +5,7 @@
 
 import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { AuditRow, AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
+import type { ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, LoginResult, ModelsResponse } from '../types';
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 
@@ -13,13 +13,18 @@ export interface ConversationApi {
   login(username: string, password: string): Promise<LoginResult>;
   me(): Promise<{ user: AuthUser }>;
   listConversations(): Promise<Conversation[]>;
-  createConversation(title: string): Promise<Conversation>;
+  createConversation(title: string, provider?: string, model?: string): Promise<Conversation>;
   getConversation(id: string): Promise<ConversationFullState>;
   sendChat(id: string, content: string): Promise<void>;
   decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown>;
   auditByConv(convId: string): Promise<AuditRow[]>;
   auditByTask(taskId: string): Promise<AuditRow[]>;
   interruptTask(convId: string, taskId: string): Promise<unknown>;
+  // Control Tower (T4-6)
+  listApprovals(status?: string): Promise<ApprovalRow[]>;
+  auditFiltered(filters?: Record<string, string>): Promise<AuditRow[]>;
+  getModels(): Promise<ModelsResponse>;
+  runCompare(question: string): Promise<CompareResult>;
   openEventSource(convId: string): MinimalEventSource;
 }
 
@@ -36,8 +41,8 @@ const mockApi: ConversationApi = {
   async listConversations() {
     return mockBackend.listConversations();
   },
-  async createConversation(title: string) {
-    return mockBackend.createConversation(title);
+  async createConversation(title: string, provider?: string, model?: string) {
+    return mockBackend.createConversation(title, provider, model);
   },
   async getConversation(id: string) {
     return mockBackend.getFullState(id);
@@ -56,6 +61,18 @@ const mockApi: ConversationApi = {
   },
   async interruptTask(convId: string, taskId: string) {
     return mockBackend.interruptTask(convId, taskId);
+  },
+  async listApprovals(status = 'pending') {
+    return mockBackend.listApprovals(status);
+  },
+  async auditFiltered(filters: Record<string, string> = {}) {
+    return mockBackend.auditFiltered(filters);
+  },
+  async getModels() {
+    return mockBackend.getModels();
+  },
+  async runCompare(question: string) {
+    return mockBackend.runCompare(question);
   },
   openEventSource(convId: string) {
     return createMockEventSource(convId);
@@ -88,6 +105,10 @@ const realApi: ConversationApi = {
   auditByConv: apiClient.auditByConv,
   auditByTask: apiClient.auditByTask,
   interruptTask: apiClient.interruptTask,
+  listApprovals: apiClient.listApprovals,
+  auditFiltered: apiClient.auditFiltered,
+  getModels: apiClient.getModels,
+  runCompare: apiClient.runCompare,
   openEventSource: browserEventSource,
 };
 

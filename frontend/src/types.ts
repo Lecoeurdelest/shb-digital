@@ -25,6 +25,8 @@ export interface Conversation {
   status: ConversationStatus;
   sdk_session_id?: string | null;
   created_at: string;
+  provider?: string; // D-45b — provider ca chạy (null = server-default)
+  model?: string; // model string trong provider đó
 }
 
 export type MessageSender = 'user' | 'assistant' | 'system';
@@ -138,6 +140,51 @@ export interface AuditRow {
   input?: Record<string, unknown> | null;
   output?: Record<string, unknown> | null;
   cost?: Record<string, unknown> | null;
+}
+
+// ── Control Tower (S4 — T4-6) ──
+// approval queue row (GET /api/approvals?status=pending — admin, toàn hệ).
+export interface ApprovalRow {
+  id: string;
+  conv_id: string;
+  task_id: string | null;
+  action: string;
+  payload?: Record<string, unknown> | null;
+  status: 'pending' | 'approved' | 'rejected' | 'used';
+  decided_by?: string | null;
+  reason?: string | null;
+  [key: string]: unknown;
+}
+
+// model dropdown (GET /api/models — D-45b).
+export interface Provider {
+  name: string;
+  kind: string;
+  base_url: string | null;
+  models: string[];
+  default: boolean;
+  has_key: boolean;
+  note?: string;
+}
+export interface ModelsResponse {
+  providers: Provider[];
+  default: string;
+}
+
+// compare 2-cột (POST /api/compare {question} — deliverable #5). Shape backend mới — đọc defensive.
+export interface CompareResult {
+  single?: CompareSide | null;
+  multi?: CompareSide | null;
+  [key: string]: unknown;
+}
+export interface CompareSide {
+  text?: string;
+  duration_s?: number;
+  cost?: Record<string, unknown> | null;
+  tool_calls?: number;
+  cards?: number;
+  conv_id?: string | null;
+  [key: string]: unknown;
 }
 
 export interface SSEEnvelope<T = unknown> {

@@ -3,12 +3,16 @@
 // badge task "xong". Bổ trợ Chrome verify (không thay thế — Gate 2 vẫn đòi browser).
 // Test Workspace TRỰC TIẾP (auth gate ở App = test riêng App.gate.test.tsx) — inject user giả.
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Workspace } from './Workspace';
+import { mockBackend } from './api/mock';
 import type { AuthUser } from './types';
 
 const USER: AuthUser = { username: 'user', role: 'user' };
 const noop = vi.fn();
+
+// mockBackend singleton → reset giữa test để rooms/tasks không leak (ca cũ auto-select lúc mount).
+afterEach(() => mockBackend.reset());
 
 describe('Workspace chat — vòng lõi S1 (mock API)', () => {
   it('tạo ca → gõ câu C001 → hiển thị DSCR 3.709 + badge Tín dụng xong', async () => {
@@ -17,16 +21,16 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
     // ban đầu: empty state
     expect(screen.getByText(/Chưa mở ca nào/i)).toBeInTheDocument();
 
-    // tạo ca mới
+    // "+ Ca mới" → khung soạn (draft): composer + picker hiện, ca CHƯA tạo (lazy — D-45b)
     fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
 
-    // ô nhập xuất hiện
+    // ô nhập xuất hiện (draft mode)
     const input = await screen.findByLabelText('Ô nhập câu hỏi');
     fireEvent.change(input, { target: { value: 'Khách C001 xin vay 5 tỷ — DSCR bao nhiêu?' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    // user message hiện ngay (optimistic)
-    expect(screen.getByText(/Khách C001 xin vay 5 tỷ/)).toBeInTheDocument();
+    // gửi câu đầu → ca tạo lazy → user message hiện (optimistic, sau POST create — dùng findBy async)
+    expect(await screen.findByText(/Khách C001 xin vay 5 tỷ/)).toBeInTheDocument();
 
     // chờ tới khi stream chạy XONG câu trả lời (credit_assess đứng sau DSCR trong answer —
     // chờ nó đảm bảo cả DSCR 3.709 + nguồn đều đã render). Số kèm nguồn — SPEC §6.
@@ -58,15 +62,19 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
     expect(screen.queryByLabelText('Đội đang làm việc')).not.toBeInTheDocument();
   });
 
-  it('mở ca → hydrate trace toolcall từ GET /api/audit (reload-safe T4-2 fix)', async () => {
-    // mock auditByConv trả 1 toolcall persist → trace block phải hiện sau openConversation.
+  it('mở ca CÓ SẴN → hydrate trace toolcall từ GET /api/audit (reload-safe T4-2 fix)', async () => {
+    // seed 1 ca sẵn trong mock → mở lại ca đó (click sidebar) → auditByConv hydrate trace.
+    // (flow lazy-create D-45b: "+ Ca mới" chỉ mở draft, KHÔNG open ca — hydrate test qua MỞ ca có sẵn.)
+    const seeded = mockBackend.createConversation('Ca có sẵn');
     const { conversationApi } = await import('./api');
     vi.spyOn(conversationApi, 'auditByConv').mockResolvedValue([
-      { id: 'au_reload', task_id: 't1', conv_id: 'c1', ts: '', actor: 'credit', tool: 'credit_assess', input: { owner_id: 'C001' }, output: {} },
+      { id: 'au_reload', task_id: 't1', conv_id: seeded.id, ts: '', actor: 'credit', tool: 'credit_assess', input: { owner_id: 'C001' }, output: {} },
     ]);
-    render(<Workspace user={USER} onAuthExpired={noop} />);
-    fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
-    // openConversation → auditByConv → setTrace → TraceBlock hiện (thu gọn, có 🔧 1)
+    const { container } = render(<Workspace user={USER} onAuthExpired={noop} />);
+    // click ca có sẵn trong SIDEBAR (title xuất hiện cả ở chat-head khi active) → openConversation
+    // → auditByConv → setTrace → TraceBlock hiện
+    await waitFor(() => expect(container.querySelector('.conv-sidebar__title')).toBeInTheDocument());
+    fireEvent.click(container.querySelector('.conv-sidebar__title')!);
     await waitFor(() => expect(screen.getByTestId('trace-block')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { expanded: false }));
     expect(screen.getByText('credit_assess')).toBeInTheDocument();

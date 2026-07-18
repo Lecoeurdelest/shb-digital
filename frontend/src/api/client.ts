@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, AuditRow, AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
+import type { ApiError, ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, LoginResult, ModelsResponse } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -64,10 +64,15 @@ export const apiClient = {
     return request<Conversation[]>('/api/conversations');
   },
 
-  createConversation(title: string): Promise<Conversation> {
+  // Tạo ca. provider/model optional (D-45b c) — bỏ trống = server-default; provider = tên trong
+  // GET /api/models, model = 1 string trong models[] của provider đó. Conv lưu → mọi lượt chạy đúng.
+  createConversation(title: string, provider?: string, model?: string): Promise<Conversation> {
+    const body: { title: string; provider?: string; model?: string } = { title };
+    if (provider) body.provider = provider;
+    if (model) body.model = model;
     return request<Conversation>('/api/conversations', {
       method: 'POST',
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(body),
     });
   },
 
@@ -84,9 +89,28 @@ export const apiClient = {
     });
   },
 
-  // list phiếu pending (approval queue Control Tower — admin). CONTRACT §11.
-  listApprovals(status = 'pending'): Promise<unknown[]> {
-    return request<unknown[]>(`/api/approvals?status=${encodeURIComponent(status)}`);
+  // list phiếu (approval queue Control Tower — admin). CONTRACT §11.
+  listApprovals(status = 'pending'): Promise<ApprovalRow[]> {
+    return request<ApprovalRow[]>(`/api/approvals?status=${encodeURIComponent(status)}`);
+  },
+
+  // audit toàn hệ + filter (Control Tower audit view). filters: conv_id/task_id/tool/actor.
+  auditFiltered(filters: Record<string, string> = {}): Promise<AuditRow[]> {
+    const qs = new URLSearchParams(filters).toString();
+    return request<AuditRow[]>(`/api/audit${qs ? `?${qs}` : ''}`);
+  },
+
+  // model/provider list (dropdown D-45b).
+  getModels(): Promise<ModelsResponse> {
+    return request<ModelsResponse>('/api/models');
+  },
+
+  // compare single vs multi-agent (deliverable #5). Chạy DÀI ~90s → FE loading rõ. body {question}.
+  runCompare(question: string): Promise<CompareResult> {
+    return request<CompareResult>('/api/compare', {
+      method: 'POST',
+      body: JSON.stringify({ question }),
+    });
   },
 
   // trace history toàn ca (TraceBlock reload T4-2): GET /api/audit?conv_id → tool_calls persist.

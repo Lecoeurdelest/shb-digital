@@ -17,7 +17,6 @@ Loan cô lập (bài học S3): dùng conv MỚI, KHÔNG chung conv với bất 
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import os
 
@@ -29,6 +28,7 @@ from app.db.config import DATABASE_URL
 from app.main import app
 
 from .conftest import requires_db
+from .conftest import wait_for_conversation_idle as _wait_for_conversation_idle
 
 _LIVE = os.environ.get("RUN_LIVE_SDK") == "1"
 
@@ -62,29 +62,6 @@ async def _login_and_create_conv(client: AsyncClient, title: str) -> str:
     assert r2.status_code == 201, f"tạo ca thất bại: {r2.status_code} {r2.text}"
     return r2.json()["id"]
 
-
-async def _wait_for_conversation_idle(client: AsyncClient, conv_id: str, timeout_s: float = 90.0) -> None:
-    """BÀI HỌC (lần chạy đầu FAIL oan): conversation KHỞI TẠO với status='idle' MẶC ĐỊNH (store.py
-    _create_conversation_sync) — POST /chat set 'running' bất đồng bộ, có khoảng hở giữa 202
-    response và DB thực sự chuyển 'running'. Poll ngay lập tức có thể đọc trúng 'idle' CŨ (chưa
-    từng chạy) rồi trả về SỚM SAI, coi như đã xong khi thực ra còn chưa bắt đầu. Fix: đợi thấy
-    'running' TRƯỚC (xác nhận turn đã thực sự bắt đầu) rồi mới coi 'idle' sau đó là ĐÃ XONG."""
-    elapsed = 0.0
-    interval = 3.0
-    seen_running = False
-    while elapsed < timeout_s:
-        r = await client.get(f"/api/conversations/{conv_id}")
-        status = r.json()["conversation"]["status"]
-        if status == "running":
-            seen_running = True
-        elif status == "idle" and seen_running:
-            return
-        await asyncio.sleep(interval)
-        elapsed += interval
-    pytest.fail(
-        f"conversation KHÔNG về idle-sau-running sau {timeout_s}s (conv_id={conv_id}, "
-        f"seen_running={seen_running} — False nghĩa là chưa từng thấy turn thực sự chạy)"
-    )
 
 
 def _restore_state(conv_id: str) -> None:
