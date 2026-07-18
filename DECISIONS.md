@@ -48,6 +48,30 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-53 · T5-1 polish 2 quyết (architect 18/7):** (a) **font SELF-HOST** (15 woff2 Be Vietnam Pro
+  → public/fonts, BỎ Google Fonts CDN — mạng venue thi không tin được, demo không phụ ngoại cảnh
+  như seed-reset/provider-standalone; verify 0 request gstatic). Gốc: tokens khai font nhưng
+  index.html không import → toàn app fallback system-ui, lệch typography lớn nhất so design.
+  (b) **canvas "Đội làm việc" 2D-tiles → SPATIAL CONSTELLATION** (Main giữa glow + sub tỏa góc +
+  đường nối chấm SVG, active=chảy xanh) — CSS/SVG THUẦN trong timebox 1 buổi, KHÔNG three.js
+  (D-24 3D vẫn hoãn); behavior giữ (click→SubAgentView). Đòn bẩy demo cảnh-1. — Đổi: quay lại
+  tiles (CSS class) / nâng 3D S-sau.
+- **D-52 · Track nghiệp vụ tín dụng (pain point người ra đề) = ĐỢI LAB TRAINING → PORT; S5 tiếp
+  demo-prep + features/polish (NGƯỜI chốt 18/7)** — người ra đề + mentor cho pain: luồng Tín dụng
+  → Pháp lý-tuân thủ (QUAN TRỌNG NHẤT — duyệt hồ sơ từ 3 nguồn: Bộ CA/thân nhân-tiền án · CIC ·
+  lương/quá trình làm việc) → phân tầng duyệt (vay lớn NGƯỜI duyệt · hồ sơ XANH agent tự duyệt) →
+  Vận hành tổng hợp cuối. Architect assess: đáng làm (pain người chấm = rubric ngầm). Người chốt:
+  **tool/skill 3-nguồn = TRÍ KHÔN = LAB đang training — check rồi PORT vào** (đúng N1/D-18: LAB
+  thả functions+SKILL, vỏ mount tự ăn), vỏ KHÔNG tự chế. LAB chưa xong → S5 tiếp features + polish
+  UI/UX. Khi LAB drop: port tools → dạy MAIN luồng tuần tự (prompt) → phanh phân tầng (vỏ, rule
+  threshold+verdict-xanh) → sửa demo-script cảnh 1-2. — Đổi: LAB xong sớm → kéo track lên ngay.
+  - **Bổ sung (người, cùng ngày): LAB KHÔNG train MAIN — chỉ train riêng legal → MAIN = VIỆC VỎ,
+    làm NGAY không đợi:** (a) dạy MAIN_SKILL luồng nghiệp vụ TUẦN TỰ (Tín dụng trước → kết quả
+    chuyển Pháp lý KÈM bàn giao trong brief → Vận hành tổng hợp CUỐI) — vỏ sở hữu MAIN_SKILL
+    (tiền lệ D-46), verify hành vi bằng ca thật. (b) phanh PHÂN TẦNG phần vỏ: rule threshold
+    (amount < ngưỡng → AUTO-APPROVE tại tầng tool, vẫn phiếu+audit "duyệt tự động rule"; vượt →
+    chờ người như hiện tại) — phanh là của vỏ (D-18). (c) verdict hồ-sơ-xanh từ legal LAB ghép
+    vào rule khi LAB drop.
 - **D-51 · Model picker Ở COMPOSER cạnh nút gửi (NGƯỜI chốt 18/7) + "+Ca mới" = DRAFT, ca tạo
   LAZY lúc gửi câu đầu** — người chốt vị trí picker; hệ quả kỹ thuật: BE lưu provider/model per-conv
   lúc TẠO → picker-chọn-sau-khi-bấm-Ca-mới (eager cũ) = model không áp (FE round-trip đầu verify SAI

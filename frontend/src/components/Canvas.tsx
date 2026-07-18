@@ -1,6 +1,6 @@
-// Canvas.tsx — panel phải S2: tab Lobby (live map 2D 4 sub + bảng việc) | Công việc (card render).
-// Card từ SSE card / full-state cards[]. Live map = 2D grid placeholder + status dot (D-24, KHÔNG 3D).
-// Nội dung card do agent bơm — render defensive (CardRenderer). Look-and-feel tham khảo design/ (D-13).
+// Canvas.tsx — panel phải: tab Đội làm việc (constellation spatial-2D 4 sub + bảng việc) | Công việc (cards).
+// Constellation (D-53): Main giữa + 4 sub tỏa góc + đường nối chấm SVG + status dot — CSS/SVG THUẦN,
+// KHÔNG three.js (D-24 3D vẫn hoãn). Card từ SSE/full-state, render defensive. Look-and-feel: design/ (D-13).
 import { useState } from 'react';
 import type { Card, OrchTask } from '../types';
 import { CardRenderer } from './cards/CardRenderer';
@@ -9,9 +9,16 @@ import { TaskBadge } from './TaskBadge';
 import { roleLabel } from '../roles';
 import './Canvas.css';
 
-// 4 phòng ban sub (D-24 live map 2D). Main không nằm trong grid sub (là điều phối).
-const SUB_ROLES = ['credit', 'legal', 'products', 'ops'] as const;
+// 4 phòng ban sub (D-24 live map 2D → spatial constellation D-53, CSS/SVG thuần, KHÔNG three.js).
+// Mỗi sub có toạ độ % quanh Main (giữa) — Main tỏa đường nối chấm ra 4 góc chéo.
 const ROLE_ICON: Record<string, string> = { credit: '🧮', legal: '⚖', products: '📦', ops: '⚙' };
+// vị trí node trên khung constellation (% — x,y). 4 góc chéo cân đối quanh Main (50,50).
+const SUB_LAYOUT = [
+  { role: 'credit', x: 24, y: 26 },   // trên-trái
+  { role: 'legal', x: 76, y: 26 },    // trên-phải
+  { role: 'products', x: 76, y: 74 },  // dưới-phải
+  { role: 'ops', x: 24, y: 74 },       // dưới-trái
+] as const;
 
 interface Props {
   cards: Card[];
@@ -65,33 +72,56 @@ export function Canvas({ cards, tasks, onDecide, onSelectSub }: Props) {
 
       {tab === 'lobby' ? (
         <div className="canvas__lobby">
-          {/* live map 2D — 4 sub phòng ban + status dot (D-24) */}
-          <div className="livemap" aria-label="Bản đồ đội">
-            <div className="livemap__main">◆ Main · điều phối</div>
-            <div className="livemap__grid">
-              {SUB_ROLES.map((role) => {
+          {/* constellation — Main giữa + 4 sub tỏa góc + đường nối chấm (SVG). D-53, CSS/SVG thuần. */}
+          <div className="constel" aria-label="Bản đồ đội — sơ đồ không gian">
+            {/* lớp đường nối: Main(50,50) → mỗi sub. dasharray = chấm; màu theo tone active. */}
+            <svg className="constel__links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              {SUB_LAYOUT.map(({ role, x, y }) => {
                 const st = subStatus(tasks, role);
-                const tone = DOT_TONE[st] ?? 'idle';
-                const task = latestTaskOfRole(tasks, role); // click node có task → mở SubAgentView
-                const clickable = !!task && !!onSelectSub;
+                const active = st === 'running' || st === 'queued';
                 return (
-                  <div
+                  <line
                     key={role}
-                    className={`livemap__node livemap__node--${tone}${clickable ? ' livemap__node--clickable' : ''}`}
-                    data-testid={`node-${role}`}
-                    onClick={clickable ? () => onSelectSub!(task!.id) : undefined}
-                    role={clickable ? 'button' : undefined}
-                    tabIndex={clickable ? 0 : undefined}
-                    onKeyDown={clickable ? (e) => e.key === 'Enter' && onSelectSub!(task!.id) : undefined}
-                  >
-                    <span className="livemap__icon">{ROLE_ICON[role]}</span>
-                    <span className="livemap__name">{roleLabel(role)}</span>
-                    <span className={`status-dot status-dot--${tone}${st === 'running' ? ' deg-pulse' : ''}`} />
-                    <span className="livemap__status">{STATUS_TEXT[st] ?? st}</span>
-                  </div>
+                    x1="50" y1="50" x2={x} y2={y}
+                    className={`constel__link${active ? ' constel__link--active' : ''}`}
+                  />
                 );
               })}
+            </svg>
+
+            {/* Main — tâm điều phối */}
+            <div className="constel__main" style={{ left: '50%', top: '50%' }}>
+              <span className="constel__main-icon">◆</span>
+              <span className="constel__main-name">Main</span>
+              <span className="constel__main-desc">điều phối · hòa giải</span>
             </div>
+
+            {/* 4 sub node tỏa góc */}
+            {SUB_LAYOUT.map(({ role, x, y }) => {
+              const st = subStatus(tasks, role);
+              const tone = DOT_TONE[st] ?? 'idle';
+              const task = latestTaskOfRole(tasks, role); // click node có task → mở SubAgentView
+              const clickable = !!task && !!onSelectSub;
+              return (
+                <div
+                  key={role}
+                  className={`constel__node constel__node--${tone}${clickable ? ' constel__node--clickable' : ''}`}
+                  style={{ left: `${x}%`, top: `${y}%` }}
+                  data-testid={`node-${role}`}
+                  onClick={clickable ? () => onSelectSub!(task!.id) : undefined}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={clickable ? (e) => e.key === 'Enter' && onSelectSub!(task!.id) : undefined}
+                >
+                  <span className="constel__icon">{ROLE_ICON[role]}</span>
+                  <span className="constel__name">{roleLabel(role)}</span>
+                  <span className="constel__meta">
+                    <span className={`status-dot status-dot--${tone}${st === 'running' ? ' deg-pulse' : ''}`} />
+                    <span className="constel__status">{STATUS_TEXT[st] ?? st}</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* bảng việc */}
