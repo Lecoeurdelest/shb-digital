@@ -9,8 +9,9 @@ card + admin duyệt → event resume → giải ngân thật. Gate 4/4 browser+
 authz 12/12). Race resume-dispatch FIXED (guard A/B tất định). Bonus: provider standalone (demo Đà
 Nẵng hết phụ CLI auth) + routing fix + card-sync. Ngoại lệ treo S4: loop-edge guard B (defensive).
 
-**Sprint 4 — SẴN SÀNG** (chưa kickoff): Control Tower + trace + tương tác sub (F1/F2 D-43) +
-loop-bound + provider (c) per-conv/model UI. Plan draft `plan_sprint_4.md`.
+**Sprint 4 — ĐANG CHẠY** (kickoff 2026-07-18): Control Tower (deliverable #4) + trace + tương tác
+sub (F1/F2 D-43) + loop-bound (T4-0 hạ ngoại lệ S3) + provider (c)/model UI. Plan `plan_sprint_4.md`
+(kickoff note). Gating: T4-0 loop-bound · T4-1 tool_calls audit. Fan-out: F1/F2a/Control Tower/provider(c).
 
 **Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_3.md` (đóng) · `plan_sprint_4.md` (draft).
 

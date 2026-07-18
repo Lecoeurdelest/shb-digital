@@ -64,3 +64,27 @@ sub → full-conv + interrupt 1 sub cụ thể (không đụng sub khác) + cost
 - **Queue Control Tower** (T4-1) — dời từ T3-3 (nguyên khối §12).
 - **2-card-trùng, immediate-stop** (T4-5) — polish.
 - **Verify quy trình:** mỗi verifier live-SDK dùng loan RIÊNG hoặc tuần tự (bài học contamination S3).
+
+---
+
+## Kickoff — 2026-07-18
+
+**Drift/spot-check code hiện có (đọc SPEC §9/§10/§11/§12 + spot-check backend):**
+- `tasks.cost` CÓ sẵn (store.py) — cost meter phần data có nền.
+- **`tool_calls` table CHƯA có migration** (SPEC §10 append-only audit) → T4-1/audit cần tạo migration + emit tool_call rows.
+- `toolcall` SSE + interrupt rải rác code — cần kiểm sâu lúc dispatch từng task (đừng giả định có sẵn).
+- **F2b (chat-sub) cần sub-session ĐA LƯỢT** (hiện one-shot D-33) — stretch, xác nhận lại chi phí trước khi build.
+
+**Revisions (team-lead route — F1/F2 D-43 user đặt = ưu tiên CAO, user track):**
+- Nâng F1 + F2a lên song song với Control Tower (không để cuối). User đặt cái này, ưu tiên hiển thị.
+- T4-0 loop-bound (ngoại lệ S3) làm SỚM + độc lập (gate gating, backend một mình) — hạ ngoại lệ trước.
+- Provider (c) + dropdown = độc lập, làm song song (không chặn Control Tower).
+
+**Thứ tự dispatch (gating trước → fan-out):**
+1. **T4-0 loop-bound** (backend, độc lập, làm ngay — hạ ngoại lệ S3).
+2. **T4-1 tool_calls audit + toolcall SSE** (backend — nền cho trace/Control Tower; gating cho F1+audit).
+3. Fan-out sau T4-1: **F1 trace UI** (BE emit thinking + FE render) · **F2a click-sub+huỷ** (FE+BE interrupt) · **Control Tower màn** (FE queue+map+audit+cost) · **provider (c)+dropdown** (BE+FE, độc lập).
+4. **F2b chat-sub** (stretch — sau F2a, cân sub-đa-lượt).
+5. **T4-6 tester gate S4** — pre-scaffold từ Exports, verify cuối.
+
+**Bài học S3 mang sang:** verify live-SDK dùng loan RIÊNG/tuần tự (nhiễm chéo) · commit runtime → restart :8000 → báo FE/tester · verify độc lập không tin count · altitude happy-path (không leo edge-case thành blocker).
