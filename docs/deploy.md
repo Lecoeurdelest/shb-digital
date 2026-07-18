@@ -51,6 +51,20 @@ sudo systemctl restart cloudflared
 # verify NGOÀI: curl -I https://digital.tinhdev.com  → 200 + FE load
 ```
 
+## 4b. Verify cache SAU MỖI redeploy FE (S14 — chống bundle-stale trước giám khảo)
+
+Cơ chế bền (đã vào code, KHÔNG phải fix tay 1 lần): Vite content-hash tên bundle
+(`assets/index-<hash>.js` — đổi mỗi build) + `frontend/nginx.conf` set `index.html →
+Cache-Control: no-cache` và `/assets/ → immutable 1 năm`. Cloudflare KHÔNG cache HTML mặc định
+và pass-through header origin. Sau mỗi redeploy FE, verify 10 giây:
+```
+curl -sI https://digital.tinhdev.com/ | grep -i cache-control        # PHẢI: no-cache
+curl -s https://digital.tinhdev.com/ | grep -o 'assets/index-[^"]*'  # hash PHẢI ĐỔI so với build trước
+```
+Lưu ý 1 lần: browser đã mở app TRƯỚC fix này (commit 67350cd) có thể còn giữ index.html cũ
+→ hard-refresh 1 phát là hết vĩnh viễn (từ đó no-cache tự lo). Checklist giờ G: hard-refresh
+máy demo đầu phiên.
+
 ## 5. Rollback
 - App lỗi: `docker compose -f docker-compose.prod.yml down` → sửa → up lại (data volume GIỮ).
 - Cloudflared lỗi: khôi phục `config.yml` cũ (backup trước khi sửa: `cp config.yml config.yml.bak`)
