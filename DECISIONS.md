@@ -4,6 +4,19 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-58 · Labpack diverge khỏi LAB → RE-SYNC TOÀN FILE về bản LAB hiện tại, không vá tay từng
+  function** (architect, T7-1 18/7) — backend phát hiện empirical: `roles/credit/functions.py`
+  md5 413a634d ≠ LAB fba6455b (`_assumptions` labpack thiếu graceful-skip value chữ → crash khi
+  seed key legal; LAB gốc có try/float/continue). `seed_from_lab._filter_rows` hoá ra là
+  workaround cho bản stale này. Quyết: (1) diff toàn file labpack vs LAB, dán summary; (2)
+  re-sync TOÀN FILE (T7-2 classify import credit_assess kỳ vọng hành vi LAB hiện tại — sync nửa
+  file = frankenstein 2 version); (3) chỉ được đổi phần prod BẮT BUỘC đổi (import path — như
+  D-55 legal), 0 sửa logic tay; (4) suite phán — test credit cũ lệch số → tester xét (hành vi
+  LAB certified là chuẩn, test theo hành vi cũ thì sửa test có note). Bỏ filter 2 key sau sync.
+  — vì sao: labpack cam kết byte-identical là RANH N1/D-27 — diverge âm thầm = mất căn cứ
+  certify; vá tay từng function tái phạm đúng lỗi đó. — cách đổi: nếu diff LAB quá rộng làm vỡ
+  gate cũ → dừng, báo architect xét scope.
+
 - **D-57 · S9 "KHÁCH MỚI + VÒNG ĐỜI HỒ SƠ": signup + form intake + mail Gmail thật + bell**
   (người chốt 18/7 "ok em cứ code còn app password anh gửi sau" — từ input mentor) — (a) app cho
   người MỚI đăng ký: register account → form intake card (thu họ tên/CMND/thu nhập/mục đích...)
