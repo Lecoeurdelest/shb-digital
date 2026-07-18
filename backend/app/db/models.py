@@ -196,6 +196,8 @@ class Approval(Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     receipt: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # T4-0 loop-bound: số lần guard-B re-dispatch ops#2 claim phiếu (chống task-storm khi fail bền).
+    exec_attempts: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
 
 
 class Card(Base):
@@ -211,6 +213,29 @@ class Card(Base):
     type: Mapped[str] = mapped_column(Text)
     data: Mapped[dict] = mapped_column(JSONB)
     ts: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
+
+
+class ToolCall(Base):
+    # T4-1 audit APPEND-ONLY (SPEC §10) — nền trace/Control Tower/F1 + cost meter. id VỎ-inject
+    # (server_default D-28c §15). task_id null OK (main gọi tool ngoài sub). conv_id filter theo ca.
+    # KHÔNG update/delete (bất biến — audit). output/cost best-effort (null nếu chưa bắt được).
+    __tablename__ = "tool_calls"
+    __table_args__ = (
+        Index("ix_tool_calls_task_ts", "task_id", "ts"),
+        Index("ix_tool_calls_conv", "conv_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    conv_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ts: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    actor: Mapped[str] = mapped_column(Text)  # role (sub) | 'main'
+    tool: Mapped[str] = mapped_column(Text)
+    input: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    output: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    cost: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 class Task(Base):

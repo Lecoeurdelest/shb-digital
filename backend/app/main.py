@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.approvals import router as approvals_router
+from app.api.audit import router as audit_router
 from app.api.conversations import router as conversations_router
 from app.api.models import router as models_router
 from app.api.sse import router as sse_router
@@ -51,6 +52,7 @@ app.include_router(conversations_router)  # conversations + chat (T1-3)
 app.include_router(sse_router)  # SSE stream (T1-3)
 app.include_router(approvals_router)  # approvals decide + list (T3-2)
 app.include_router(models_router)  # providers/models cho FE dropdown (D-45b)
+app.include_router(audit_router)  # tool_calls audit search (T4-1 §11)
 
 
 @app.get("/api/health")

@@ -48,6 +48,13 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-48 · tool_calls audit (T4-1): thêm `conv_id` + SSE toolcall thêm `id` — mở rộng tương thích
+  SPEC §9/§10 (architect signoff 18/7)** — (a) `conv_id` vào tool_calls: main tool có task_id=null →
+  không join tasks được → cần conv_id filter audit theo ca. SPEC §10 là cột TỐI THIỂU; thêm cột phục
+  vụ query không phá invariant append-only. (b) `id` vào SSE toolcall {id, task_id, tool, summary,
+  cost}: FE dedup (live SSE + reload GET /api/audit chồng → id khớp tránh trùng). (c) `cost`=null
+  per-tool CHẤP NHẬN — SDK chỉ expose per-TURN (ResultMessage) → cost meter dùng tasks.cost; per-tool
+  defer, KHÔNG giả số. — Đổi: LAB/SDK expose per-tool cost → wire lại.
 - **D-47 · Race resume-dispatch = guard A/B re-dispatch TỪ task_done (không đua trước) — N2 tầng điều
   phối** (architect chốt + advisor + tester verify, 18/7) — race: admin duyệt NHANH hơn Ops-lần-1 return
   → resume-dispatch (approval_decided) đua trước unregister → orch_dispatch created:false → MAIN đọc

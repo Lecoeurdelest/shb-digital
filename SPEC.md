@@ -249,7 +249,8 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
 | `task.created` / `task.status` | {task} | bảng việc, live map, node sub |
 | `chat.delta` | {chunk} | stream chữ main trong chat |
 | `card` | {card} (từ present) | canvas render |
-| `toolcall` | {task_id, tool, summary, cost} | trace timeline + cost meter + (3D view sau) |
+| `toolcall` | {id, task_id, tool, summary, cost} | trace timeline + cost meter + (3D view sau) |
+| `thinking` | {task_id, text} | trace: suy nghĩ model (live-only, KHÔNG persist — F1/T4-2) |
 | `approval.pending` / `approval.decided` | {phiếu} | badge chờ duyệt, approval queue, resume |
 
 - Reconnect: FE gọi `GET /conversations/{id}` load full state từ DB rồi nghe SSE tiếp.

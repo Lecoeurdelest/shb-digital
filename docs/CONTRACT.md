@@ -83,8 +83,9 @@ interface SSEEnvelope<T> { type: SSEEventType; conversation_id: string; seq: num
 | ✓ `task.status` | `{task: OrchTask}` | full row (status/result/ended_at) |
 | ✓ `conversation.status` | `{status: ConversationStatus}` | badge |
 | ✓(S2) `card` | `{card}` — full row cards (id VỎ-inject, task_id, type, title, items, sources...) | canvas render; FE upsert theo id, replace theo (task_id,type) giữ ts mới nhất |
-| (S4) `approval.pending`/`approval.decided` | `{phieu}` | phanh — chưa dùng S1 |
-| (S4) `toolcall` | `{task_id, tool, summary, cost}` | trace/cost — chưa dùng S1 |
+| ✓(S3) `approval.pending`/`approval.decided` | `{phieu}` | phanh — badge chờ duyệt, resume |
+| ✓(S4) `toolcall` | `{id, task_id, tool, summary, cost}` | trace timeline (T4-1); `id`=tool_calls.id → FE upsert dedup (reload GET /api/audit + live SSE cùng id); `cost`=null hiện tại (SDK per-turn, không per-tool) |
+| ✓(S4) `thinking` | `{task_id, text}` | trace: suy nghĩ model (ThinkingBlock) — LIVE-ONLY, KHÔNG persist DB (T4-2 F1); `task_id`=sub role · `null`=main; `text`=block.thinking (FE line-clamp nếu dài) |
 
 - Bắn **nguyên row** (không diff) — FE upsert theo id, cùng shape REST → 1 codepath render.
 - **Ghi DB xong mới emit** (trừ chat.delta chunk). Header SSE: `X-Accel-Buffering:no` + `Cache-Control:no-cache` + heartbeat 15s (streaming-sse §4).

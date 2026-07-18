@@ -114,7 +114,9 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
         ClaudeSDKClient,
         ResultMessage,
         TextBlock,
+        ToolResultBlock,
         ToolUseBlock,
+        UserMessage,
     )
 
     from app.orch.providers import server_provider_env
@@ -123,6 +125,9 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
     client = ClaudeSDKClient(options=_build_sub_options(task, server_provider_env()))
     text_parts: list[str] = []
     tool_calls: list[dict[str, Any]] = []
+    # T4-1 audit: buffer tool_use theo id (input) → match ToolResultBlock (output) → record 1 row đủ.
+    # tool_use không có result (turn kết thúc trước) → flush với output null (append-only, không update).
+    pending: dict[str, dict[str, Any]] = {}
     try:
         await client.connect()
         await client.query(brief)
@@ -132,15 +137,80 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
                     if isinstance(block, TextBlock):
                         text_parts.append(block.text)
                     elif isinstance(block, ToolUseBlock):
-                        tool_calls.append({"tool": block.name.split("__")[-1], "input": block.input})
+                        tool_name = block.name.split("__")[-1]
+                        tool_calls.append({"tool": tool_name, "input": block.input})
+                        pending[block.id] = {"tool": tool_name, "input": block.input}
+            elif isinstance(msg, UserMessage):
+                # tool result đến qua UserMessage.content (ToolResultBlock) — match theo tool_use_id.
+                for block in getattr(msg, "content", []) or []:
+                    if isinstance(block, ToolResultBlock):
+                        info = pending.pop(block.tool_use_id, None)
+                        if info is not None:
+                            await _audit_tool_call(task, info["tool"], info["input"], block.content)
             elif isinstance(msg, ResultMessage):
                 pass  # sub không resume → không cần giữ session_id
     finally:
+        # flush tool_use chưa có result (output null) — append-only, vẫn ghi audit (§10).
+        for info in pending.values():
+            await _audit_tool_call(task, info["tool"], info["input"], None)
         try:
             await client.disconnect()
         except Exception as e:  # noqa: BLE001
             log.warning("sub disconnect lỗi: %s", e)
     return {"text": "".join(text_parts), "tool_calls": tool_calls}
+
+
+async def _audit_tool_call(task: Task, tool: str, tool_input: Any, output: Any) -> None:
+    """T4-1: persist 1 tool_call (append-only) + emit SSE toolcall. Best-effort — audit lỗi KHÔNG
+    fail sub turn (§12). actor = role sub. task_id/conv_id từ task."""
+    from app.orch import store_audit
+
+    try:
+        row = await store_audit.record_tool_call(
+            task_id=task.id, conv_id=task.conv_id, actor=task.role, tool=tool, tool_input=tool_input, output=output
+        )
+        if row is not None:
+            _emit_toolcall(task.conv_id, row)
+    except Exception as e:  # noqa: BLE001 — best-effort, không fail turn
+        log.warning("audit tool_call lỗi (bỏ qua): %s", e)
+
+
+async def _audit_main_tool_call(conv_id: str, tool: str, tool_input: Any, output: Any) -> None:
+    """T4-1: persist tool_call của MAIN (actor='main', task_id=None — main gọi tool ngoài sub).
+    Best-effort (§12)."""
+    from app.orch import store_audit
+
+    try:
+        row = await store_audit.record_tool_call(
+            task_id=None, conv_id=conv_id, actor="main", tool=tool, tool_input=tool_input, output=output
+        )
+        if row is not None:
+            _emit_toolcall(conv_id, row)
+    except Exception as e:  # noqa: BLE001
+        log.warning("audit main tool_call lỗi (bỏ qua): %s", e)
+
+
+def _emit_toolcall(conv_id: str, row: dict[str, Any]) -> None:
+    """SSE toolcall §9 {task_id, tool, summary, cost} + `id` (FE upsert live tránh trùng reload+SSE
+    chồng — FE yêu cầu; audit row có id nên đưa vào event, mở rộng tương thích SPEC §9). Lazy import;
+    lỗi SSE KHÔNG fail (fire-and-forget)."""
+    try:
+        from app.sse.emit import emit
+
+        summary = json.dumps(row.get("input"), ensure_ascii=False)[:200] if row.get("input") is not None else ""
+        emit(
+            conv_id,
+            "toolcall",
+            {
+                "id": row.get("id"),  # = tool_calls.id (khớp GET /api/audit row.id) → FE dedup upsert
+                "task_id": row.get("task_id"),
+                "tool": row["tool"],
+                "summary": summary,
+                "cost": row.get("cost"),
+            },
+        )
+    except Exception as e:  # noqa: BLE001
+        log.warning("emit toolcall lỗi (bỏ qua): %s", e)
 
 
 def _build_main_options(conv_id: str, resume: str | None, provider_env: dict[str, str] | None = None) -> Any:
@@ -180,6 +250,9 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
         ProcessError,
         ResultMessage,
         TextBlock,
+        ToolResultBlock,
+        ToolUseBlock,
+        UserMessage,
     )
 
     # ContextVar set dòng ĐẦU (brief §E · lab-joint §7): actor='main' + task='' . QUAN TRỌNG cho
@@ -214,6 +287,7 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
     text_parts: list[str] = []
     session_id: str | None = None
     is_error = False
+    pending: dict[str, dict[str, Any]] = {}  # T4-1 audit: tool_use theo id chờ match result
     try:
         await client.query(prompt)
         async for msg in client.receive_response():
@@ -223,10 +297,21 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
                         text_parts.append(block.text)
                         if on_text is not None:
                             await on_text(block.text)
+                    elif isinstance(block, ToolUseBlock):
+                        pending[block.id] = {"tool": block.name.split("__")[-1], "input": block.input}
+            elif isinstance(msg, UserMessage):
+                for block in getattr(msg, "content", []) or []:
+                    if isinstance(block, ToolResultBlock):
+                        info = pending.pop(block.tool_use_id, None)
+                        if info is not None:
+                            await _audit_main_tool_call(conv_id, info["tool"], info["input"], block.content)
             elif isinstance(msg, ResultMessage):
                 session_id = getattr(msg, "session_id", None)
                 is_error = bool(getattr(msg, "is_error", False))
     finally:
+        # flush tool_use chưa match result (output null) — append-only audit (§10).
+        for info in pending.values():
+            await _audit_main_tool_call(conv_id, info["tool"], info["input"], None)
         registry.main_clients.pop(conv_id, None)
         try:
             await client.disconnect()  # close-on-done — CÙNG task (landmine #1)
@@ -256,6 +341,11 @@ async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
     B) task_done + có grant treo → server re-dispatch role đó gọi lại tool (fire-and-forget spawn,
        KHÔNG inline-await — task_done chạy TRONG finally sub đang chết, D-33) + SKIP MAIN report
        lượt này. ops#2 claim → flip 'used' → grant tự clear → task_done kế không grant → MAIN report.
+
+    T4-0 loop-bound: nhánh B peek_grant (không mutate) → claim_exec_attempt (increment atomic khi chắc
+    re-dispatch) + trần MAX_EXEC_ATTEMPTS.
+    ops#2 fail BỀN → grant treo approved-unused → mỗi task_done re-dispatch tăng attempt → vượt trần
+    → KHÔNG dispatch nữa (chống task-storm) + phiếu 'exec_failed' + MAIN báo user "giải ngân lỗi bền".
     """
     from app.orch import store_approvals
     from app.orch.dispatch import orch_dispatch_impl
@@ -268,26 +358,53 @@ async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
             log.info("resume-guard A: %s còn running, hoãn re-dispatch tới khi task_done (conv %s)", role, conv_id)
             return True  # SKIP MAIN — grant treo ở approval row, nhánh B lo khi role free
 
-    # B) task_done + grant approved-chưa-used treo → server re-dispatch role claim bước 2.
+    # B) task_done + grant approved-chưa-used treo → server re-dispatch role claim bước 2 (BOUND T4-0).
     if event == "task_done":
-        grant = await store_approvals.pending_execution(conv_id)
-        if grant is not None:
-            action = grant["action"]
-            role = GATED_ROLE.get(action)
-            done_role = data.get("role")
-            # chỉ re-dispatch khi role vừa FREE (task_done của CHÍNH role sở hữu action) — tránh
-            # re-dispatch nhầm khi role khác done. role đã unregister ở _report TRƯỚC event này.
-            if role and role == done_role and registry.get_running_task_id(conv_id, role) is None:
-                payload_summary = ", ".join(f"{k}={v}" for k, v in (grant.get("payload") or {}).items())
-                brief = (
-                    f"Thực hiện {action} ĐÃ ĐƯỢC DUYỆT: {payload_summary}. Gọi lại tool {action} "
-                    f"ĐÚNG tham số này để hoàn tất (phiếu đã duyệt, lần này chạy thật)."
-                )
-                title = f"Thực thi {action} đã duyệt ({payload_summary})"
-                log.info("resume-guard B: re-dispatch %s claim %s (conv %s)", role, action, conv_id)
-                # fire-and-forget: orch_dispatch_impl tự spawn_sub nền — KHÔNG await (nest sub chết)
-                await orch_dispatch_impl(conv_id, role, title, brief)
-                return True  # SKIP MAIN report lượt này (ops#2 done sẽ báo hoàn tất — self-contained)
+        # PEEK grant (KHÔNG increment) — biết role sở hữu + attempt hiện tại. Increment CHỈ khi thật
+        # sự re-dispatch (role khớp done_role) → không tốn quota oan khi role KHÁC done.
+        grant = await store_approvals.peek_grant(conv_id)
+        if grant is None:
+            return False  # không grant treo → path bình thường (MAIN report)
+
+        done_role = data.get("role")
+        action = grant["action"]
+        role = GATED_ROLE.get(action)
+        # chỉ xử khi role sở hữu action vừa FREE (task_done của CHÍNH role đó). role đã unregister ở
+        # _report TRƯỚC event này. role khác done → path bình thường (grant chờ role đúng).
+        if not (role and role == done_role and registry.get_running_task_id(conv_id, role) is None):
+            return False
+
+        # VƯỢT TRẦN (T4-0): ops#2 fail BỀN → attempt đã chạm MAX → DỪNG re-dispatch, báo MAIN "lỗi bền".
+        if grant["exec_attempts"] >= store_approvals.MAX_EXEC_ATTEMPTS:
+            await store_approvals.mark_exec_failed(grant["id"])
+            log.warning(
+                "resume-guard B: %s vượt trần %d lần re-dispatch → exec_failed (conv %s)",
+                action,
+                store_approvals.MAX_EXEC_ATTEMPTS,
+                conv_id,
+            )
+            # KHÔNG SKIP — để MAIN báo user. NHƯNG KHÔNG cược model đọc error trong result_summary:
+            # inject signal DETERMINISTIC vào data → _build_event_prompt task_done nhánh exec_failed →
+            # MAIN nhận prompt RÕ "giải ngân lỗi bền sau N lần, cần người" (không phụ suy luận model).
+            data["exec_failed"] = {
+                "action": action,
+                "attempts": store_approvals.MAX_EXEC_ATTEMPTS,
+                "payload_summary": ", ".join(f"{k}={v}" for k, v in (grant.get("payload") or {}).items()),
+            }
+            return False
+
+        # CÒN quota → increment atomic (chỉ khi chắc chắn re-dispatch) → dispatch ops#2.
+        attempt = await store_approvals.claim_exec_attempt(grant["id"])
+        payload_summary = ", ".join(f"{k}={v}" for k, v in (grant.get("payload") or {}).items())
+        brief = (
+            f"Thực hiện {action} ĐÃ ĐƯỢC DUYỆT: {payload_summary}. Gọi lại tool {action} "
+            f"ĐÚNG tham số này để hoàn tất (phiếu đã duyệt, lần này chạy thật)."
+        )
+        title = f"Thực thi {action} đã duyệt ({payload_summary})"
+        log.info("resume-guard B: re-dispatch %s claim %s lần %d (conv %s)", role, action, attempt, conv_id)
+        # fire-and-forget: orch_dispatch_impl tự spawn_sub nền — KHÔNG await (nest sub chết)
+        await orch_dispatch_impl(conv_id, role, title, brief)
+        return True  # SKIP MAIN report lượt này (ops#2 done sẽ báo hoàn tất — self-contained)
     return False
 
 
@@ -346,6 +463,16 @@ def _build_event_prompt(event: str, data: dict) -> str:
     if event == "user_message":
         return f"Tin nhắn người dùng: {data['content']}"
     if event == "task_done":
+        # T4-0: guard-B đã đánh dấu grant exec_failed sau khi vượt trần re-dispatch → prompt RÕ cho
+        # MAIN báo user lỗi bền (DETERMINISTIC — không cược model đọc error trong result_summary).
+        ef = data.get("exec_failed")
+        if ef:
+            return (
+                f"Sự kiện: '{ef['action']}' ({ef['payload_summary']}) đã được duyệt nhưng THỰC THI "
+                f"THẤT BẠI BỀN sau {ef['attempts']} lần thử lại — hệ thống đã DỪNG tự động (không thử "
+                f"tiếp). Báo người dùng: giao dịch này KHÔNG hoàn tất được, CẦN NGƯỜI kiểm tra thủ công "
+                f"(vd khoản vay lỗi/không tồn tại). KHÔNG tự thử lại."
+            )
         return (
             f"Sự kiện: chuyên gia {data['role']} kết thúc [{data['outcome']}]. "
             f"Kết quả: {data['result_summary']}\nBảng việc hiện tại: {json.dumps(data['board'], ensure_ascii=False)}"
