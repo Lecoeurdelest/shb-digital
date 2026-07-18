@@ -35,6 +35,9 @@ services:
       SHB_PROVIDER: zai      # container KHÔNG có CLI login máy → provider keyed (zai)
       # FIX C: container KHÔNG có CLI auth → claude-cli = nút chết → ẩn khỏi picker (public_view lọc).
       SHB_PROVIDERS_DISABLED: claude-cli
+      # Runtime KHÔNG được cần mạng: uv run mặc định re-sync (kéo cả dev-deps như pytest) →
+      # DNS chớp trong container = crash-loop (sự cố deploy 18/7). Env đã sync đủ lúc build.
+      UV_NO_SYNC: "1"
       APP_URL: ${APP_URL:-http://localhost:3011}   # link CTA mail (S10 → digital.tinhdev.com)
     depends_on:
       db: { condition: service_healthy }
