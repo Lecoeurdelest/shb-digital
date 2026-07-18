@@ -68,6 +68,56 @@ def test_whitespace_and_empty_tolerant(monkeypatch):
     assert "claude-cli" not in after
 
 
+# ── effective_default: /api/models 'default' KHÔNG trỏ provider ẩn (micro-fix trước GO) ──
+
+
+def _effective(env_disabled: str | None, env_provider: str | None, monkeypatch) -> str:
+    for k in ("SHB_PROVIDERS_DISABLED", "SHB_PROVIDER"):
+        monkeypatch.delenv(k, raising=False)
+    if env_disabled is not None:
+        monkeypatch.setenv("SHB_PROVIDERS_DISABLED", env_disabled)
+    if env_provider is not None:
+        monkeypatch.setenv("SHB_PROVIDER", env_provider)
+    return Providers().effective_default()
+
+
+def _view_default(monkeypatch) -> list[str]:
+    return [p["name"] for p in Providers().public_view() if p["default"]]
+
+
+def test_effective_default_not_disabled_provider(monkeypatch):
+    """BUG VM: disable yaml-default (claude-cli) + SHB_PROVIDER=zai → effective = zai (KHÔNG claude-cli ẩn)."""
+    eff = _effective("claude-cli", "zai", monkeypatch)
+    assert eff == "zai"
+    # /api/models 'default' đồng bộ (chỉ zai default, không claude-cli ẩn)
+    assert _view_default(monkeypatch) == ["zai"]
+
+
+def test_effective_default_no_env_yaml_default(monkeypatch):
+    """Không disable, không env → yaml default (claude-cli)."""
+    assert _effective(None, None, monkeypatch) == "claude-cli"
+
+
+def test_effective_default_yaml_default_dead_first_alive(monkeypatch):
+    """Disable yaml-default, không SHB_PROVIDER → provider ĐẦU TIÊN còn sống."""
+    eff = _effective("claude-cli", None, monkeypatch)
+    assert eff != "claude-cli"  # yaml default chết → không dùng
+    assert eff in _names("claude-cli", monkeypatch)  # trong list còn sống
+
+
+def test_effective_default_env_pref_dead_falls_through(monkeypatch):
+    """SHB_PROVIDER trỏ provider BỊ ẨN → bỏ env pref, về yaml default (nếu sống) — không dùng provider ẩn."""
+    eff = _effective("zai", "zai", monkeypatch)  # SHB_PROVIDER=zai nhưng zai disabled
+    assert eff != "zai"
+
+
+def test_view_default_always_matches_effective(monkeypatch):
+    """1 NGUỒN SỰ THẬT: /api/models 'default' LUÔN == effective_default (mọi cấu hình env)."""
+    for dis, prov in [(None, None), ("claude-cli", "zai"), ("claude-cli", None), ("zai", "zai")]:
+        eff = _effective(dis, prov, monkeypatch)
+        assert _view_default(monkeypatch) == [eff], f"lệch: view={_view_default(monkeypatch)} eff={eff}"
+
+
 @requires_db
 def test_create_conversation_disabled_provider_400(monkeypatch):
     """create_conversation với provider DISABLED → 400 bad_provider (validation đọc public_view)."""

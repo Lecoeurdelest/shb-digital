@@ -84,6 +84,22 @@ class Providers:
                 return name
         return next(iter(self._items))
 
+    def effective_default(self) -> str:
+        """Default THỰC DÙNG (1 NGUỒN SỰ THẬT — cả /api/models field 'default' LẪN đường tạo conv
+        không truyền provider). Tránh preselect provider ĐÃ BỊ ẨN (SHB_PROVIDERS_DISABLED):
+        (1) SHB_PROVIDER env nếu set VÀ còn sống · (2) else yaml default: true nếu còn sống ·
+        (3) else provider ĐẦU TIÊN còn sống trong public_view. Không còn sống nào → default_name (fallback
+        cực hiếm — _disabled_names đã giữ ≥1 sống)."""
+        disabled = self._disabled_names()
+        alive = [n for n in self._items if n not in disabled]
+        env_pref = os.environ.get("SHB_PROVIDER") or None
+        if env_pref and env_pref in alive:
+            return env_pref
+        yaml_default = self.default_name()
+        if yaml_default in alive:
+            return yaml_default
+        return alive[0] if alive else yaml_default
+
     def resolve_env(self, name: str | None) -> tuple[str, dict[str, str]]:
         """(tên provider resolved, env cho ClaudeAgentOptions).
 
@@ -126,8 +142,10 @@ class Providers:
         return disabled
 
     def public_view(self) -> list[dict[str, Any]]:
-        """Cho API /models — KHÔNG kèm key (chỉ has_key true/false). FIX C: loại provider disabled."""
+        """Cho API /models — KHÔNG kèm key (chỉ has_key true/false). FIX C: loại provider disabled.
+        'default' = EFFECTIVE default (FE preselect) — CHỈ 1 provider còn sống, KHÔNG trỏ provider ẩn."""
         disabled = self._disabled_names()
+        eff = self.effective_default()
         out = []
         for name, p in self._items.items():
             if name in disabled:
@@ -138,7 +156,7 @@ class Providers:
                     "kind": p.get("kind", "api"),
                     "base_url": p.get("base_url"),
                     "models": p.get("models", []),
-                    "default": bool(p.get("default")),
+                    "default": name == eff,  # effective (không phải yaml flag — tránh trỏ provider ẩn)
                     "has_key": (
                         p.get("kind") == "subscription" or (bool(p.get("api_key")) and name not in self._missing_keys)
                     ),
@@ -153,23 +171,24 @@ providers = Providers()
 
 
 def server_provider_env() -> dict[str, str]:
-    """Env provider mức SERVER (a): SHB_PROVIDER hoặc default yaml. reload .env mỗi lần (bắt key mới).
+    """Env provider mức SERVER (a): EFFECTIVE default (1 nguồn sự thật với /api/models — KHÔNG rơi
+    provider ẩn dù SHB_PROVIDER trỏ vào nó). reload .env mỗi lần (bắt key mới).
 
     (a) resolve ở mức server — KHÔNG đọc conv.provider (đó là (c) model/provider per-conversation).
     """
     providers.reload()
-    _, env = providers.resolve_env(os.environ.get("SHB_PROVIDER") or None)
+    _, env = providers.resolve_env(providers.effective_default())
     return env
 
 
 def conv_provider_env(conv_provider: str | None) -> dict[str, str]:
     """D-45b (c) per-conv: env từ provider CỦA CONV (resume-consistency — conv tạo trên X chạy X).
 
-    conv_provider None → server-default (SHB_PROVIDER) — conv cũ + không chọn = hành vi (a). Có tên
-    → resolve_env raise KeyError nếu thiếu key/không tồn → caller (turn) fail LOUD (không hang câm).
-    reload .env mỗi lần (bắt key điền runtime).
+    conv_provider None → EFFECTIVE default (CÙNG nguồn với /api/models 'default' — ca không truyền
+    provider KHÔNG rơi provider ẩn). Có tên → resolve_env raise KeyError nếu thiếu key/không tồn →
+    caller (turn) fail LOUD (không hang câm). reload .env mỗi lần (bắt key điền runtime).
     """
     providers.reload()
-    name = conv_provider or os.environ.get("SHB_PROVIDER") or None
+    name = conv_provider or providers.effective_default()
     _, env = providers.resolve_env(name)
     return env
