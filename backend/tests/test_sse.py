@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 
 from app.sse import bus, emit
@@ -110,6 +112,46 @@ async def test_sse_endpoint_headers_present():
 
     assert _SSE_HEADERS["X-Accel-Buffering"] == "no"
     assert _SSE_HEADERS["Cache-Control"] == "no-cache"
+
+
+def test_sse_heartbeat_interval_15s():
+    """S6: heartbeat 15s (SPEC §9) — client có traffic phát hiện đứt (SIGKILL onerror không fire)."""
+    from app.api.sse import _HEARTBEAT
+
+    assert _HEARTBEAT == 15.0
+
+
+@pytest.mark.asyncio
+async def test_sse_stream_emits_ping_event_when_idle(monkeypatch):
+    """S6: queue RỖNG > _HEARTBEAT → stream yield EVENT ping (data:) KHÔNG comment (: ...) — native
+    EventSource nuốt comment → FE onmessage không thấy. type='ping' cùng shape envelope → FE reset
+    watchdog. Hạ _HEARTBEAT nhỏ để test nhanh."""
+    import json as _json
+
+    import app.api.sse as sse_mod
+
+    monkeypatch.setattr(sse_mod, "_HEARTBEAT", 0.05)  # nhanh
+    conv = f"hb-{uuid4()}"
+
+    class _FakeReq:
+        async def is_disconnected(self):
+            return False
+
+    resp = await sse_mod.sse(conv, _FakeReq(), _claims={"username": "u"})
+    frames = []
+    it = resp.body_iterator
+    for _ in range(3):  # connected + ≥1 ping (queue rỗng → timeout → ping event)
+        frames.append(await it.__anext__())
+    joined = "".join(frames)
+    assert ": connected" in joined  # frame đầu (comment — onopen fire, không cần onmessage)
+    # heartbeat = EVENT THẬT data: (KHÔNG comment ': heartbeat') → FE onmessage bắt được
+    ping_frames = [f for f in frames if f.startswith("data:")]
+    assert ping_frames, "phải có ít nhất 1 ping EVENT (data:) khi idle"
+    payload = _json.loads(ping_frames[0][len("data: ") :].strip())
+    assert payload["type"] == "ping"  # FE parse type='ping' → bỏ qua render + reset watchdog
+    assert payload["conversation_id"] == conv
+    assert payload["data"] == {}
+    assert set(payload) == {"type", "conversation_id", "seq", "ts", "data"}  # cùng shape SSEEnvelope
 
 
 def test_bus_publish_no_subscriber_noop():

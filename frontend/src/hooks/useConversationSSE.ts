@@ -44,14 +44,38 @@ export function useConversationSSE(convId: string | null, handlers: Conversation
     const turns = new Map<string, TurnBuffer>();
     let es: ReturnType<typeof conversationApi.openEventSource> | null = null;
     let timer = 0;
+    let watchdog = 0;
     let retry = 0;
     let dead = false;
 
+    // Watchdog (D-54): EventSource.onerror KHÔNG fire khi server chết SIGKILL (không FIN gói) →
+    // reconnect không được gọi → UI treo câm. Backend gửi named event `ping` mỗi 15s;
+    // im lặng > WATCHDOG_MS (heartbeat 15s + dư 10 = 25s) = coi như kết nối chết → đóng + reconnect.
+    const WATCHDOG_MS = 25000;
+    const scheduleReconnect = () => {
+      es?.close();
+      if (dead) return;
+      const delayMs = Math.min(1000 * 2 ** retry, 30000);
+      retry += 1;
+      timer = window.setTimeout(connect, delayMs + Math.random() * 300);
+    };
+    const armWatchdog = () => {
+      window.clearTimeout(watchdog);
+      if (dead) return;
+      watchdog = window.setTimeout(() => {
+        // eslint-disable-next-line no-console
+        console.debug('[SSE watchdog] im lặng > 40s — đóng + reconnect (server có thể đã chết câm)');
+        scheduleReconnect();
+      }, WATCHDOG_MS);
+    };
+
     const connect = () => {
       es = conversationApi.openEventSource(convId);
+      armWatchdog(); // bắt đầu đếm ngay khi mở — nếu không có cả frame đầu cũng bắt được
 
       es.onopen = () => {
         retry = 0;
+        armWatchdog(); // có tín hiệu open → gia hạn
         turns.clear(); // lượt dở dang → chờ done.full_text hoặc refetch tự lành
         conversationApi
           .getConversation(convId)
@@ -62,12 +86,15 @@ export function useConversationSSE(convId: string | null, handlers: Conversation
       };
 
       es.onmessage = (m) => {
+        armWatchdog(); // NHẬN BẤT KỲ data nào (event thật HOẶC ping) → reset đồng hồ treo
         let ev: SSEEnvelope;
         try {
           ev = JSON.parse(m.data);
         } catch {
           return; // frame malformed — bỏ, không crash cả kết nối
         }
+
+        if (ev.type === 'ping') return; // heartbeat — chỉ để reset watchdog (đã reset ở trên), không render
 
         if (ev.type === 'task.created' || ev.type === 'task.status') {
           const data = ev.data as { task: OrchTask };
@@ -134,11 +161,8 @@ export function useConversationSSE(convId: string | null, handlers: Conversation
       };
 
       es.onerror = () => {
-        es?.close();
-        if (dead) return;
-        const delayMs = Math.min(1000 * 2 ** retry, 30000);
-        retry += 1;
-        timer = window.setTimeout(connect, delayMs + Math.random() * 300);
+        window.clearTimeout(watchdog); // đóng đường này → dừng watchdog, scheduleReconnect tự arm lại khi connect
+        scheduleReconnect();
       };
     };
 
@@ -148,6 +172,7 @@ export function useConversationSSE(convId: string | null, handlers: Conversation
       dead = true;
       es?.close();
       window.clearTimeout(timer);
+      window.clearTimeout(watchdog);
     };
   }, [convId]);
 }

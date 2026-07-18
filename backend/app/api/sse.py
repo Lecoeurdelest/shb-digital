@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -45,7 +46,17 @@ async def sse(conv_id: str, request: Request, _claims: dict = Depends(require_us
                     ev = await asyncio.wait_for(q.get(), timeout=_HEARTBEAT)
                     yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
                 except TimeoutError:
-                    yield ": heartbeat\n\n"  # comment-line — giữ conn, FE không thấy
+                    # S6: heartbeat = EVENT THẬT (data:) không comment (: ...) — native EventSource
+                    # NUỐT comment frame → FE onmessage KHÔNG thấy → watchdog kích sai. type='ping'
+                    # cùng shape SSEEnvelope → FE parse → bỏ qua render + RESET watchdog (FE chốt).
+                    ping = {
+                        "type": "ping",
+                        "conversation_id": conv_id,
+                        "seq": None,
+                        "ts": datetime.now(UTC).isoformat(),
+                        "data": {},
+                    }
+                    yield f"data: {json.dumps(ping, ensure_ascii=False)}\n\n"
         finally:
             bus.unsubscribe(conv_id, q)  # MỌI đường thoát dọn subscriber
 

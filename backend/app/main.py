@@ -37,9 +37,14 @@ async def lifespan(_app: FastAPI):
 
     registry.reset_all()
     try:
-        n = await store.cleanup_orphans()
+        # S6 (A): boot_time NGAY đầu startup → cleanup chỉ quét task ĐỜI TRƯỚC (queued_at < boot_time),
+        # KHÔNG quét task đời-này. datetime.now(UTC) khớp queued_at (timestamptz).
+        from datetime import UTC, datetime
+
+        boot_time = datetime.now(UTC)
+        n = await store.cleanup_orphans(boot_time)
         if n:
-            log.info("boot-cleanup: %d task mồ côi → failed(server restart)", n)
+            log.info("boot-cleanup: %d task mồ côi (đời trước) → failed(server restart)", n)
     except Exception as e:  # noqa: BLE001 — DB chưa sẵn lúc boot không được chặn app lên
         log.warning("boot-cleanup skip (DB?): %s", e)
     main_session.boot()  # gán SDK runner cho seam + nối event sink (sub xong → wake main)

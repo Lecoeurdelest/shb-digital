@@ -89,6 +89,8 @@ function browserEventSource(convId: string): MinimalEventSource {
     close: () => src.close(),
   };
   src.onopen = () => es.onopen?.();
+  // heartbeat backend = DATA-frame `data:{"type":"ping",...}` (event MẶC ĐỊNH, không named) → vào
+  // onmessage như mọi event khác. Hook parse type==='ping' → reset watchdog + bỏ qua render. D-54.
   src.onmessage = (ev: MessageEvent) => es.onmessage?.({ data: String(ev.data) });
   src.onerror = () => es.onerror?.();
   return es;

@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 import psycopg2
@@ -93,16 +94,28 @@ def _create_task_sync(conv_id: str, role: str, title: str, brief: str) -> Task:
 
 
 def _update_status_sync(task_id: str, status: str, result: dict | None = None, mark_started: bool = False) -> None:
+    """S6 guard-B (#2 race): terminal status BẤT BIẾN — NGOẠI LỆ DUY NHẤT `failed{server restart}`
+    (cờ-giả hạ-tầng boot-cleanup) bị done/timeout THẬT đè. failed-THẬT (user hủy/lỗi tool) KHÔNG bị
+    đè. rowcount=0 = write bị guard chặn → log warning (lộ nguồn-ghi-lạ, không nuốt im)."""
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
             if mark_started:
                 cur.execute("UPDATE tasks SET status=%s, started_at=now() WHERE id=%s", (status, task_id))
             elif status in ("done", "failed", "timeout"):
+                # guard: chỉ ghi khi task CHƯA terminal, HOẶC terminal='failed{server restart}' (cờ-giả).
                 cur.execute(
-                    "UPDATE tasks SET status=%s, result=%s, ended_at=now() WHERE id=%s",
+                    "UPDATE tasks SET status=%s, result=%s, ended_at=now() WHERE id=%s AND "
+                    "(status NOT IN ('done','failed','timeout') "
+                    " OR (status='failed' AND result->>'reason'='server restart'))",
                     (status, json.dumps(result) if result is not None else None, task_id),
                 )
+                if cur.rowcount == 0:
+                    import logging
+
+                    logging.getLogger("orch").warning(
+                        "task %s: write status=%s bị GUARD CHẶN (đã terminal-thật) — nghi nguồn-ghi-lạ", task_id, status
+                    )
             else:
                 cur.execute("UPDATE tasks SET status=%s WHERE id=%s", (status, task_id))
         conn.commit()
@@ -161,16 +174,38 @@ def _set_conv_session_id_sync(conv_id: str, session_id: str | None) -> None:
         conn.close()
 
 
-def _cleanup_orphans_sync() -> int:
-    """boot-cleanup (§7): task DB queued/running (cờ giả sau restart) → failed('server restart')."""
+def _cleanup_orphans_sync(boot_time: datetime | None = None) -> int:
+    """boot-cleanup (§7): task ĐỜI TRƯỚC (queued/running mồ côi sau restart) → failed('server restart').
+
+    S6 fix:
+    - (A) TIME-SCOPE: chỉ quét task `queued_at < boot_time` — cleanup = "chôn task ĐỜI TRƯỚC", KHÔNG
+      đụng task đời-này (tránh quét nhầm task vừa-tạo-sau-boot nếu request tới trước cleanup xong).
+      boot_time None → quét tất (backward-compat / test không truyền).
+    - (2) conv KẸT 'running' vĩnh viễn (task chết nhưng conv không reset): conv 'running' mà KHÔNG
+      còn task sống (queued/running) → set 'idle' (user chat tiếp resume bình thường §8).
+      waiting_approval GIỮ (hợp lệ — phiếu chờ người, không phải kẹt).
+    """
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE tasks SET status='failed', result=%s, ended_at=now() WHERE status IN ('queued','running')",
-                (json.dumps({"reason": "server restart"}),),
-            )
+            if boot_time is not None:
+                cur.execute(
+                    "UPDATE tasks SET status='failed', result=%s, ended_at=now() "
+                    "WHERE status IN ('queued','running') AND queued_at < %s",
+                    (json.dumps({"reason": "server restart"}), boot_time),
+                )
+            else:
+                cur.execute(
+                    "UPDATE tasks SET status='failed', result=%s, ended_at=now() "
+                    "WHERE status IN ('queued','running')",
+                    (json.dumps({"reason": "server restart"}),),
+                )
             n = cur.rowcount
+            # (2) conv kẹt 'running' mà KHÔNG còn task sống → 'idle' (waiting_approval giữ).
+            cur.execute(
+                "UPDATE conversations SET status='idle' WHERE status='running' "
+                "AND id::text NOT IN (SELECT DISTINCT conv_id FROM tasks WHERE status IN ('queued','running'))"
+            )
         conn.commit()
         return n
     finally:
@@ -418,5 +453,5 @@ async def set_conv_session_id(conv_id: str, session_id: str | None) -> None:
     await asyncio.to_thread(_set_conv_session_id_sync, conv_id, session_id)
 
 
-async def cleanup_orphans() -> int:
-    return await asyncio.to_thread(_cleanup_orphans_sync)
+async def cleanup_orphans(boot_time: datetime | None = None) -> int:
+    return await asyncio.to_thread(_cleanup_orphans_sync, boot_time)

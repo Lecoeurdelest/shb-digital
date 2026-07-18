@@ -107,7 +107,8 @@ export type SSEEventType =
   | 'toolcall'
   | 'thinking'
   | 'approval.pending'
-  | 'approval.decided';
+  | 'approval.decided'
+  | 'ping'; // heartbeat backend (15s) — FE bỏ qua khi parse, chỉ dùng reset watchdog (D-54)
 
 // ── Trace (F1 — D-43): thinking + toolcall hiện trong chat (khối collapsible). ──
 // toolcall (T4-1): {id, task_id, tool, summary, cost} — id khớp GET /api/audit row.id (upsert dedup).

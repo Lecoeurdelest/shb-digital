@@ -2,12 +2,12 @@
 // Đây là phần logic tinh vi nhất của FE (van tự lành streaming-sse §3) — test độc lập BE bằng
 // EventSource giả điều khiển tay: bơm event theo thứ tự bất kỳ, assert handler được gọi đúng.
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { MinimalEventSource } from '../api/mock';
 import type { ConversationFullState, SSEEnvelope, ChatDeltaData, OrchTask } from '../types';
 
 // ── EventSource giả: giữ ref để test bơm event + kích onopen/onerror tay ──
-let fakeES: MinimalEventSource & { emit: (ev: SSEEnvelope) => void; fire: (k: 'open' | 'error') => void };
+let fakeES: MinimalEventSource & { closed: boolean; emit: (ev: SSEEnvelope) => void; fire: (k: 'open' | 'error') => void };
 
 function makeFakeES(): typeof fakeES {
   const es = {
@@ -28,11 +28,12 @@ const EMPTY_STATE: ConversationFullState = {
   tasks: [],
 };
 const getFullState = vi.fn(() => Promise.resolve(EMPTY_STATE));
+let openCount = 0; // đếm số lần mở EventSource — verify reconnect gọi openEventSource lại
 
 // mock module ../api để hook dùng EventSource giả + getConversation giả (không chạm mock thật/network)
 vi.mock('../api', () => ({
   conversationApi: {
-    openEventSource: () => fakeES,
+    openEventSource: () => { openCount += 1; fakeES = makeFakeES(); return fakeES; },
     getConversation: () => getFullState(),
   },
 }));
@@ -64,6 +65,7 @@ function makeHandlers(): ConversationSSEHandlers & { calls: Record<string, unkno
 describe('useConversationSSE — ghép chunk streaming', () => {
   beforeEach(() => {
     fakeES = makeFakeES();
+    openCount = 0;
     getFullState.mockReset();
     getFullState.mockResolvedValue(EMPTY_STATE);
   });
@@ -206,5 +208,76 @@ describe('useConversationSSE — ghép chunk streaming', () => {
       fakeES.emit(delta(null, 't1', 'X'));  // seq null → drop
     });
     expect(h.calls.appendText.length).toBe(0);
+  });
+
+  it('ping event → KHÔNG render (bỏ qua mọi handler render)', async () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    await act(async () => {
+      fakeES.fire('open');
+      fakeES.emit({ type: 'ping', conversation_id: 'c1', seq: null, ts: '', data: {} });
+    });
+    await waitFor(() => expect(h.calls.applyFullState.length).toBe(1)); // chỉ refetch từ onopen
+    // ping KHÔNG gọi handler render nào
+    expect(h.calls.appendText.length).toBe(0);
+    expect(h.calls.upsertTask.length).toBe(0);
+    expect(h.calls.upsertCard.length).toBe(0);
+    expect(h.calls.addTrace.length).toBe(0);
+  });
+});
+
+// ── Watchdog (D-54): server chết câm (SIGKILL, onerror không fire) → im lặng > 40s → tự reconnect ──
+describe('useConversationSSE — watchdog im-lặng', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fakeES = makeFakeES();
+    openCount = 0;
+    getFullState.mockReset();
+    getFullState.mockResolvedValue(EMPTY_STATE);
+  });
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it('im lặng > 25s (không event/ping) → đóng ES + reconnect (openEventSource gọi lại)', () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    act(() => { fakeES.fire('open'); }); // openCount=1
+    const es1 = fakeES;
+    expect(openCount).toBe(1);
+    // im 26s (> WATCHDOG_MS 25s) không nhận gì → watchdog kích
+    act(() => { vi.advanceTimersByTime(26000); });
+    expect(es1.closed).toBe(true); // ES cũ bị đóng
+    // reconnect qua backoff timer → advance để connect chạy
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(openCount).toBe(2); // openEventSource gọi lại = reconnect
+  });
+
+  it('nhận ping đều (mỗi 15s) → watchdog KHÔNG kích (kết nối coi như sống)', () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    act(() => { fakeES.fire('open'); });
+    expect(openCount).toBe(1);
+    // 3 nhịp ping cách 15s (tổng 45s > 40s) — mỗi ping reset watchdog → không kích
+    for (let i = 0; i < 3; i++) {
+      act(() => { vi.advanceTimersByTime(15000); });
+      act(() => { fakeES.emit({ type: 'ping', conversation_id: 'c1', seq: null, ts: '', data: {} }); });
+    }
+    // thêm 20s nữa (< 40s kể từ ping cuối) → vẫn chưa kích
+    act(() => { vi.advanceTimersByTime(20000); });
+    expect(openCount).toBe(1); // KHÔNG reconnect — vẫn kết nối đầu
+    expect(fakeES.closed).toBe(false);
+  });
+
+  it('nhận event thật (chat.delta) cũng reset watchdog', () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    act(() => { fakeES.fire('open'); });
+    // 20s rồi 1 event thật → reset; thêm 20s (cách event cuối 20s < 25s) → chưa kích
+    act(() => { vi.advanceTimersByTime(20000); });
+    act(() => { fakeES.emit(delta(1, 't1', 'A ')); });
+    act(() => { vi.advanceTimersByTime(20000); });
+    expect(openCount).toBe(1); // event thật giữ sống → không reconnect
   });
 });
