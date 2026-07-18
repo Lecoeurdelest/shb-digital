@@ -40,8 +40,7 @@ def _seed_assessment(owner_id: str, lane: str) -> int:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO assessments(owner_id, lane, loan_amount_vnd, created_at) "
-                "VALUES(%s,%s,%s,%s) RETURNING id",
+                "INSERT INTO assessments(owner_id, lane, loan_amount_vnd, created_at) VALUES(%s,%s,%s,%s) RETURNING id",
                 (owner_id, lane, 300_000_000, _now_iso()),
             )
             return cur.fetchone()[0]

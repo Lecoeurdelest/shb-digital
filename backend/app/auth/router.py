@@ -107,9 +107,7 @@ def google_start() -> RedirectResponse:
         "prompt": "select_account",
     }
     resp = RedirectResponse(f"{google_oauth.GOOGLE_AUTH_URL}?{urlencode(params)}")
-    resp.set_cookie(
-        _STATE_COOKIE, state, httponly=True, samesite="lax", max_age=600, secure=config.COOKIE_SECURE
-    )
+    resp.set_cookie(_STATE_COOKIE, state, httponly=True, samesite="lax", max_age=600, secure=config.COOKIE_SECURE)
     return resp
 
 

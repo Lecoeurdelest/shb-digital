@@ -102,9 +102,7 @@ def test_callback_google_error_502(google_on, monkeypatch):
 def test_callback_happy_sets_jwt_cookie_and_creates_customer(google_on, monkeypatch):
     sub = _fresh_sub()
     monkeypatch.setattr(google_oauth, "exchange_code", lambda code: "access-ok")
-    monkeypatch.setattr(
-        google_oauth, "fetch_userinfo", lambda access: {"sub": sub, "email": f"{sub}@example.com"}
-    )
+    monkeypatch.setattr(google_oauth, "fetch_userinfo", lambda access: {"sub": sub, "email": f"{sub}@example.com"})
     client.cookies.set("oauth_state", "st2")
     r = client.get("/api/auth/google/callback?code=abc&state=st2", follow_redirects=False)
     client.cookies.delete("oauth_state")
@@ -119,9 +117,7 @@ def test_callback_happy_sets_jwt_cookie_and_creates_customer(google_on, monkeypa
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT role, owner_id, pass_hash FROM users WHERE google_sub=%s", (sub,)
-            )
+            cur.execute("SELECT role, owner_id, pass_hash FROM users WHERE google_sub=%s", (sub,))
             row = cur.fetchone()
     finally:
         conn.close()
@@ -142,8 +138,6 @@ def test_password_login_on_google_only_account_is_401_not_500(google_on):
     """Account Google-only (pass_hash NULL) mà login bằng password → 401 sạch (guard NULL)."""
     sub = _fresh_sub()
     u = google_oauth.upsert_google_user(google_sub=sub, email=f"{sub}@example.com")
-    r = client.post(
-        "/api/auth/login", json={"username": u["username"], "password": "anything"}
-    )
+    r = client.post("/api/auth/login", json={"username": u["username"], "password": "anything"})
     assert r.status_code == 401
     assert r.json()["code"] == "unauthorized"

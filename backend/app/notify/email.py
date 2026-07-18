@@ -40,9 +40,7 @@ def _vnd(amount: int) -> str:
 def _info_rows(d: dict[str, Any]) -> str:
     """Rows bảng info (label/value) — escape value (values khách nhập, chống HTML injection D-60)."""
     decided_by_raw = d.get("decided_by") or ""
-    decided_by = (
-        "Hệ thống — tự động theo phân cấp thẩm quyền" if decided_by_raw == "auto-rule" else decided_by_raw
-    )
+    decided_by = "Hệ thống — tự động theo phân cấp thẩm quyền" if decided_by_raw == "auto-rule" else decided_by_raw
     rows: list[tuple[str, str]] = [
         ("Kính gửi", str(d.get("greeting_name") or "Quý khách")),
         ("Quyết định bởi", decided_by),

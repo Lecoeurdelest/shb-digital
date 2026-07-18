@@ -146,9 +146,7 @@ def test_create_conversation_enabled_provider_ok(monkeypatch):
     u = "fixc2_" + uuid.uuid4().hex[:6]
     r = client.post("/api/auth/register", json={"username": u, "password": "pass1"})
     try:
-        resp = client.post(
-            "/api/conversations", json={"title": "t", "provider": "zai"}, cookies=r.cookies
-        )
+        resp = client.post("/api/conversations", json={"title": "t", "provider": "zai"}, cookies=r.cookies)
         # zai không bị disable → KHÔNG bad_provider (200/201 tuỳ, miễn không 400-bad_provider)
         assert not (resp.status_code == 400 and resp.json().get("code") == "bad_provider")
     finally:

@@ -51,8 +51,7 @@ def test_three_legal_tables_exist():
 def test_assessments_id_serial_autoincrement():
     """assessments.id serial (INSERT không id → sinh tự động, KHỚP sqlite cur.lastrowid cho T7-2 WRITE)."""
     default = _q1(
-        "SELECT column_default FROM information_schema.columns "
-        "WHERE table_name='assessments' AND column_name='id'"
+        "SELECT column_default FROM information_schema.columns WHERE table_name='assessments' AND column_name='id'"
     )
     assert default is not None and "nextval" in str(default), f"id không phải serial: {default}"
 

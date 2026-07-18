@@ -26,6 +26,7 @@ def _resolve_seed_db() -> Path:
     """LAB sibling path nếu tồn tại (dev — nguồn sự thật); else snapshot repo (deploy). D-62."""
     return LAB_SEED_DB if LAB_SEED_DB.exists() else SNAPSHOT_SEED_DB
 
+
 # (table, columns) — cột KHỚP SQLite LAB, giữ đúng thứ tự cho INSERT positional (task T1-1 §A)
 TABLES: list[tuple[str, list[str]]] = [
     # T7-1: +id_number/address (khách) + tax_code/address (DN) — trụ ①công an đối chiếu nhân thân
@@ -41,10 +42,14 @@ TABLES: list[tuple[str, list[str]]] = [
     ("collateral_legal", ["collateral_id", "dispute_status", "zoning_status", "note"]),
     ("restricted_purposes", ["purpose_code", "purpose_name", "restriction", "legal_basis"]),
     # Legal 3-trụ tables (T7-1 — mount legal đầy đủ; assessments = sổ GHI runtime → KHÔNG seed)
-    ("police_records", ["owner_id", "id_number", "full_name", "address", "criminal_status",
-                        "record_type", "record_year", "notes"]),
-    ("employment_records", ["owner_id", "employer", "position", "tenure_months",
-                            "verified_income_vnd", "status", "verified_at"]),
+    (
+        "police_records",
+        ["owner_id", "id_number", "full_name", "address", "criminal_status", "record_type", "record_year", "notes"],
+    ),
+    (
+        "employment_records",
+        ["owner_id", "employer", "position", "tenure_months", "verified_income_vnd", "status", "verified_at"],
+    ),
 ]
 
 

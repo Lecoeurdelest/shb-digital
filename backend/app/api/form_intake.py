@@ -60,9 +60,7 @@ async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends
     try:
         income = int(float(values["monthly_income"]))
     except (TypeError, ValueError) as e:
-        raise ApiError(
-            400, "bad_income", "Thu nhập phải là số.", "Nhập số VND (vd 15000000).", retryable=True
-        ) from e
+        raise ApiError(400, "bad_income", "Thu nhập phải là số.", "Nhập số VND (vd 15000000).", retryable=True) from e
 
     # tx-sync trong to_thread (D-22 — psycopg2 sync không block loop 1-worker).
     import asyncio

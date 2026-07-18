@@ -48,8 +48,7 @@ def _creator_customer_owner(pg_conn: Any, conv_id: str) -> tuple[bool, str | Non
     resolve). psycopg2.Error → raise (caller bắt → refuse fail-closed)."""
     with pg_conn.cursor() as cur:
         cur.execute(
-            "SELECT u.role, u.owner_id FROM conversations c JOIN users u ON c.user_id=u.username "
-            "WHERE c.id::text=%s",
+            "SELECT u.role, u.owner_id FROM conversations c JOIN users u ON c.user_id=u.username WHERE c.id::text=%s",
             (conv_id,),
         )
         row = cur.fetchone()

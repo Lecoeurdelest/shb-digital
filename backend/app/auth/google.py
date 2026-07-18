@@ -28,11 +28,7 @@ class GoogleOAuthError(Exception):
 
 def is_configured() -> bool:
     """Đủ env chưa: bật cờ + có client_id/secret. redirect_uri có default localhost."""
-    return bool(
-        config.AUTH_GOOGLE_ENABLED
-        and config.GOOGLE_OAUTH_CLIENT_ID
-        and config.GOOGLE_OAUTH_CLIENT_SECRET
-    )
+    return bool(config.AUTH_GOOGLE_ENABLED and config.GOOGLE_OAUTH_CLIENT_ID and config.GOOGLE_OAUTH_CLIENT_SECRET)
 
 
 def exchange_code(code: str) -> str:
@@ -80,9 +76,7 @@ def upsert_google_user(*, google_sub: str, email: str) -> dict[str, Any]:
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(
-                "SELECT id, username, role FROM users WHERE google_sub=%s", (google_sub,)
-            )
+            cur.execute("SELECT id, username, role FROM users WHERE google_sub=%s", (google_sub,))
             row = cur.fetchone()
             if row:
                 return dict(row)
@@ -94,9 +88,7 @@ def upsert_google_user(*, google_sub: str, email: str) -> dict[str, Any]:
                 (email_norm, email_norm, google_sub),
             )
             conn.commit()
-            cur.execute(
-                "SELECT id, username, role FROM users WHERE google_sub=%s", (google_sub,)
-            )
+            cur.execute("SELECT id, username, role FROM users WHERE google_sub=%s", (google_sub,))
             return dict(cur.fetchone())
     finally:
         conn.close()

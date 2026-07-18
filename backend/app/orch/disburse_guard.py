@@ -31,8 +31,7 @@ def cross_owner_refusal(cur: Any, conv_id: str, loan_id: str | None) -> dict[str
     khách). Dùng CÙNG cur gated (đọc TRƯỚC mọi write — refuse rollback sạch, không poison tx)."""
     try:
         cur.execute(
-            "SELECT u.role, u.owner_id FROM conversations c JOIN users u ON c.user_id=u.username "
-            "WHERE c.id::text=%s",
+            "SELECT u.role, u.owner_id FROM conversations c JOIN users u ON c.user_id=u.username WHERE c.id::text=%s",
             (conv_id,),
         )
         row = cur.fetchone()
