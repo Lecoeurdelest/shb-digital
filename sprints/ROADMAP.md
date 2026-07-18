@@ -102,7 +102,7 @@
   digital.tinhdev.com → FE-port + restart cloudflared (external/one-way — verify từng bước).
   Provider: standalone zai/wrap qua `SHB_PROVIDER` (VM không có CLI auth — D-45b).
 
-## Sprint 12 — Port RETRIEVAL 4 TẦNG từ LAB ⏳ (phong bì sẵn — user chốt 18/7: CUỐI, sau S11)
+## Sprint 12 — Port RETRIEVAL 4 TẦNG từ LAB ⏸️ HOÃN (D-63, người chốt 19/7: xếp SAU — LAB đang training nguồn, chưa khoá; KHÔNG kickoff tới khi người báo LAB drop bản certified)
 - **⚠️ Hệ quả thứ tự (S10 deploy trước S12):** image S10 CHƯA cài sentence-transformers/pyvi —
   S12 xong phải REBUILD image + redeploy (ghi thành bước cuối S12; model embedding cache vào
   volume để venue không cần mạng).
@@ -152,3 +152,12 @@
 | 3 | tool-use thật, hành động cụ thể gated | **S3** | toolpack lab + `disburse` gated (phanh) |
 | 4 | dashboard traces/status/decisions/flows | **S4** | Control Tower + SSE toolcall + audit |
 | 5 | so sánh single-agent vs multi-agent | **S5** (nếu kịp) | endpoint compare 2 bản chạy cùng câu, render 2 cột |
+
+## Sprint 13 — Admin thống kê + hồ sơ-lý-do-AI ⏳ (user chốt 19/7 — NGAY SAU S11, full-auto)
+- **Theme (lead chốt scope, ref hình-dạng shopquantum-admin — KHÔNG copy code):** gộp vào Control
+  Tower: tab "Tổng quan" (GET /api/stats today|7d — phiếu duyệt/chờ/từ chối + hồ sơ theo lane +
+  delta; KpiCard/SparkLine viết lại cho stack này) + nâng audit → "Hồ sơ + lý do AI" (assessment
+  3 trụ + reason ma trận D-59 — data sẵn, chỉ trình bày). 1 dòng UI "demo: admin gộp vai".
+- **RÀO:** chỉ endpoint ĐỌC + màn trình bày — không bảng mới/cost-USD/health/tách-route.
+- **Plan:** `plan_sprint_13.md` (draft — kickoff chỉnh khi S11 đóng). Thứ tự: S11 → S13 → S12
+  (retrieval, chờ LAB drop — D-63).
