@@ -63,11 +63,14 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
     <div className="landing">
       {/* NAV */}
       <nav className="lp-nav">
+        {/* nav-polish (S14b, user): thứ bậc brand rõ — "BANK Digital" = brand chính (đậm) cạnh logo;
+            "Digital Expert Guild · Hội đồng Chuyên gia Số" = tagline phụ muted 1 cụm. Vẫn giữ A-02
+            (nhận diện ngân hàng số trong 5s). Tagline ẩn ở viewport hẹp (giữ logo+brand+nút). */}
         <span className="lp-logo">G</span>
-        <span className="lp-nav__title">Digital Expert Guild</span>
-        {/* DF-A-02: "BANK Digital" ở vị trí đọc-đầu-tiên (nhận diện là dịch vụ ngân hàng số ngay 5s đầu) */}
-        <span className="lp-nav__brand">BANK Digital</span>
-        <span className="lp-nav__sub">Hội đồng Chuyên gia Số</span>
+        <span className="lp-nav__brandblock">
+          <span className="lp-nav__brand">BANK Digital</span>
+          <span className="lp-nav__tagline">Digital Expert Guild · Hội đồng Chuyên gia Số</span>
+        </span>
         <span className="lp-nav__spacer" />
         <a className="lp-nav__link" href="#agents">Đội chuyên gia</a>
         <a className="lp-nav__link" href="#how">Cách vận hành</a>

@@ -37,20 +37,18 @@
   display: grid; place-items: center; font-weight: 800; font-size: 15px; color: var(--lbg); flex: none;
 }
 .lp-logo--sm { width: 22px; height: 22px; font-size: 11px; border-radius: 6px; }
-.lp-nav__title { font-weight: 800; font-size: 14.5px; }
-.lp-nav__brand {
-  font: 800 11px var(--font);
-  color: var(--lacc);
-  background: rgba(217, 119, 87, 0.14);
-  border: 1px solid rgba(217, 119, 87, 0.3);
-  padding: 2px 8px;
-  border-radius: 6px;
-  letter-spacing: 0.03em;
-  align-self: center;
-  margin-left: 2px;
-}
-.lp-nav__sub { font-size: 10.5px; color: var(--lmute); padding-top: 2px; }
+/* nav-polish (S14b): khối brand = brand chính (đậm) trên · tagline phụ (muted) dưới, căn dọc giữa.
+   LƯU Ý: .lp-nav có background dark CỐ ĐỊNH (rgba(26,25,23,.82)) cho CẢ 2 theme → text phải LUÔN
+   sáng, KHÔNG dùng var(--ltx)/(--lmute) (đảo theo theme → ở light thành đen trên nền đen, chìm).
+   Dùng màu sáng cố định (bug cũ của .lp-nav__title cũng vậy — nay fix luôn). */
+.lp-nav__brandblock { display: flex; flex-direction: column; justify-content: center; gap: 1px; line-height: 1.15; }
+.lp-nav__brand { font-weight: 800; font-size: 15px; color: #f2efe8; letter-spacing: -0.01em; }
+.lp-nav__tagline { font-size: 11px; color: #a89f90; }
 .lp-nav__spacer { flex: 1; }
+/* viewport hẹp: ẩn tagline phụ trước (giữ logo + BANK Digital + nút) */
+@media (max-width: 900px) {
+  .lp-nav__tagline { display: none; }
+}
 .lp-nav__link { font-size: 12px; font-weight: 600; color: var(--ldim); margin: 0 4px; }
 .lp-nav__link:hover { color: var(--ltx); }
 
