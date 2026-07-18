@@ -233,7 +233,8 @@ async def test_disburse_loan_not_found_error(_reset_sse):
     registry.CTX_CONV.set(conv)
     registry.CTX_TASK.set("")
     h = gated("disburse", None)
-    args = {"loan_id": "NONEXISTENT", "amount": 1000}
+    # amount > ngưỡng (T5-2') → đi PENDING path (test rollback của nhánh claim S3, không auto-path).
+    args = {"loan_id": "NONEXISTENT", "amount": 5_000_000_000}
     ph = payload_hash("disburse", args)
     await h(args)  # pending
     _approve(conv, "disburse", ph)
@@ -279,3 +280,114 @@ async def test_concurrent_claim_no_spurious_ticket(_reset_sse):
     assert pending == 0, f"KHÔNG phiếu-rác (advisory-lock fix), got pending={pending}"
     assert _loan_status("L001") == "disbursed"  # đúng 1 disbursed
     _set_loan("L001", "active")
+
+
+# ── T5-2' PHÂN TẦNG: dưới ngưỡng auto-duyệt · biên/trên = chờ người (regress S3) ──
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_tiered_under_threshold_auto_approve_executes(_reset_sse):
+    """amount < 500tr → AUTO-duyệt: phiếu used+decided_by='auto-rule'+receipt + loans disbursed +
+    card THÔNG BÁO (document, không nút) + KHÔNG waiting_approval. 1 vòng (Option 2)."""
+    conv = f"gated-auto-{uuid4()}"
+    registry.CTX_CONV.set(conv)
+    registry.CTX_TASK.set("")
+    _set_loan("L001", "active")
+    h = gated("disburse", None)
+    args = {"loan_id": "L001", "amount": 400_000_000}  # < 500tr
+    out = _payload(await h(args))
+    # trả receipt NGAY (không approval_required)
+    assert out.get("disbursed") is True
+    assert out.get("auto_approved") is True
+    assert out.get("approved_by") == "auto-rule"
+    assert _loan_status("L001") == "disbursed"  # chạy THẬT
+    # phiếu used + decided_by auto-rule + receipt (audit đủ)
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT status, decided_by, reason, receipt FROM approvals WHERE conv_id=%s", (conv,))
+            status, decided_by, reason, receipt = cur.fetchone()
+            cur.execute("SELECT status FROM conversations WHERE id::text=%s", (conv,))
+            conv_row = cur.fetchone()
+            cur.execute("SELECT type, data->>'title' FROM cards WHERE conv_id=%s", (conv,))
+            card = cur.fetchone()
+    finally:
+        conn.close()
+    assert status == "used"
+    assert decided_by == "auto-rule"  # AI duyệt, không người
+    assert "ngưỡng" in reason  # nói rõ cơ chế (transparency)
+    assert receipt is not None  # INVARIANT used ⟺ receipt
+    # KHÔNG waiting_approval (auto không chờ) — conv không bị set waiting_approval
+    assert conv_row is None or conv_row[0] != "waiting_approval"
+    # card THÔNG BÁO (document, không approval/nút) + nói rõ tự duyệt
+    assert card is not None
+    assert card[0] == "document"  # KHÔNG 'approval'
+    assert "Tự động duyệt" in card[1]
+    _set_loan("L001", "active")
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_tiered_at_threshold_waits_human(_reset_sse):
+    """amount == 500tr (BIÊN) → CHỜ người (< là auto, >= là người). approval_required, loans nguyên."""
+    conv = f"gated-boundary-{uuid4()}"
+    registry.CTX_CONV.set(conv)
+    registry.CTX_TASK.set("")
+    _set_loan("L001", "active")
+    h = gated("disburse", None)
+    args = {"loan_id": "L001", "amount": 500_000_000}  # == ngưỡng → người
+    out = _payload(await h(args))
+    assert out["code"] == "approval_required"  # chờ người
+    assert _loan_status("L001") == "active"  # KHÔNG chạy
+    assert _count_approvals(conv) == 1  # phiếu pending
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_tiered_over_threshold_s3_unchanged(_reset_sse):
+    """amount > 500tr → path S3 NGUYÊN (byte-identical regress-guard): pending + approval_required +
+    card approval nút + waiting_approval + loans nguyên."""
+    conv = f"gated-over-{uuid4()}"
+    registry.CTX_CONV.set(conv)
+    registry.CTX_TASK.set("")
+    _set_loan("L001", "active")
+    h = gated("disburse", None)
+    args = {"loan_id": "L001", "amount": 5_000_000_000}  # 5 tỷ > ngưỡng
+    out = _payload(await h(args))
+    assert out["code"] == "approval_required"
+    assert _loan_status("L001") == "active"
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT status FROM approvals WHERE conv_id=%s", (conv,))
+            assert cur.fetchone()[0] == "pending"  # phiếu pending (chờ người) — S3 nguyên
+            cur.execute("SELECT type FROM cards WHERE conv_id=%s", (conv,))
+            assert cur.fetchone()[0] == "approval"  # card approval (có nút) — S3 nguyên
+            # (conv-status waiting_approval verify ở LIVE e2e — unit dùng conv_id tự do D-31 không
+            #  INSERT conversation row nên UPDATE conversations 0-row; card+phiếu đủ chứng S3 nguyên.)
+    finally:
+        conn.close()
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_tiered_auto_inner_throw_rollback_no_ticket(_reset_sse):
+    """AUTO-path (dưới ngưỡng) + inner throw (loan lỗi) → rollback CẢ tx → KHÔNG phiếu (approved auto
+    tạo trong cùng tx bị rollback) + gated_error. Money-safe: không phiếu-ma, không loans đổi."""
+    conv = f"gated-auto-nf-{uuid4()}"
+    registry.CTX_CONV.set(conv)
+    registry.CTX_TASK.set("")
+    h = gated("disburse", None)
+    args = {"loan_id": "NONEXISTENT", "amount": 400_000_000}  # < ngưỡng → auto, nhưng loan lỗi
+    out = _payload(await h(args))
+    assert out["code"] == "gated_error"  # inner throw → error 4-field
+    # rollback: KHÔNG phiếu (auto-approved tạo cùng tx → rollback xoá) + KHÔNG card
+    assert _count_approvals(conv) == 0, "rollback → KHÔNG phiếu-ma auto"
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM cards WHERE conv_id=%s", (conv,))
+            assert cur.fetchone()[0] == 0, "rollback → KHÔNG card thông báo"
+    finally:
+        conn.close()

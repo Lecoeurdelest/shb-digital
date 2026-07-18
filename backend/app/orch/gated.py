@@ -41,6 +41,22 @@ GATED_WHITELIST = {"disburse"}
 # Field phi-nghiệp-vụ bỏ khỏi payload_hash (ts/ghi chú không đổi danh tính hành động).
 NON_BIZ_FIELDS = {"ts", "timestamp", "note", "ghi_chu", "ghi_chú", "_meta"}
 
+# T5-2' phanh PHÂN TẦNG (D-52, người ra đề): amount < ngưỡng → auto-duyệt CÓ KIỂM SOÁT (phiếu
+# approved decided_by='auto-rule' + chạy CÙNG lượt + audit đủ — KHÔNG bỏ phanh, chỉ đổi AI DUYỆT).
+# amount >= ngưỡng → chờ NGƯỜI (happy-path S3 nguyên). 500tr: decide-and-log (đảo được: đổi số).
+AUTO_APPROVE_THRESHOLD = 500_000_000  # VND
+
+
+def _auto_approve_ok(args: dict[str, Any], verdict: dict[str, Any] | None = None) -> bool:
+    """Rule phân tầng: True = dưới ngưỡng → auto-duyệt. verdict (hồ-sơ-xanh legal LAB) = CHỖ CẮM
+    tương lai — signature nhận sẵn, giờ gate CHỈ theo amount (verdict chưa wire — D-52 legal đợi LAB).
+    amount thiếu/không parse → False (an toàn: chờ người, không auto oan)."""
+    amount = args.get("amount")
+    try:
+        return float(amount) < AUTO_APPROVE_THRESHOLD
+    except (TypeError, ValueError):
+        return False
+
 
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
@@ -163,6 +179,48 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
                     }
                 )
 
+            # 4a. T5-2' PHÂN TẦNG: dưới ngưỡng → AUTO-DUYỆT CÓ KIỂM SOÁT (phiếu approved decided_by=
+            # 'auto-rule' + claim + inner + receipt CÙNG tx → chạy NGAY, không vòng gọi lại). Audit ĐỦ
+            # (chỉ khác AI DUYỆT). Card THÔNG BÁO (không nút). KHÔNG set waiting_approval (không chờ).
+            # advisory-lock ở đầu tx serialize (2 auto-call đồng thời → 1 mint, con kia step-1 receipt).
+            if _auto_approve_ok(args):
+                reason = f"Tự động duyệt theo rule: số tiền dưới ngưỡng {AUTO_APPROVE_THRESHOLD:,} VND"
+                cur.execute(
+                    "INSERT INTO approvals (conv_id, task_id, action, payload, payload_hash, status, "
+                    "decided_by, decided_at, reason) "
+                    "VALUES (%s, %s, %s, %s, %s, 'used', 'auto-rule', now(), %s) RETURNING id",
+                    (conv_id, task_id or None, action, json.dumps(args), ph, reason),
+                )
+                auto_id = str(cur.fetchone()["id"])
+                inner = GATED_TOOLS[action]
+                out = inner(conn, **args)  # chạy THẬT (SAME tx) — ghi loans.status
+                out = {**out, "auto_approved": True, "approved_by": "auto-rule", "note": reason}
+                # receipt CÙNG tx (INVARIANT used ⟺ receipt) + used_at
+                cur.execute(
+                    "UPDATE approvals SET receipt=%s, used_at=now() WHERE id=%s",
+                    (json.dumps(out), auto_id),
+                )
+                # card THÔNG BÁO (type document — KHÔNG approval/nút; NÓI RÕ tự duyệt để người chấm thấy
+                # phanh vẫn tồn tại, chỉ tự duyệt có kiểm soát — transparency #7 architect).
+                notice = {
+                    "type": "document",
+                    "title": f"✅ Tự động duyệt & thực thi: {action} ({_summarize(args)})",
+                    "items": [
+                        {"section": "Cơ chế", "content": reason},
+                        {"section": "Kết quả", "content": json.dumps(out, ensure_ascii=False)},
+                    ],
+                    "sources": ["phanh phân tầng — auto-rule"],
+                }
+                cur.execute(
+                    "INSERT INTO cards (conv_id, task_id, type, data, ts) "
+                    "VALUES (%s, %s, 'document', %s, now()) RETURNING id, conv_id, task_id, type, data, ts",
+                    (conv_id, task_id or None, json.dumps(notice)),
+                )
+                card_row = dict(cur.fetchone())
+                conn.commit()  # phiếu-approved + inner-write + receipt + card CÙNG COMMIT
+                return _GatedResult(out, emit={"card": card_row, "conv_id": conv_id, "auto": True})
+
+            # 4b. amount >= ngưỡng → CHỜ NGƯỜI (path S3 nguyên — byte-identical, regress-guard).
             # 4. Chưa có gì → tạo phiếu pending TRƯỚC (có approval_id) → VỎ sinh card approval (§6).
             cur.execute(
                 "INSERT INTO approvals (conv_id, task_id, action, payload, payload_hash, status) "
@@ -247,7 +305,10 @@ def gated(action: str, inner_read_handler: Callable) -> Callable:
 
 
 def _emit_approval(emit_data: dict[str, Any]) -> None:
-    """SSE 3 tín hiệu bước 4 (canvas-present §6): card + approval.pending + conversation.status.
+    """SSE bước 4 (canvas-present §6). 2 path:
+    - AUTO (T5-2', emit_data['auto']): CHỈ emit card thông báo (document) — ĐÃ chạy, KHÔNG
+      approval.pending, KHÔNG waiting_approval (không chờ).
+    - PENDING (S3): card approval + approval.pending + conversation.status=waiting_approval.
     Lazy import (SSE ≠ tx). Lỗi SSE KHÔNG fail (phiếu đã commit — fire-and-forget)."""
     try:
         from app.orch.store import _card_to_dict
@@ -255,6 +316,8 @@ def _emit_approval(emit_data: dict[str, Any]) -> None:
 
         card = _card_to_dict(emit_data["card"])
         emit(emit_data["conv_id"], "card", {"card": card})
+        if emit_data.get("auto"):
+            return  # auto-path: đã chạy xong — chỉ card thông báo, không tín hiệu chờ duyệt
         emit(
             emit_data["conv_id"],
             "approval.pending",
