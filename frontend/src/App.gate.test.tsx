@@ -42,8 +42,24 @@ describe('Auth gate (App) — boot-check /me', () => {
     fireEvent.click(modal.getByRole('button', { name: /Đăng nhập/i }));
     await waitFor(() => expect(screen.getByText(/admin · Quản lý/)).toBeInTheDocument());
 
+    // Đăng xuất giờ gọi logout() API (xoá cookie) TRƯỚC rồi set anon → async → waitFor Landing.
+    const logoutSpy = vi.spyOn(conversationApi, 'logout').mockResolvedValue(undefined);
     fireEvent.click(screen.getByRole('button', { name: /Đăng xuất/i }));
-    expect(screen.getByTestId('landing-login')).toBeInTheDocument();
+    expect(logoutSpy).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('landing-login')).toBeInTheDocument());
+  });
+
+  it('đăng xuất khi logout API LỖI → vẫn về Landing (best-effort, không kẹt Workspace)', async () => {
+    render(<App />);
+    const modal = await openAuthModal();
+    fireEvent.change(modal.getByLabelText('Tên đăng nhập'), { target: { value: 'admin' } });
+    fireEvent.change(modal.getByLabelText('Mật khẩu'), { target: { value: 'admin' } });
+    fireEvent.click(modal.getByRole('button', { name: /Đăng nhập/i }));
+    await waitFor(() => expect(screen.getByText(/admin · Quản lý/)).toBeInTheDocument());
+
+    vi.spyOn(conversationApi, 'logout').mockRejectedValue(new Error('network'));
+    fireEvent.click(screen.getByRole('button', { name: /Đăng xuất/i }));
+    await waitFor(() => expect(screen.getByTestId('landing-login')).toBeInTheDocument());
   });
 
   it('boot-check /me 200 admin (DEV_SKIP_AUTH) → SKIP Login vào thẳng Workspace admin', async () => {

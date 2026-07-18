@@ -344,6 +344,13 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
     }
   }, [applyFullState]);
 
+  // Đăng xuất THẬT: gọi API xoá cookie httponly TRƯỚC (reload sau = anon, không auto-vào-lại), rồi set
+  // anon client-side. logout lỗi/timeout → vẫn set anon (UI về Login; cookie có thể còn nhưng /me sẽ
+  // 401 khi hết hạn — best-effort, không chặn user rời màn).
+  const handleLogout = useCallback(() => {
+    conversationApi.logout().catch(() => { /* best-effort — vẫn về anon */ }).finally(() => onAuthExpiredRef.current());
+  }, []);
+
   // auto-scroll khi có message mới / chữ stream
   useEffect(() => {
     const el = scrollRef.current;
@@ -380,7 +387,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
             )}
           </button>
         )}
-        <button className="ws__logout" onClick={onAuthExpired} type="button">Đăng xuất</button>
+        <button className="ws__logout" onClick={handleLogout} type="button">Đăng xuất</button>
       </header>
 
       <div className="ws__body">

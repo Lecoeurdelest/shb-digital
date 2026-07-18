@@ -55,6 +55,13 @@ export const apiClient = {
     });
   },
 
+  // Log out — server clears the httponly cookie so reload no longer auto-authenticates.
+  // đăng xuất THẬT (T11-x): POST /api/auth/logout → server delete_cookie shb_token. Sau đó reload =
+  // anon (/me 401 → Landing). KHÁC "set anon client-side" cũ (cookie sống → reload tự vào lại = bug).
+  logout(): Promise<void> {
+    return request<void>('/api/auth/logout', { method: 'POST' });
+  },
+
   // Register a new customer account; returns auth result and sets cookie (auto-login).
   // đăng ký khách mới (D-57 T9-3): {username, password, email?} → 201 {token, user} + cookie auto-login.
   // Lỗi 4-field: 400 bad_username/bad_password/bad_email · 409 username_taken.

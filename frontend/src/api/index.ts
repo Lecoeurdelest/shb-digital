@@ -14,6 +14,7 @@ export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 export interface ConversationApi {
   login(username: string, password: string): Promise<LoginResult>;
   register(username: string, password: string, email?: string): Promise<LoginResult>;
+  logout(): Promise<void>;
   me(): Promise<{ user: AuthUser }>;
   getAuthProviders(): Promise<{ password: boolean; google: boolean }>;
   listConversations(): Promise<Conversation[]>;
@@ -44,6 +45,9 @@ const mockApi: ConversationApi = {
   async register(username: string) {
     // mock đăng ký: khách MỚI → role customer + owner_id giả (như /register thật auto-login).
     return { token: 'mock-token', user: { username, role: 'customer' as const, owner_id: null } };
+  },
+  async logout() {
+    // mock: no-op (mock không có cookie thật). App set anon sau đó.
   },
   async me() {
     // mock: luôn "chưa login" → App hiện Login (mock mode dùng để test luồng Login). Mock không
@@ -123,6 +127,7 @@ function browserEventSource(convId: string): MinimalEventSource {
 const realApi: ConversationApi = {
   login: apiClient.login,
   register: apiClient.register,
+  logout: apiClient.logout,
   me: apiClient.me,
   getAuthProviders: apiClient.getAuthProviders,
   listConversations: apiClient.listConversations,
