@@ -42,6 +42,31 @@ disbursed) → gọi lại sau thành công → biên nhận cũ (KHÔNG thực 
 
 ---
 
+---
+
+## Kickoff — 2026-07-18
+
+**Drift since draft (user nắn altitude phanh):**
+- **D-40: phanh = HAPPY-PATH demo** (bấm-duyệt-UI chạy được), atomic/biên nhận = code cơ bản theo
+  spec KHÔNG đào sâu, **BỎ crash-injection gate**. User chốt: "atomic là xử lý trường hợp lỗi app
+  thật; demo happy-path không gặp". Gate S3 = chặn→duyệt→giải ngân (không dàn cảnh crash).
+- **Vai: mọi người vào thẳng ADMIN** (D-39 skip-auth — người cấp cao dùng tool gated). Bỏ phân biệt
+  RM/admin ở luồng demo (người chat=người duyệt=admin).
+- **Atomicity seam (advisor + backend đồng thuận):** gated write → wrapper 1 conn/tx thread SAME
+  conn vào tool → claim+execute+receipt atomic (chống money-doubling MỨC CƠ BẢN). Read tool giữ
+  handler per-call. Viết vào T3-1 §C Logic.
+
+**Plan revisions:**
+- Gate S3 sửa: happy-path (D-40), không crash-injection. T3-4 verify 4 nhánh + payload_hash + browser, KHÔNG dàn crash.
+- T3-0 skip-auth thêm (D-39, độc lập — dispatch trước). T3-1 §C thread-conn atomic.
+
+**Final task list (chốt dispatch):**
+- T3-0 → backend+frontend — skip-auth vào thẳng admin (độc lập, làm ngay)
+- T3-1 → backend — GATING: wrapper gated 4-bước thread-conn + payload_hash + phiếu + card approval + disburse stub
+- T3-2 → backend — API approval + decide + event resume
+- T3-3 → frontend — approval panel + queue + boot-check skip-auth
+- T3-4 → tester — gate S3 happy-path (chặn→duyệt→giải ngân) + 4 nhánh + authz
+
 ## Findings/nợ mang sang từ S2 (xử ở S3)
 - D-33 inline-await: nếu T3 thêm CTX_APPROVAL (phiếu context) → PHẢI reset ở run_main_turn (comment site).
 - D-34 store.py 409 LOC → tách module (approvals CRUD thêm sẽ phình tiếp).

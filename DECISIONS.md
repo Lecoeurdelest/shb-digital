@@ -48,6 +48,23 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-40 · S3 PHANH = HAPPY-PATH demo (bấm-duyệt-trên-UI chạy được); atomic/biên nhận = code cơ
+  bản theo spec KHÔNG đào sâu; BỎ crash-injection gate** (NGƯỜI chốt 18/7 — nắn altitude) — demo
+  = luồng: agent gọi disburse → két CHẶN → thẻ approval hiện UI → admin BẤM duyệt → giải ngân chạy
+  (loans.status='disbursed') → xong. Đây là 80% giá trị + thứ giám khảo bấm-nút-thấy.
+  - **Chống-giải-ngân-đôi (atomic claim + biên nhận):** là xử lý trường hợp LỖI (retry mạng đứt /
+    race 2-gọi-đồng-thời) — chỉ xảy ra app THẬT production tải cao. Demo happy-path KHÔNG gặp. Trong
+    demo "giải ngân" = ghi 1 dòng DB (loans.status), KHÔNG tiền thật → đôi = ghi status đôi vô hại.
+  - **VẪN LÀM MỨC CƠ BẢN** (rẻ, ăn điểm nghiệp vụ bank — code đi-kèm wrapper 4-bước, viết 1 lần là
+    có): biên nhận theo key + atomic UPDATE…WHERE claim. KHÔNG phải việc riêng, KHÔNG tốn thêm mấy.
+  - **BỎ (robustness production, quá tay demo 48h):** test dàn cảnh crash-giữa-chừng / kill server
+    chứng minh không-đôi. Gate S3 KHÔNG ở ca crash-injection.
+  - **GATE S3 = happy path:** agent gọi giải ngân → két chặn (approval_required + phiếu pending +
+    card approval UI) → admin bấm Duyệt → event resume → giải ngân chạy → loans.status='disbursed'.
+    Bấm Từ chối → không giải ngân. Atomic/biên nhận CÓ trong code (spec) nhưng KHÔNG điều kiện gate.
+  - **Vai:** mọi người vào thẳng ADMIN full quyền (D-39 skip-auth — người cấp cao dùng tool gated).
+    Bỏ phân biệt RM/admin ở luồng demo (người chat = người duyệt = admin). — Đổi: người muốn 2-vai
+    thật (RM xin, admin duyệt riêng) hoặc kéo crash-robustness vào scope.
 - **D-39 · DEV skip-auth (`DEV_SKIP_AUTH`) → vào thẳng vai ADMIN full quyền; flag OFF = auth như
   cũ** (NGƯỜI yêu cầu — architect design; dispatch SAU verdict gate S2) — dev/demo nội bộ tiện:
   bỏ login, mọi request = admin seed. **Thiết kế (1 chỗ, an toàn):**
