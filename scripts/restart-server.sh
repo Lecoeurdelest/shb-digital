@@ -29,10 +29,19 @@ elif [ "$running" = "?" ]; then
   [ "$FORCE" = "-y" ] || { echo "HỦY — chạy -y nếu chắc không ai dùng."; exit 1; }
 fi
 
-# 2. KILL server cũ (fuser theo port — gọn, không nhầm process khác).
-echo "→ kill uvicorn :$PORT ..."
-fuser -k "$PORT/tcp" 2>/dev/null || true
+# 2. KILL server cũ — pkill theo PATTERN (cả parent uv-wrapper + child worker). fuser -k CHỈ giết
+# process GIỮ PORT (child) → uv-wrapper PARENT sống sót → respawn/2-boot-cleanup (finding #2). pkill
+# pattern giết CẢ 2 → restart SẠCH bất kể (đúng nguyên tắc, giống time-scope cleanup).
+echo "→ kill uvicorn :$PORT (pkill parent+child) ..."
+pkill -f "uvicorn app.main.*$PORT" 2>/dev/null || true
 sleep 2
+# ASSERT SẠCH: 0 process uvicorn còn trước khi start (chống 2-instance chồng).
+leftover=$(pgrep -f "uvicorn app.main.*$PORT" | wc -l | tr -d ' ')
+if [ "$leftover" != "0" ]; then
+  echo "⚠️  còn $leftover process uvicorn sau pkill — kill -9 lần cuối..."
+  pkill -9 -f "uvicorn app.main.*$PORT" 2>/dev/null || true
+  sleep 1
+fi
 
 # 3. START mới (no-reload D-38 tránh --reload+SSE treo; env giữ). Detached.
 cd "$(dirname "$0")/../backend"

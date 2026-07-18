@@ -1,14 +1,34 @@
-"""Fixtures chung — kết nối PG seed thật (D-25: DATABASE_URL). Skip nếu DB không sẵn."""
+"""Fixtures chung — kết nối PG seed thật. Skip nếu DB không sẵn.
+
+TÁCH DB TEST (luật vận hành → code): test chạy DB RIÊNG (TEST_DATABASE_URL, mặc định `shb_test`)
+để KHÔNG bơm rác vào queue/Control Tower DB demo. Override env `DATABASE_URL=<test-db>` NGAY ĐẦU
+file — TRƯỚC bất kỳ `from app.db.config import` (config đọc env lúc import) → cả app-under-test +
+test conn dùng test-db trong phiên test. env TEST_DATABASE_URL không set → dùng DB chính (dev
+nhanh) + WARNING (tránh bơm rác demo mà không biết).
+"""
 
 from __future__ import annotations
 
 import asyncio
+import os
+import warnings
 
-import psycopg2
-import pytest
-from httpx import AsyncClient
+# ⚠️ PHẢI set env TRƯỚC mọi app import (config.py đọc os.environ lúc import module).
+_TEST_DB = os.environ.get("TEST_DATABASE_URL")
+if _TEST_DB:
+    os.environ["DATABASE_URL"] = _TEST_DB  # test conn + app-under-test → test-db
+else:
+    warnings.warn(
+        "TEST_DATABASE_URL không set — test chạy trên DB CHÍNH (bơm rác vào queue/Tower demo). "
+        "Set TEST_DATABASE_URL=postgresql://shb:shb@localhost:5432/shb_test để tách.",
+        stacklevel=2,
+    )
 
-from app.db.config import DATABASE_URL
+import psycopg2  # noqa: E402
+import pytest  # noqa: E402
+from httpx import AsyncClient  # noqa: E402
+
+from app.db.config import DATABASE_URL  # noqa: E402 — sau khi override env ở trên
 
 
 def _db_ready() -> bool:
@@ -29,10 +49,45 @@ def _db_ready() -> bool:
         conn.close()
 
 
+def _ensure_test_db() -> None:
+    """Auto-setup test-db (CHỈ khi TEST_DATABASE_URL set + db đó CHƯA seed): CREATE DATABASE (nếu
+    thiếu) → migrate head → seed. Idempotent — chạy lại no-op nếu đã seed. KHÔNG đụng DB chính
+    (chỉ chạy khi có TEST_DATABASE_URL riêng)."""
+    if not _TEST_DB or _db_ready():
+        return  # không có test-db riêng, HOẶC test-db đã sẵn → không setup lại
+    import re
+    import subprocess
+
+    # CREATE DATABASE <test> nếu chưa có — connect tới db 'postgres' (admin), tách tên db test.
+    m = re.match(r"(postgresql://[^/]+)/(\w+)", _TEST_DB)
+    if m:
+        base, dbname = m.group(1), m.group(2)
+        try:
+            admin = psycopg2.connect(f"{base}/postgres", connect_timeout=2)
+            admin.autocommit = True
+            with admin.cursor() as cur:
+                cur.execute("SELECT 1 FROM pg_database WHERE datname=%s", (dbname,))
+                if not cur.fetchone():
+                    cur.execute(f'CREATE DATABASE "{dbname}"')
+            admin.close()
+        except psycopg2.Error:
+            return  # không tạo được (quyền/conn) → _db_ready vẫn False → test skip với reason
+    # migrate head + seed nghiệp vụ + seed users (auth) trên test-db. DATABASE_URL đã trỏ test-db.
+    env = {**os.environ, "DATABASE_URL": _TEST_DB}
+    subprocess.run(["uv", "run", "alembic", "upgrade", "head"], env=env, check=False, capture_output=True)
+    subprocess.run(["uv", "run", "python", "-m", "app.db.seed_from_lab"], env=env, check=False, capture_output=True)
+    # seed users (admin/user) — test authz/login CẦN (thiếu → login 401 thay verdict thật).
+    subprocess.run(["uv", "run", "python", "-m", "app.db.seed_users"], env=env, check=False, capture_output=True)
+
+
+_ensure_test_db()  # session-setup 1 lần lúc load conftest (sau override env, trước collection).
+
+
 requires_db = pytest.mark.skipif(
     not _db_ready(),
     reason="PG chưa sẵn/chưa seed — `docker compose up -d db` + "
-    "`uv run alembic upgrade head` + `uv run python -m app.db.seed_from_lab`",
+    "`uv run alembic upgrade head` + `uv run python -m app.db.seed_from_lab` "
+    "(hoặc set TEST_DATABASE_URL để auto-setup test-db riêng)",
 )
 
 
