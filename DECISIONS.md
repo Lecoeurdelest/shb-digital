@@ -4,6 +4,19 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-56 · ĐẢO D-54: 2 PERSONA — app là CỬA KHÁCH HÀNG, duyệt là việc NGÂN HÀNG** (người chốt
+  18/7, discuss với architect) — flow đúng thiết kế gốc: khách vào app tự chat → đội chuyên gia
+  số xử lý → khoản vừa/nhỏ agent TỰ DUYỆT theo ma trận thẩm quyền → chỉ khoản lớn/vượt hạn mức
+  bắn về đội ngân hàng duyệt. Cụ thể: (a) role `customer` = KHOANH — chỉ thấy ca của mình,
+  KHÔNG quyền duyệt (decide quay lại bank-only, đảo D-54), MAIN được inject danh tính khách;
+  (b) role bank (`admin` hiện hành) = toàn quyền — thấy mọi ca + Tower + duyệt ⇒ "2-vai-1-account"
+  là TẬP CON miễn phí của tách; (c) demo 2 CỬA SỔ cạnh nhau (khách trái, ngân hàng phải — phiếu
+  bay real-time), fallback 1-account bank; (d) **S8 (persona split) làm TRƯỚC S7 (LAB port)** —
+  người chốt "backend dừng rồi có thể làm s8 trước", tree sạch, T7-1 hoãn nguyên dispatch.
+  — vì sao: ngân hàng muốn tích hợp app cho khách vào trực tiếp; engine giữ 100%, chỉ thêm lớp
+  persona. — cách đổi: đảo lại thứ tự sprint bất kỳ lúc nào; ma trận v1 = rule 500tr hiện có,
+  S7 chồng lane LAB sau.
+
 - **D-55 · Port LAB legal CERTIFIED: byte-identical TRỪ đúng 1 dòng import; adapter mở WRITE
   có kiểm soát** (architect, kickoff S7 18/7) — (a) `roles/legal/functions.py` chép nguyên bản
   LAB (skill v3 · tool a354fd), CHỈ đổi `from .credit import ...` → import từ labpack credit
