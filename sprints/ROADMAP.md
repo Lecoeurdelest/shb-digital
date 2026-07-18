@@ -17,14 +17,19 @@
 - **Gate:** ca "DN X vay 5 tỷ" → ≥2 sub SONG SONG → real-sub card + main document + stub present canvas (id vỏ-inject) → FE render. ✅ (browser evidence conv 17fe336a: 2 sub song song, 6 card, document task_id NULL, 126 test)
 - **Plan:** `plan_sprint_2.md` · **End:** `end_sprint_2.md`. D-33 đóng, waiver S1 đóng.
 
-## Sprint 3 — PHANH end-to-end ⏳ PLANNED (phần KHÓ NHẤT — attention lớn nhất, D-29)
-- **Theme:** gate cưỡng chế tầng tool (N2) — `disburse` gated → phiếu (pending→approved→used) + biên nhận chống-thực-thi-đôi + atomic claim UPDATE…WHERE + payload_hash chuẩn hoá + card approval (chỉ vỏ sinh) + admin duyệt → event resume.
-- **Gate (dự kiến):** "giải ngân 5 tỷ khi chưa duyệt" → két CHẶN (approval_required) → admin duyệt → Ops gọi lại → thực thi ĐÚNG 1 lần; gọi lại sau thành công → biên nhận cũ (không thực thi đôi).
-- **Nợ mang sang:** D-33 inline-await (nếu §9 main-retry/concurrency cần → chuyển §6-spawn) · store.py tách module.
+## Sprint 3 — PHANH end-to-end ✅ ĐÓNG (87d9e18 · 3d3cf9d · a04df64 · 44fdb4b · 2ab26a4 · cd1bd24 · {{đóng}})
+- **Theme:** gate cưỡng chế tầng tool (N2) — `disburse` gated → phiếu (pending→approved→used) + biên nhận chống-thực-thi-đôi + atomic claim + payload_hash + card approval (vỏ sinh) + admin duyệt → event resume → giải ngân thật.
+- **Gate:** ca "giải ngân qua chat" → phanh CHẶN (approval_required + phiếu + card) → admin duyệt UI → event resume → Ops gọi lại → thực thi ĐÚNG 1 lần (loans=disbursed + receipt); gọi lại → biên nhận cũ. ✅ 4/4 nhánh browser+PG (happy/reject/decide-twice-409/authz 12/12). Race resume-dispatch FIXED (guard A/B, cô lập 3/3 + transcript).
+- **Ngoài kế hoạch (làm thêm):** routing fix (D-46 MAIN route giải ngân) · **provider registry standalone** (D-45/45b — demo Đà Nẵng không phụ CLI auth, verify qua zai) · skip-auth (D-39) · card-sync atomic.
+- **Ngoại lệ treo S4:** loop-edge guard B (ops#2 fail bền → re-dispatch loop; money-safe, bound cần migration attempt-state). **Nợ:** provider (c) per-conv + model dropdown UI · queue Control Tower · 2-card-trùng dọn · immediate-stop mạnh hơn.
 
-## Sprint 4 — Control Tower + trace ⏳ PLANNED
+## Sprint 4 — Control Tower + trace + tương tác sub ⏳ PLANNED
 - **Theme:** màn Control Tower (admin): approval queue + live map traces + audit view (tool_calls) + cost meter + interrupt per-agent + trạng thái đầy đủ (empty/streaming/waiting/error/abstain).
-- **Gate (dự kiến):** admin thấy trace tool-call của mọi sub + duyệt phiếu từ queue + interrupt 1 sub cụ thể (không đụng sub khác) + cost meter per-agent.
+- **User thêm 18/7 (D-43 lật D-23; team-lead route — MUST):**
+  - **F1 — thinking + tool trace trên UI user** (tracing dễ, tạm): BE emit SSE `thinking` (SDK ThinkingBlock — LAB session.py pattern) + `toolcall` live per sub/main (§9 CONTRACT sẵn) · FE khối trace collapsible trong chat. ~½ ngày. S3 xong sớm → nhét cuối S3; không thì mở màn S4.
+  - **F2a — click sub → box chat = FULL conversation của sub + nút HUỶ sub đang chạy** (D-20 SubAgentView ref + interrupt §4.3 + /interrupt §11). = S4 core, user chốt MUST.
+  - **F2b — user CHAT THẬT với sub** (kênh trực tiếp phụ, port `say()` interject LAB; cần sub-session đa lượt — hiện one-shot). S4 STRETCH sau F2a. Luồng bàn giao chính vẫn qua Main (§3).
+- **Gate (dự kiến):** admin thấy trace tool-call + thinking của mọi sub (F1) + duyệt phiếu từ queue + click sub → full-conv + interrupt 1 sub cụ thể không đụng sub khác (F2a) + cost meter per-agent. F2b (chat-sub) = stretch, không chặn gate nếu one-shot chưa nâng.
 
 ## Sprint 5 — Polish + demo ⏳ PLANNED
 - **Theme:** UI theo mock (lobby 3D nếu kịp — D-24) + demo-script + seed-reset + compare endpoint (single vs multi-agent) nếu kịp.

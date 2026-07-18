@@ -21,7 +21,17 @@ click có thể flaky tuỳ phiên).
 Finding SỚM đã báo architect trước khi chạy (đọc code trước khi tốn live SDK call): đọc
 `roles/operations/SKILL.md` thấy dòng "Giải ngân THẬT ... CHƯA có ở stub này" — NGƯỢC với thực
 tế `functions.py` đã mount `disburse` từ T3-1. Nếu ca live dưới đây main không tự dispatch/Ops
-không gọi disburse → nghi ngay SKILL lệch trước khi nghi cơ chế (§6b thứ tự nghi vấn)."""
+không gọi disburse → nghi ngay SKILL lệch trước khi nghi cơ chế (§6b thứ tự nghi vấn).
+
+BÀI HỌC NHIỄM CHÉO (18/7, sau race-fix commit cd1bd24): 3 người (tester/architect/backend) từng
+CÙNG chạy live-SDK trên CHUNG loan L007 gần như đồng thời → `_restore_state` cũ reset
+`loans.status` theo loan_id TOÀN CỤC (không theo conv_id) → cleanup của 1 tiến trình ghi đè MẤT
+kết quả ĐÚNG của tiến trình khác đang chạy song song → trông giống "fail ngẫu nhiên" dù cơ chế
+resume/guard hoàn toàn đúng (xác nhận qua transcript: receipt lưu đúng, task Ops gọi disburse
+thật thành công, nhưng loans bị set lại 'active' SAU ĐÓ bởi lệnh reset khác). **Fix: mỗi test
+dùng loan RIÊNG** (không chung TEST_LOAN_ID cho cả 3 test, không chung với loan người khác có
+thể đang verify song song) — loại bỏ hẳn khả năng nhiễm chéo thay vì trông chờ "đừng chạy cùng
+lúc" (kỷ luật quy trình dễ quên, cô lập bằng code mới bền)."""
 
 from __future__ import annotations
 
@@ -44,25 +54,27 @@ pytestmark = [
     pytest.mark.skipif(not _LIVE, reason="live SDK opt-in: RUN_LIVE_SDK=1 (resume cần MAIN thật quyết dispatch)"),
 ]
 
-TEST_LOAN_ID = "L007"  # seed thật: owner B001, principal 3 tỷ, status active
-TEST_OWNER_ID = "B001"  # BÀI HỌC (lần chạy đầu FAIL vì thiếu): sub credit/legal/operations
-# ĐÚNG khi từ chối tự bịa owner_id (N2) — câu prompt PHẢI nêu rõ owner_id, không chỉ loan_id,
-# nếu không MAIN dispatch cả 3 role rồi TẤT CẢ hỏi lại → không bao giờ tới bước gọi disburse.
-TEST_AMOUNT = 1_000_000_000  # BÀI HỌC (lần chạy 2 FAIL): 5 tỷ VƯỢT hạn mức L007 (3 tỷ) → MAIN
-# ĐÚNG khi tự chặn (N2 kiểm soát rủi ro, không phải bug) — dùng số DƯỚI hạn mức để test đúng
-# cơ chế PHANH duyệt, không phải test giới hạn tín dụng (đó là việc của credit, ngoài scope T3-4).
-DISBURSE_PROMPT = (
-    f"Khách hàng {TEST_OWNER_ID} (khoản vay {TEST_LOAN_ID}) đã được duyệt hạn mức — giao Vận "
-    f"hành thực hiện giải ngân {TEST_AMOUNT} đồng ngay cho khoản vay {TEST_LOAN_ID}, KHÔNG cần "
-    f"thẩm định lại credit/legal"
-)
+# Pool loan CÔ LẬP per-test (bài học nhiễm chéo 18/7) — mỗi test 1 loan RIÊNG, KHÔNG chung
+# TEST_LOAN_ID nữa. amount luôn DƯỚI hạn mức (test cơ chế PHANH, không phải giới hạn tín dụng —
+# việc của credit, ngoài scope T3-4). owner_id LUÔN nêu rõ trong prompt (N2 — bài học lần chạy
+# đầu: thiếu owner_id → sub từ chối tự bịa, ĐÚNG hành vi, không phải bug).
+LOAN_HAPPY = ("L102", "C002", 50_000_000)  # hạn mức 108tr
+LOAN_REJECT = ("L103", "C009", 50_000_000)  # hạn mức 113tr
+LOAN_DECIDE_TWICE = ("L104", "C010", 300_000_000)  # hạn mức 700tr
 
 
-def _restore_state(conv_id: str | None = None) -> None:
+def _disburse_prompt(loan_id: str, owner_id: str, amount: int) -> str:
+    return (
+        f"Khách hàng {owner_id} (khoản vay {loan_id}) đã được duyệt hạn mức — giao Vận hành thực "
+        f"hiện giải ngân {amount} đồng ngay cho khoản vay {loan_id}, KHÔNG cần thẩm định lại credit/legal"
+    )
+
+
+def _restore_state(loan_id: str, conv_id: str | None = None) -> None:
     conn = psycopg2.connect(DATABASE_URL)
     try:
         cur = conn.cursor()
-        cur.execute("UPDATE loans SET status='active' WHERE loan_id=%s", (TEST_LOAN_ID,))
+        cur.execute("UPDATE loans SET status='active' WHERE loan_id=%s", (loan_id,))
         if conv_id:
             cur.execute("DELETE FROM cards WHERE conv_id=%s", (conv_id,))
             cur.execute("DELETE FROM approvals WHERE conv_id=%s", (conv_id,))
@@ -124,6 +136,7 @@ async def test_gate_s3_happy_path_approve_resume_disburse_real():
     THẬT (HTTP POST) → main (LLM thật) resume → tự dispatch Ops → Ops gọi lại disburse → wrapper
     claim → loans.status='disbursed'. Đây là ca live SDK, có thể mất 60-120s (2 lượt SDK: lượt
     đầu Ops gọi disburse bị chặn, lượt resume Ops gọi lại disburse thành công)."""
+    loan_id, owner_id, amount = LOAN_HAPPY
     conv_id: str | None = None
     try:
         async with app.router.lifespan_context(app):
@@ -132,7 +145,7 @@ async def test_gate_s3_happy_path_approve_resume_disburse_real():
 
                 r = await client.post(
                     f"/api/conversations/{conv_id}/chat",
-                    json={"content": DISBURSE_PROMPT},
+                    json={"content": _disburse_prompt(loan_id, owner_id, amount)},
                 )
                 assert r.status_code == 202
 
@@ -142,7 +155,7 @@ async def test_gate_s3_happy_path_approve_resume_disburse_real():
                 conn = psycopg2.connect(DATABASE_URL)
                 try:
                     cur = conn.cursor()
-                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (TEST_LOAN_ID,))
+                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (loan_id,))
                     loan_status_before = cur.fetchone()[0]
                 finally:
                     conn.close()
@@ -170,7 +183,7 @@ async def test_gate_s3_happy_path_approve_resume_disburse_real():
                 conn = psycopg2.connect(DATABASE_URL)
                 try:
                     cur = conn.cursor()
-                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (TEST_LOAN_ID,))
+                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (loan_id,))
                     loan_status_after = cur.fetchone()[0]
                     assert loan_status_after == "disbursed", (
                         f"SAU duyệt + resume, loans.status PHẢI 'disbursed' — thấy '{loan_status_after}'. "
@@ -192,18 +205,19 @@ async def test_gate_s3_happy_path_approve_resume_disburse_real():
                     conn.close()
                 # Chỉ dọn conv khi TỚI ĐƯỢC ĐÂY (mọi assert trên đã pass) — FAIL ở trên thì
                 # except/raise nhảy thẳng ra ngoài, conv_id KHÔNG bị xoá, giữ cho điều tra tay.
-                _restore_state(conv_id)
+                _restore_state(loan_id, conv_id)
     except AssertionError:
         raise  # giữ nguyên conv_id trong DB — KHÔNG cleanup khi fail (bằng chứng điều tra)
     finally:
         if conv_id is None:
-            _restore_state()
+            _restore_state(loan_id)
 
 
 @pytest.mark.asyncio
 async def test_gate_s3_reject_path_no_disburse():
     """Nhánh reject: decide rejected → main được đánh thức, báo user từ chối — loans.status
     KHÔNG đổi (KHÔNG có double-check nào cho phép Ops gọi lại disburse sau reject)."""
+    loan_id, owner_id, amount = LOAN_REJECT
     conv_id: str | None = None
     try:
         async with app.router.lifespan_context(app):
@@ -212,7 +226,7 @@ async def test_gate_s3_reject_path_no_disburse():
 
                 r = await client.post(
                     f"/api/conversations/{conv_id}/chat",
-                    json={"content": DISBURSE_PROMPT},
+                    json={"content": _disburse_prompt(loan_id, owner_id, amount)},
                 )
                 assert r.status_code == 202
 
@@ -230,7 +244,7 @@ async def test_gate_s3_reject_path_no_disburse():
                 conn = psycopg2.connect(DATABASE_URL)
                 try:
                     cur = conn.cursor()
-                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (TEST_LOAN_ID,))
+                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (loan_id,))
                     assert cur.fetchone()[0] == "active", "reject → loans.status KHÔNG được đổi"
 
                     cur.execute("SELECT status, receipt FROM approvals WHERE id=%s", (approval_id,))
@@ -241,18 +255,19 @@ async def test_gate_s3_reject_path_no_disburse():
                     conn.close()
                 # Chỉ dọn khi TỚI ĐƯỢC ĐÂY (mọi assert trên đã pass) — bài học từ happy-path
                 # (evidence-preserving cleanup): FAIL ở trên nhảy thẳng ra except, KHÔNG xoá conv.
-                _restore_state(conv_id)
+                _restore_state(loan_id, conv_id)
     except AssertionError:
         raise  # giữ nguyên conv_id trong DB — KHÔNG cleanup khi fail (bằng chứng điều tra)
     finally:
         if conv_id is None:
-            _restore_state()
+            _restore_state(loan_id)
 
 
 @pytest.mark.asyncio
 async def test_gate_s3_decide_twice_returns_409_no_double_wake():
     """Defensive (đã T3-2 unit test mock, verify lại qua đường thật + kèm resume thật lần 1
     không bị đánh thức đôi): decide approved 2 lần liên tiếp → lần 2 = 409, chỉ 1 lần resume."""
+    loan_id, owner_id, amount = LOAN_DECIDE_TWICE
     conv_id: str | None = None
     try:
         async with app.router.lifespan_context(app):
@@ -261,7 +276,7 @@ async def test_gate_s3_decide_twice_returns_409_no_double_wake():
 
                 r = await client.post(
                     f"/api/conversations/{conv_id}/chat",
-                    json={"content": DISBURSE_PROMPT},
+                    json={"content": _disburse_prompt(loan_id, owner_id, amount)},
                 )
                 assert r.status_code == 202
                 approval_id = await _wait_for_approval_pending(client, conv_id)
@@ -279,7 +294,7 @@ async def test_gate_s3_decide_twice_returns_409_no_double_wake():
                 conn = psycopg2.connect(DATABASE_URL)
                 try:
                     cur = conn.cursor()
-                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (TEST_LOAN_ID,))
+                    cur.execute("SELECT status FROM loans WHERE loan_id=%s", (loan_id,))
                     assert cur.fetchone()[0] == "disbursed"
                     cur.execute(
                         "SELECT count(*) FROM approvals WHERE conv_id=%s AND status='used'",
@@ -289,9 +304,9 @@ async def test_gate_s3_decide_twice_returns_409_no_double_wake():
                 finally:
                     conn.close()
                 # Chỉ dọn khi TỚI ĐƯỢC ĐÂY (mọi assert trên đã pass) — evidence-preserving cleanup.
-                _restore_state(conv_id)
+                _restore_state(loan_id, conv_id)
     except AssertionError:
         raise  # giữ nguyên conv_id trong DB — KHÔNG cleanup khi fail (bằng chứng điều tra)
     finally:
         if conv_id is None:
-            _restore_state()
+            _restore_state(loan_id)

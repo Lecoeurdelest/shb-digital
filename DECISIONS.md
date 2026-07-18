@@ -48,6 +48,126 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-47 · Race resume-dispatch = guard A/B re-dispatch TỪ task_done (không đua trước) — N2 tầng điều
+  phối** (architect chốt + advisor + tester verify, 18/7) — race: admin duyệt NHANH hơn Ops-lần-1 return
+  → resume-dispatch (approval_decided) đua trước unregister → orch_dispatch created:false → MAIN đọc
+  task_done STALE → báo "vẫn chờ" (sai), phiếu approved treo. Cơ chế cũ dựa MAIN tự phục hồi = NÃO gánh
+  lỗi VỎ (vi phạm "vỏ đưa thông tin ĐÚNG LÚC"). **Fix (`_resume_dispatch_guard` đầu `_turn_runner`, commit
+  cd1bd24):** A) approval_decided(approved)+role còn running → SKIP MAIN (grant = approval row approved-
+  chưa-used, ZERO state mới). B) task_done+grant+role vừa free → server re-dispatch ops#2 (fire-forget) +
+  SUPPRESS MAIN report → ops#2 claim→'used'→grant tự clear. KHÔNG đụng _report ordering. **Verify:** cô
+  lập L102 5/5 GREEN + transcript (MAIN dispatch 1 lần created:true, guard-B server-side, không stale-read)
+  = tất định bằng CƠ CHẾ không may nhờ MAIN. ("flaky" ban đầu = nhiễm chéo test harness L007 chung, không
+  phải sản phẩm.) **HỞ treo S4:** guard-B KHÔNG có trần re-dispatch → ops#2 fail BỀN → task-storm (money-safe,
+  rollback atomic; bound cần migration attempt-state = hố S3 → T4-0). — Đổi: bound loop / đổi grant sang
+  registry field.
+- **D-45 · Provider cho SDK = PORT pattern `battle/core/runtime/providers.py` (KHÔNG chế bánh xe)** (người
+  chốt 18/7 "battle đã giải provider, env còn hiệu lực, đừng tự chế") — ROOT bug :8000 treo khi
+  dispatch: shb `ClaudeAgentOptions` KHÔNG set `env=` → SDK rơi về CLI auth bundled (giống provider
+  `claude-cli` subscription của battle); nếu server thiếu CLI auth / hết quota → `query()` HANG (không
+  fail nhanh) → main treo, 0 dispatch. **Battle đã giải:** `env={ANTHROPIC_BASE_URL, ANTHROPIC_AUTH_TOKEN,
+  ANTHROPIC_API_KEY}` per-session vào `ClaudeAgentOptions.env` (KHÔNG đụng process env → đa-provider song
+  song). Config: `battle/configs/providers.yaml` (claude-cli subscription default · zai=GLM · wrap=GPT) +
+  secret `battle/.env` (`${VAR}` interpolate). Probe 18/7: zai SỐNG (trả model list), wrap host nội bộ
+  không reachable ngoài psa.team. **Quyết:** port Providers registry (yaml+.env parser + resolve_env) vào
+  shb backend; MAIN/SUB options nhận provider_env. Provider mặc định = claude-cli (subscription, env rỗng
+  — chạy như hiện tại NẾU server có CLI auth); fallback đa-provider (zai) khi cần floor/không CLI auth. —
+  Đổi: người chọn provider khác / chỉ dùng CLI auth (thì fix treo = đảm bảo CLI auth có trên server).
+  - **D-45b · Model/provider CHỌN ĐƯỢC trên UI + env setup (người chốt 18/7):** (1) **DEFAULT = blunder/
+    subscription** (claude-cli, env rỗng — CLI auth máy chủ, đơn giản nhất, không cần key). (2) **User
+    chọn model trên UI** — dropdown đơn giản: `GET /api/models` trả list (name/kind/models/has_key — KHÔNG
+    lộ key, port `Providers.public_view()` battle) → FE dropdown → chat/conversation nhận `model?`/`provider?`
+    optional (bỏ trống = default). (3) **ENV setup:** `.env` shb khai provider default + biến key (mẫu
+    `.env.example`); `providers.yaml` khai 3 kind: `subscription` (blunder/CLI, env rỗng) · `api` custom
+    (base_url+key, vd zai/wrap) · `api native` (Anthropic thẳng, ANTHROPIC_API_KEY). Port nguyên pattern
+    battle (`POST /sessions` nhận provider param + `GET /models` + `_base_.yaml` model ladder). — Đổi:
+    người khoá 1 model (bỏ dropdown) / đổi default sang api-native.
+- **D-44 · Sửa `roles/operations/SKILL.md` khớp T3-1 (disburse ĐÃ mount) — KHÔNG vi phạm N1** (tester
+  tìm 18/7, architect quyết) — SKILL.md operations dòng cũ nói "giải ngân CHƯA có, sprint sau" NGƯỢC
+  thực tế (T3-1 mount disburse thật). Rủi ro: Operations sub đọc skill trước tool-list → có thể từ
+  chối gọi tool / trả "chưa hỗ trợ" (loại lỗi skill-lệch-thực-tế đã thấy gate S2). **N1 GIỮ:** file
+  này là STUB VỎ TỰ VIẾT (D-35 "vỏ viết, LAB đè khi đẻ thật") — KHÔNG phải skill LAB thật → sửa cho
+  khớp cơ chế vỏ (phanh disburse) là việc của vỏ, không đụng trí-khôn LAB. Khác D-36 (present-skill):
+  D-36 dùng file provisional CẠNH vì không được đụng SKILL gốc; đây SKILL gốc là của vỏ nên sửa thẳng.
+  Thêm mục "Giải ngân (disburse — CÓ PHANH)": gọi tool thật, lần đầu bị chặn = ĐÚNG quy trình (không
+  nói "chưa hỗ trợ"), sau duyệt gọi lại chạy thật + biên nhận. — Đổi: LAB đẻ operations skill thật →
+  xoá stub này (cả mục disburse), swap skill LAB.
+- **D-46 · Dạy MAIN_SKILL route "giải ngân" → dispatch disburse (KHÔNG vi phạm N1 — vỏ tự viết)**
+  (backend tự-quyết 18/7, đã báo architect+FE; đảo được — prompt text) — LỖ HỔNG routing tìm khi
+  e2e S3 qua chat: hệ hỗ trợ disburse ở MỌI tầng (ops CÓ tool + allowed_tools, ops SKILL D-44 CÓ mục
+  giải ngân, phanh+phiếu+card+resume đủ) TRỪ chỗ MAIN định tuyến. `main_session.py` MAIN_SKILL dòng cũ
+  mô tả `operations = "lộ trình xử lý hồ sơ"` DUY NHẤT → user nói "Giải ngân L001 5 tỷ" thì main dịch
+  về brief gần nhất nó biết = "lập lộ trình timeline" → ops chạy ops_plan, KHÔNG gọi disburse → KHÔNG
+  có phiếu (FE chờ mãi không thấy ticket). **Fix hẹp:** dạy main operations có HAI loại việc, phân
+  biệt theo yêu cầu — "lộ trình/timeline" → brief ops_plan; "GIẢI NGÂN/chuyển tiền" (có mã khoản +
+  số tiền) → brief nói THẲNG "thực hiện giải ngân... Gọi tool disburse" (KHÔNG viết "lộ trình", nếu
+  không model co về ops_plan vì chữ "giải ngân" ở cả hai). **N1 GIỮ:** MAIN_SKILL là "vỏ TỰ VIẾT
+  (mỏng)" (comment dòng 37 file) — điều phối/routing là VIỆC CỦA VỎ, không đụng trí-khôn LAB. **Verify
+  THẬT (không tin diff skill):** chạy lại repro `chat "Giải ngân khoản vay L001 số tiền 5 tỷ đồng"` →
+  main brief ops = "Thực hiện giải ngân... Gọi tool disburse" ✅ → ops gọi disburse → phiếu pending +
+  card approval canvas ✅ → admin decide approved → resume → giải ngân thật (loan='disbursed',
+  used_at+receipt SET, no-double) ✅. Suite test_gated+test_approvals 27 passed sau edit. — Đổi:
+  LAB/architect đổi cơ chế routing, hoặc design chốt disburse trigger qua NÚT pipeline thay vì chat.
+- **T3-2 THI HÀNH · Resume (admin decide → event đánh thức main) — REUSE handle_room_event, KHÔNG
+  chế cơ chế mới** (backend T3-2, architect Logic) — khép vòng phanh: người bấm Duyệt/Từ chối UI →
+  API decide → main giao lại Ops → gọi lại disburse → wrapper bước 2 claim → chạy. (1)
+  `store_approvals.py` tách (D-34 — store.py 409 LOC): `list_pending(conv_id?)` + `decide(id,
+  decision, decided_by, reason)` ATOMIC một chiều `UPDATE…WHERE status='pending' RETURNING` →
+  rowcount 0 (2 admin bấm/double-wake) → None → API 409 (đã quyết) / 404 (không tồn tại, phân biệt
+  qua approval_exists). (2) API `app/api/approvals.py`: GET /api/approvals?status=pending (admin) +
+  POST /api/approvals/{id}/decide (admin, body {decision:approved|rejected, reason?}) → 400 decision
+  lạ. (3) `_emit_and_wake`: SSE approval.decided {phieu:{id,action,status,decided_by,reason}} + ĐÁNH
+  THỨC main qua `handle_room_event(conv_id, "approval_decided", payload)` — CÙNG đường task_done sub
+  (§4.4, KHÔNG chế mới). Cả approved LẪN rejected đánh thức (main báo user). (4) `run_main_turn` nhánh
+  event `approval_decided`: prompt nói THEO HÀNH ĐỘNG + tham số (KHÔNG phiếu-id §15) — approved→giao
+  Ops gọi lại, rejected→báo user. CTX reset D-33 đã có (approval_decided qua run_main_turn giống
+  task_done — KHÔNG thêm contextvar mới). Verify: decide atomic + 400/404/409 + đánh thức reuse +
+  prompt + HTTP thật (decide→200 approved, 2 lần→409). 14 test. D-42 (agent không block/poll) giữ.
+  — Đổi: LAB đẻ role duyệt riêng, hoặc đổi decide semantics.
+- **T3-1 THI HÀNH · Phanh wrapper THREAD-CONN (1 conn/tx xuyên claim+inner+receipt) — chống
+  money-doubling cơ bản (D-40)** (backend T3-1, advisor + architect review) — `app/orch/gated.py`:
+  (1) `payload_hash` 1 hàm (float-normalize + None/non-biz drop + sort — verify equivalence
+  int/float/order/ts cùng hash, 1tỷ≠5tỷ). (2) `_gated_txn` = LÕI ĐỒNG BỘ 1 psycopg2 conn (raw
+  %s, KHÔNG PGConnAdapter — adapter chỉ cho LAB read tool `?`), 1 tx, 4 bước, KHÔNG await bên
+  trong, chạy qua `asyncio.to_thread` (D-22 không block loop). **INVARIANT: receipt-save TRONG
+  CÙNG tx với claim+inner → `status='used' ⟺ receipt present`** — inner throw → rollback → phiếu
+  về 'approved' (retry sạch); tách tx = money-doubling window. (3) SSE STRICTLY SAU commit
+  (`_gated_txn` trả to-emit struct → handler emit sau to_thread — rollback không emit card ma).
+  (4) card approval type='approval' NGOÀI present enum (vỏ tự sinh §6, id vỏ-inject). (5)
+  GATED_WHITELIST={disburse} wire ở mount loop (name in whitelist → gated handler; read giữ
+  per-call). disburse stub vỏ (D-18) ghi loans.status='disbursed'. Migration approvals (8e8edc5b9187,
+  server_default uuid + composite index key, downgrade plain drop). Verify 4 nhánh + invariant
+  rollback + card SSE (11 test). D-40: atomic claim + biên nhận CÓ, KHÔNG crash-injection gate.
+  N1 giữ (disburse fn nhận conn vỏ cấp). — Đổi: LAB đẻ ops disburse thật → swap GATED_TOOLS['disburse'].
+  - **Hở đã biết (deferred/acceptance — advisor review, KHÔNG phải bug, ghi để không thành gap im
+    lặng):** (a) **Race sinh phiếu-RÁC (tester tìm 18/7, FIX bằng advisory-lock)** — 2 gọi disburse
+    đồng thời (mỗi gọi conn/tx riêng qua to_thread, READ COMMITTED không thấy phiếu đối thủ) → lệnh
+    thua rớt bước 4 → đẻ phiếu pending + card GIẢ. **Money invariant GIỮ** (13/13 tester + 5/5 architect,
+    luôn đúng 1 disbursed; biên nhận bước 1 + claim atomic chặn double-spend). Rác cosmetic, KHÔNG tiền
+    đôi. **FIX: `pg_advisory_xact_lock(hash(conv_id,action,ph))` đầu `_gated_txn` — serialize per-key,
+    con thua chờ con thắng commit → thấy used/pending → không đẻ giả; cứu CẢ 2 variant.** (partial-
+    unique-index KHÔNG đủ: `used` không nằm trong index → variant gọi-sau-used lọt → dùng advisory-lock.)
+    lock_key = `int(sha256(f"{conv_id}:{ph}")[:15],16) & 0x7FFF...` — **sha256 KHÔNG `hash()` Python**
+    (PYTHONHASHSEED randomize → không deterministic cross-process; D-38 `--reload` spawn process mới +
+    tương lai đa-worker). Hành vi con-thua sau fix: chờ lock → thấy phiếu `used` bước 1 → trả **biên
+    nhận cũ** (disbursed:true + hint "ĐÃ thực thi"), KHÔNG execute lần 2 → verify 10× `[EXEC,RECEIPT]`,
+    execute_thật=1, used=1, total_phiếu=1 (0 rác), loans disbursed 1 lần. (Assert test đo invariant
+    bằng `used_count==1`/phân biệt EXEC-no-hint vs RECEIPT-có-hint, KHÔNG `disbursed_count==1`.)
+    (b) **`amount` default=0** → disburse thiếu amount vẫn chạy,
+    card duyệt hiện amount trống → admin duyệt mù. Chấp nhận demo (Ops luôn gửi amount); siết =
+    đổi schema `amount required`. (c) **Bằng chứng "no-double" đến từ CƠ CHẾ** (phiếu `used` +
+    row-lock EvalPlanQual claim, advisor xác nhận đúng), KHÔNG từ đếm side-effect — vì disburse stub
+    chỉ set `status='disbursed'` (idempotent, không có sổ tiền để trừ đôi). Đúng scope stub; LAB đẻ
+    disburse có side-effect đếm được → test phải assert count.
+- **D-42 · Luồng CHỜ-DUYỆT: agent KHÔNG block/poll — chặn→báo main→KẾT THÚC LƯỢT; đánh thức là
+  T3-2** (người hỏi 18/7, architect trả) — Ops gọi disburse → wrapper trả `approval_required` +
+  hint "Đã gửi chờ duyệt — báo main và kết thúc lượt". Agent KHÔNG đứng đợi (không deadlock để né →
+  **KHÔNG cần auto-approve**). Người bấm Duyệt trên UI → API decide (T3-2) → **event đánh thức main**
+  → main giao lại Ops → gọi lại disburse → wrapper bước 2 claim → chạy. "handler resume" người thấy
+  thiếu = T3-2 (đã plan, dispatch ngay sau commit T3-1), KHÔNG phải bế tắc. Auto-approve sẽ phá đúng
+  deliverable #3 (phanh = két cần chìa) → mất thứ để demo. Nếu cần đường-tắt-test lúc T3-2 chưa xong:
+  thêm env `DEV_AUTO_APPROVE` tách bạch (default OFF, giống D-39), KHÔNG đụng lõi phanh — chờ người
+  xác nhận có muốn không. — Đổi: người muốn auto-approve thật → bật env, lõi phanh nguyên.
 - **D-40 · S3 PHANH = HAPPY-PATH demo (bấm-duyệt-trên-UI chạy được); atomic/biên nhận = code cơ
   bản theo spec KHÔNG đào sâu; BỎ crash-injection gate** (NGƯỜI chốt 18/7 — nắn altitude) — demo
   = luồng: agent gọi disburse → két CHẶN → thẻ approval hiện UI → admin BẤM duyệt → giải ngân chạy
@@ -288,7 +408,17 @@
   CLAUDE.md §1. Layout: `backend/app/` (FastAPI+orchestrator+mount+db), `frontend/`, `roles/<role>/`
   (SKILL.md+functions.py từ D-08), `docker-compose.yml`. DB dev `postgresql://shb:shb@localhost:5432/shb`
   (env `DATABASE_URL`). ruff check = "typecheck sạch" Gate 2. — Đổi: người/architect đổi toolchain.
-- **D-23 · "Nhắn riêng cho sub" = UI-only, KHÔNG có API/endpoint riêng** (team-lead chốt 18/7,
+- **D-43 · LẬT D-23 — user CHAT TƯƠNG TÁC THẬT với sub (kênh trực tiếp phụ), + click-sub→full-conv
+  + huỷ sub đang chạy** (NGƯỜI chốt 18/7, human-wins — thay D-23 dưới đây) — backlog S4:
+  - **F2a (S4 core, MUST):** click sub ở panel phải → box chat chuyển sang FULL conversation của sub
+    (D-20 SubAgentView mock ref) + nút HUỶ sub đang chạy (interrupt per-agent §4.3 + API /interrupt
+    §11 — đường huỷ đã có trong spine sub_tasks).
+  - **F2b (S4 stretch SAU F2a):** user chat THẬT với sub (không chỉ note UI-only như D-23). Kỹ thuật:
+    port pattern `say()` interject của LAB `core/runtime/session.py` (interject vào SDK session sống,
+    lock serialize — đã chạy thật). Cần sub-session đa lượt (hiện one-shot). **Luồng bàn giao CHÍNH
+    vẫn qua Main** (§3/§4.3 giữ cho verdict/report); chat-sub = kênh tương tác trực tiếp PHỤ, không
+    thay Main-giao-việc. — Đổi: người thấy chat-sub gây loạn luồng → tắt F2b, giữ F2a giám sát+huỷ.
+- **D-23 · [LẬT bởi D-43 18/7] "Nhắn riêng cho sub" = UI-only, KHÔNG có API/endpoint riêng** (team-lead chốt 18/7,
   decide-and-log — FE+tester cùng hỏi; SPEC §11 im lặng) — mock có Composer trong SubAgentView
   nhưng SPEC §4.3 chốt "sub không nói với user, mọi bàn giao qua Main" + không liệt kê endpoint.
   → Cửa nhắn-sub là **cửa sổ GIÁM SÁT** (D-20): FE hiển thị trace sống của sub; ô "nhắn" là

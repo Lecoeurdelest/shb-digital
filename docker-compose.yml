@@ -15,5 +15,16 @@ services:
       timeout: 3s
       retries: 20
 
+  # api service (dựng khi đóng gói deploy): env DEV_SKIP_AUTH=1 cho dev/demo nội bộ (D-39 —
+  # mọi request = admin, bỏ login). PROD thật KHÔNG set (default OFF). Hiện dev chạy server bằng
+  # `DEV_SKIP_AUTH=1 uv run uvicorn app.main:app --port 8000 --reload` từ backend/ (chưa đóng gói api).
+  # api:
+  #   build: ./backend
+  #   environment:
+  #     DATABASE_URL: postgresql://shb:shb@db:5432/shb
+  #     DEV_SKIP_AUTH: "1"   # dev ON — PROD bỏ dòng này
+  #   depends_on: { db: { condition: service_healthy } }
+  #   ports: ["8000:8000"]
+
 volumes:
   shb_pg_data:
