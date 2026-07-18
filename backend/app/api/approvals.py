@@ -68,8 +68,9 @@ async def decide(approval_id: str, body: DecideBody, claims: dict = Depends(requ
             )
         raise ApiError(404, "not_found", f"Không có phiếu '{approval_id}'.", "Kiểm lại id.", retryable=False)
 
-    # SSE approval.decided + đánh thức main — SAU khi decide commit (§5)
+    # SSE approval.decided + card sync + đánh thức main — SAU khi decide commit (§5)
     _emit_and_wake(decided)
+    decided.pop("_card_row", None)  # nội bộ (emit card SSE) — KHÔNG lên API response
     return decided
 
 
@@ -98,6 +99,14 @@ def _emit_and_wake(decided: dict[str, Any]) -> None:
             }
         },
     )
+    # card SSE (T3-2 gap FE+architect): card.data đã sync trong tx decide → emit card mới để FE
+    # upsertCard cập nhật panel NGAY + reload-safe (DB đã đúng). _card_row None nếu card không tồn
+    # tại (hiếm — phiếu không kèm card) → bỏ qua.
+    card_row = decided.get("_card_row")
+    if card_row is not None:
+        from app.orch.store import _card_to_dict
+
+        emit(conv_id, "card", {"card": _card_to_dict(card_row)})
     # ĐÁNH THỨC main — spawn (fire-and-forget, giống decide trong multi-agent §8; inline await sẽ
     # block HTTP response chờ main xong cả lượt). payload mặt-model nói theo HÀNH ĐỘNG + tham số
     # (KHÔNG phiếu-id §15) — payload để main giao lại đúng args.

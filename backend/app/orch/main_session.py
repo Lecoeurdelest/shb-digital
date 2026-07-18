@@ -240,15 +240,72 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
     return {"text": "".join(text_parts), "session_id": session_id, "is_error": is_error}
 
 
+async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
+    """T3-4 race fix — re-dispatch giải ngân đã-duyệt TỪ chỗ ops-lần-1 HOÀN TẤT, không đua trước.
+
+    Trả True = ĐÃ XỬ (caller SKIP lượt MAIN — không stale-read, không báo user sai). False = path
+    bình thường (caller chạy MAIN như cũ).
+
+    Race (tester T3-4): admin duyệt NHANH hơn ops-lần-1 return → resume-dispatch đua trước
+    unregister → created:false → MAIN đọc task_done STALE lần-1 → báo "vẫn chờ duyệt" (sai), phiếu
+    approved treo mãi. Fix (architect): server tự re-dispatch khi role FREE, KHÔNG để MAIN đua.
+
+    2 nhánh chặn (grant = approval row approved-chưa-used, advisor: zero state mới):
+    A) approval_decided(approved) + role gốc CÒN running → KHÔNG chạy MAIN (FE đã hiện approved qua
+       SSE; grant đã persist ở approval row). Kết lượt. Khi ops-lần-1 done → nhánh B tiếp.
+    B) task_done + có grant treo → server re-dispatch role đó gọi lại tool (fire-and-forget spawn,
+       KHÔNG inline-await — task_done chạy TRONG finally sub đang chết, D-33) + SKIP MAIN report
+       lượt này. ops#2 claim → flip 'used' → grant tự clear → task_done kế không grant → MAIN report.
+    """
+    from app.orch import store_approvals
+    from app.orch.dispatch import orch_dispatch_impl
+    from app.orch.gated import GATED_ROLE
+
+    # A) approval_decided approved khi role gốc còn running → đừng để MAIN dispatch đua trước.
+    if event == "approval_decided" and data.get("decision") == "approved":
+        role = GATED_ROLE.get(data.get("action", ""))
+        if role and registry.get_running_task_id(conv_id, role) is not None:
+            log.info("resume-guard A: %s còn running, hoãn re-dispatch tới khi task_done (conv %s)", role, conv_id)
+            return True  # SKIP MAIN — grant treo ở approval row, nhánh B lo khi role free
+
+    # B) task_done + grant approved-chưa-used treo → server re-dispatch role claim bước 2.
+    if event == "task_done":
+        grant = await store_approvals.pending_execution(conv_id)
+        if grant is not None:
+            action = grant["action"]
+            role = GATED_ROLE.get(action)
+            done_role = data.get("role")
+            # chỉ re-dispatch khi role vừa FREE (task_done của CHÍNH role sở hữu action) — tránh
+            # re-dispatch nhầm khi role khác done. role đã unregister ở _report TRƯỚC event này.
+            if role and role == done_role and registry.get_running_task_id(conv_id, role) is None:
+                payload_summary = ", ".join(f"{k}={v}" for k, v in (grant.get("payload") or {}).items())
+                brief = (
+                    f"Thực hiện {action} ĐÃ ĐƯỢC DUYỆT: {payload_summary}. Gọi lại tool {action} "
+                    f"ĐÚNG tham số này để hoàn tất (phiếu đã duyệt, lần này chạy thật)."
+                )
+                title = f"Thực thi {action} đã duyệt ({payload_summary})"
+                log.info("resume-guard B: re-dispatch %s claim %s (conv %s)", role, action, conv_id)
+                # fire-and-forget: orch_dispatch_impl tự spawn_sub nền — KHÔNG await (nest sub chết)
+                await orch_dispatch_impl(conv_id, role, title, brief)
+                return True  # SKIP MAIN report lượt này (ops#2 done sẽ báo hoàn tất — self-contained)
+    return False
+
+
 async def _turn_runner(conv_id: str, event: str, data: dict) -> None:
     """Nối handle_room_event → run_main_turn + SSE stream (T1-3). Vỏ đưa dữ kiện, não quyết (N1).
 
     Stream chat.delta chunk qua on_text; MỌI kết lượt (xong/lỗi) bắn chat.delta done (Gap1) +
     persist message assistant/system + conversation.status. Lỗi main → message sender='system'
-    (Gap2 — user thấy lịch sử). uuid turn_id cho seq per-turn (streaming-sse §3)."""
+    (Gap2 — user thấy lịch sử). uuid turn_id cho seq per-turn (streaming-sse §3).
+
+    T3-4: _resume_dispatch_guard chặn 2 nhánh race resume-dispatch TRƯỚC khi chạy MAIN (xem docstring)."""
     import uuid
 
     from app.sse.emit import emit_chat_delta, emit_chat_done, emit_conversation_status
+
+    # T3-4 race guard — ĐÃ xử (re-dispatch/hoãn) → SKIP lượt MAIN (không stale-read, không báo sai).
+    if await _resume_dispatch_guard(conv_id, event, data):
+        return
 
     prompt = _build_event_prompt(event, data)
     turn_id = str(uuid.uuid4())

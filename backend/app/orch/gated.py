@@ -78,6 +78,10 @@ def disburse(conn: Any, loan_id: str, amount: float = 0) -> dict[str, Any]:
 # REGISTRY tool gated (vỏ viết). inner(conn, **args) — nhận conn wrapper cấp (SAME tx).
 GATED_TOOLS: dict[str, Callable[..., dict[str, Any]]] = {"disburse": disburse}
 
+# action → role sở hữu tool đó (dùng cho re-dispatch sau duyệt — T3-4 race fix). disburse=operations.
+# Khi phiếu approved cần gọi lại tool để claim bước 2, VỎ re-dispatch đúng role này.
+GATED_ROLE: dict[str, str] = {"disburse": "operations"}
+
 
 class _GatedResult:
     """Kết quả _gated_txn: dict trả model + optional 'to-emit' (card/approval sinh ở bước 4).
@@ -199,7 +203,10 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
             {
                 "code": "approval_required",
                 "message": f"'{action}' ({_summarize(args)}) cần người duyệt",
-                "hint": "Đã gửi chờ duyệt — báo main và kết thúc lượt.",
+                # T3-4 immediate-stop (architect/người): sub tắt lượt NGẮN, KHÔNG lải nhải tường
+                # thuật (~7s window). Phiếu ở DB là nguồn sự thật — duyệt xong resume tự gọi lại.
+                "hint": "Đã gửi phiếu chờ duyệt. KẾT THÚC LƯỢT NGAY — chỉ trả 1 câu ngắn 'đã gửi "
+                "chờ duyệt', KHÔNG viết thêm phân tích/tường thuật. Duyệt xong hệ thống tự gọi lại.",
                 "retryable": False,
             },
             emit=emit_struct,
