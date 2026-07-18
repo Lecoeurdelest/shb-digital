@@ -28,11 +28,15 @@ duyệt + badge phiếu-bay poll). Đảo D-54. Gate: tester matrix 7/7 + e2e 2-
 C1 2'10" (câu không-khai-mã PASS). 331 test (241+90). Script v6 hai-cửa-sổ. Waiver §6b:
 2-cửa-sổ-cùng-lúc (giới hạn tool verify).
 
-**Sprint 7 — ĐANG CHẠY (nối lại)**: LAB legal 3-nguồn CERTIFIED → port + verdict-xanh
-(`plan_sprint_7.md` + kickoff). T7-1 (migration+seed) dispatch sẵn — backend bắt tay khi tester
-nhả DB. **Sprint 9 — KẾ** (`plan_sprint_9.md`, D-57): khách mới + form intake + mail Gmail + bell.
+**Sprint 7 — ĐÓNG** (2026-07-18): LAB legal 3 trụ port trọn (5 tool byte-identical + SKILL v3
+certified + adapter WRITE khoanh vùng) + ma trận thẩm quyền 3 tầng (hồ sơ XANH tự duyệt trên
+ngưỡng, dẫn assessment #id). Tester 5/5 live + 378 test. Script v7. D-55/58/59/60 + PR #1 3D.
 
-**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_7.md`.
+**Sprint 9 — ĐANG CHẠY KẾ** (`plan_sprint_9.md`, D-57): khách mới + form intake + mail Gmail
++ bell. Sau đó: S12 (retrieval 4 tầng — phong bì LAB sẵn) → S10 (deploy digital.tinhdev.com)
+→ S11 (cleanup + docs). Thứ tự user chốt 18/7.
+
+**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_9.md`.
 
 **Lịch sử:**
 
@@ -46,3 +50,4 @@ nhả DB. **Sprint 9 — KẾ** (`plan_sprint_9.md`, D-57): khách mới + form 
 | 4 | dcf3ac3, ad4f1b1, a9e931c, be8560d, 5da3667, 13860c2 | Control Tower + trace F1 + SubAgentView/huỷ F2a + compare + picker 3 nhà model + loop-bound + seed-reset. Gate tester trọn. 282 test. Ngoại lệ RỖNG. 5/5 deliverable có mặt. |
 | 6 | bb17cd8, ca59f5b, 750ccf8, 66c3aeb | Demo-safety: UX-treo SSE fixed (ping+watchdog+time-scope+guard-B, race S5 đóng) + tách DB test + pkill restart-sạch + smoke e2e liền mạch 4'25". 302 test. |
 | 8 | 82883bb, 06585e4, 09c55c7, ac966b4 + đóng | 2 persona D-56 (đảo D-54): cửa khách + bàn duyệt bank + MAIN inject + badge phiếu-bay + script v6 hai-cửa-sổ. Matrix 7/7 + e2e 2-phía + rehearsal delta. 331 test. |
+| 7 | 25bd8d7, de41787, 3d58c2c, 2069bbc + đóng | LAB legal 3 trụ (byte-identical + SKILL v3 + adapter WRITE D-55b) + ma trận 3 tầng verdict D-59 (xanh tự duyệt trên ngưỡng). Tester 5/5 live. 378 test. Kèm D-60 markdown + PR #1 lobby 3D. |

@@ -1,4 +1,4 @@
-# DEMO SCRIPT v6 — SYSTEM #132 "Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ (D-56)
+# DEMO SCRIPT v7 — SYSTEM #132 "Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ + PHÁP LÝ 3 TRỤ (D-56/D-52)
 
 > Kể 5 deliverable đề #132 trong 1 mạch chuyện ~10-13 phút, THEO HƯỚNG D-56: app là CỬA KHÁCH
 > HÀNG — khách tự chat với đội chuyên gia số, khoản nhỏ agent TỰ DUYỆT theo ma trận, khoản lớn
@@ -47,8 +47,25 @@
 - PHẢI: bấm **✓ Duyệt** (mời giám khảo bấm nếu hợp không khí — "anh/chị đang là giám đốc chi
   nhánh") → queue về 0.
 - CHỈ TAY về TRÁI: ~25-30s MAIN tự trả **"✅ Giải ngân thành công, anh..."** + biên nhận —
-  "resume tự động, đúng MỘT lần; gọi lại chỉ trả biên nhận cũ." → *"Đây là pain nghiệp vụ thật:
-  không chặn hết (chậm), không thả hết (rủi ro) — ma trận phân tầng nằm ở TẦNG TOOL, audit 100%."*
+  "resume tự động, đúng MỘT lần; gọi lại chỉ trả biên nhận cũ."
+**Nhịp C — HỒ SƠ XANH: pháp lý 3 TRỤ chấm xanh → agent tự duyệt CẢ KHOẢN TRÊN NGƯỠNG (S7 —
+pain người ra đề):**
+- TRÁI: login **c019/c019** (khách cá nhân lịch sử sạch). Gõ: **"Tôi muốn vay 594 triệu MUA
+  NHÀ Ở, vay tín chấp không thế chấp — thẩm định hồ sơ giúp tôi theo quy trình."**
+  (⚠️ PHẢI đủ: mục đích MUA NHÀ Ở — `residential_purchase` not_restricted → green; nói
+  "mở rộng kinh doanh" là dính `business_expansion` conditional → YELLOW → mất cảnh tự duyệt.
+  Rehearsal 18/7 vấp đúng chỗ này. + "tín chấp" để Legal khỏi dừng hỏi loại vay/tài sản.)
+- CHỈ khối Diễn tiến: Pháp chế chạy **3 TRỤ THẬT** — 🔧 `legal_check_police` (nhân thân + tiền
+  án cổng Bộ Công an) → CIC → `legal_verify_employment` (lương xác minh vs kê khai) →
+  `legal_classify_profile` **GHI BIÊN BẢN vào sổ thẩm định** — "server chấm lane, agent không
+  được tự phán xanh/đỏ."
+- Kết quả: **hồ sơ XANH**. Gõ tiếp: **"Giải ngân khoản vay L108 số tiền 594 triệu."** — *594tr
+  VƯỢT ngưỡng 500tr* → nhưng ~15s: **✅ TỰ ĐỘNG DUYỆT** — phiếu `auto-rule`, reason **"Hồ sơ
+  XANH — assessment #N"**. → *"Ma trận thẩm quyền 3 tầng: khoản nhỏ tự chạy · khoản vừa CHỈ tự
+  chạy khi 3 nguồn chấm XANH — có số biên bản truy được · khoản lớn và hồ sơ chưa xanh (DN 1 tỷ
+  vừa nãy) vẫn qua người. Không chặn hết, không thả hết — đúng pain ngân hàng thật."*
+- *Tương phản kể miệng: khách C001 tra công an CHƯA CÓ bản ghi → hệ nói "chưa xác minh được",
+  KHÔNG đoán sạch/bẩn → bắt buộc người xem. Agent trung thực với dữ liệu thiếu.*
 
 ### CẢNH 3 — Control Tower: đài GIÁM SÁT của ngân hàng (deliverable #4) — ~90s (cửa sổ PHẢI)
 - "Khách không bao giờ thấy màn này — đây là phía ngân hàng."
@@ -85,14 +102,16 @@ khoản lớn con người ngân hàng giữ chìa — 5 deliverable chạy live
 | DB bẩn giữa buổi | reset_demo 1 lệnh (~5s) — users giữ nguyên |
 
 ## Timing (C1/C2 đo THẬT rehearsal 18/7 · C3-C5 kế thừa v4) — mục tiêu ≤13ph
-C1 **2'10" đo thật** · C2 nhịp A **43" đo thật** (model latency — đừng hứa "15 giây" trên sân
-khấu, nói "chưa tới 1 phút") + nhịp B **~3' đo thật** (gồm đổi vai thủ công 1-browser; 2 cửa sổ
-song song thật sẽ nhanh hơn) · C3 ~1.5ph · C4 ~2.5ph · C5 ~1ph (+ đệm). Bị giục → cắt C5,
-C1 rút còn 1 câu + kể miệng.
+C1 **2'10" đo thật** · C2 nhịp A **43" đo thật** (model latency — đừng hứa "15 giây", nói
+"chưa tới 1 phút") + nhịp B **~3' đo thật** (gồm đổi vai thủ công 1-browser; 2 cửa sổ song
+song nhanh hơn) + nhịp C **~5' đo thật** (thẩm định 3 trụ ~3-4' với CÂU ĐÚNG mục-đích-mua-nhà
++ giải ngân xanh 1'15") · C3 ~1.5ph · C4 ~2.5ph · C5 ~1ph. TỔNG đầy đủ ~15' — mặc định demo
+CẮT C5 (kể miệng 1 câu) để về ≤13'; bị giục thêm → C1 rút 1 câu, nhịp C kể từ bước giải ngân
+(assessment seed sẵn từ vòng warm-up trước giờ G).
 
 ## Checklist trước giờ G
 - [ ] `reset_demo` sạch · [ ] server :8000 `DEV_SKIP_AUTH=0` + health OK · [ ] .env đủ key
-- [ ] login thử cả b001 + admin · [ ] 2 cửa sổ xếp cạnh nhau, CẢ HAI visible
+- [ ] login thử b001 + c019 + admin · [ ] 2 cửa sổ xếp cạnh nhau, CẢ HAI visible
 - [ ] 1 vòng rehearsal trọn 2-cửa-sổ <13' (đo lại timing v6 — chưa đo THẬT sau D-56)
 - [ ] browser zoom/máy chiếu OK (floor 1366×768)
 

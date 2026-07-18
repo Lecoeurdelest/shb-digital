@@ -67,15 +67,64 @@
   tool verify — bù HTTP-isolation; người verify tay trước giờ G).
 - **Nợ → sau:** tool-level scoping chặt (known-limitation) · deviation inject query-per-turn.
 
-## Sprint 7 — LAB legal 3-nguồn + verdict-xanh ⏸ HOÃN nối sau S8 (draft + kickoff `plan_sprint_7.md`)
-- **Theme:** port legal CERTIFIED (migration police/employment/assessments + 6 assumptions +
-  5 tool + SKILL v3) + wire verdict-xanh vào `_auto_approve_ok` (D-52) + script v5. = ma trận
-  thẩm quyền nâng cao phục vụ chính D-56. T7-1 dispatch giữ nguyên.
+## Sprint 7 — LAB legal 3-nguồn + ma trận verdict ✅ ĐÓNG (25bd8d7·de41787·3d58c2c·2069bbc+đóng)
+- **Theme:** port legal CERTIFIED (3 bảng + 4 cột identity + 5 tool byte-identical + SKILL v3 +
+  adapter WRITE khoanh vùng D-55b) + ma trận 3 tầng verdict (D-59: <500tr trừ red · xanh
+  500tr-2e9 tự duyệt dẫn assessment #id · >2e9 người; assessments rỗng = hành vi cũ).
+- **Gate:** ✅ tester 5/5 live (3-trụ audit đủ · xanh-tự-duyệt 594tr auto-rule nguyên văn ·
+  C001 honest-null · regression · fan-out) + suite 378 (283 BE + 95 FE ≥ 331). D-58 drift
+  labpack bắt + re-sync. Script v7 (câu mục-đích-mua-nhà — finding chính sách conditional).
+- **Ngoài sprint (user trực tiếp):** D-60 markdown chat · merge PR #1 lobby 3D.
 
 ## Sprint 9 — Khách mới + vòng đời hồ sơ ⏳ (draft `plan_sprint_9.md`, D-57 — sau S7)
 - **Theme (mentor input, người chốt):** register khách mới → form intake card → hồ sơ mới →
   3 trụ honest-null → yellow → người duyệt → MAIL Gmail thật (app password người gửi sau,
   no-op sạch khi thiếu env) + bell in-app (lưới mất mạng).
+
+## Sprint 10 — Docker hoá + deploy `digital.tinhdev.com` ⏳ (người chốt 18/7 — sau S7/S9, "cùng test verify")
+- **Đích (team-lead khảo sát 18/7):** GCP `dev-vm` us-east1-b (Ubuntu 24.04 · 5GB RAM free ·
+  23GB disk · Docker 29 + Compose v5 sẵn). Domain → Cloudflare → cloudflared systemd →
+  `localhost:3010` (hiện web mẫu — GIỮ tới khi #132 xanh rồi mới chuyển tunnel, rollback dễ).
+  **VM PROD DÙNG CHUNG** (cairn-prod chiếm 80/443, shopquantum 3002/8003) → #132 CÔ LẬP: port
+  riêng (FE:3011 API:8011 dự kiến) + docker network riêng, KHÔNG đụng container khác.
+- **Bước:** clone repo → compose up port riêng → verify nội bộ → sửa `/etc/cloudflared/config.yml`
+  digital.tinhdev.com → FE-port + restart cloudflared (external/one-way — verify từng bước).
+  Provider: standalone zai/wrap qua `SHB_PROVIDER` (VM không có CLI auth — D-45b).
+
+## Sprint 12 — Port RETRIEVAL 4 TẦNG từ LAB ⏳ (phong bì sẵn — đề xuất chạy SAU S9, TRƯỚC S10)
+- **Nguồn (LAB đã build + QA đối kháng 18/7 — KHÔNG phải xây mới):**
+  `../shb-digital-experts/missions/shb-132/RETRIEVAL-README.md` (swap §7 = 3 thao tác) +
+  `../battle/de-archive/note-discuss-wiki-compare-132.md` (thiết kế sếp chốt). DOER-test 5/5,
+  QA 7 hướng PASS, benchmark embedding có biên lai.
+- **4 tầng:** SQL (có sẵn) · wiki 18 trang + document-graph `[[link]]`/hiệu-lực (trap gói-Tết
+  tựa văn-bản-chết) · entity-graph `party_relations` + `legal_related_exposure` CTE (trap
+  C013 qua-trần-đơn-vỡ-trần-NHÓM B002/B004/L901) · vector notes 544 ghi chú
+  (bkai vietnamese-bi-encoder + pyvi, LOCAL CPU, BLOB+numpy trong tool — KHÔNG pgvector,
+  KHÔNG mạng, SQL portable).
+- **Việc port:** retrieval.py → `wiki_*`+`notes_search` vào common (mọi role) +
+  `legal_related_exposure` vào legal pack · SCHEMAS/ANNOTATIONS · migration 4 bảng + seed-từ-
+  file wiki + copy `wiki/` · deps sentence-transformers+pyvi (image S10 phải cài + cache model).
+- **⚠️ 2 cửa kickoff:** (1) SPEC §14 "không vector" — sếp ĐÃ LẬT CÓ CHỦ ĐÍCH phạm vi hẹp
+  interaction_notes (note-discuss 18/7, ghi D-entry khi kickoff); (2) SKILL bổ sung per-role —
+  legal SKILL v3 là bản CERTIFIED KHÔNG SỬA (D-55) → đoạn retrieval cho legal phải về LAB
+  certify (v4) hoặc tách lớp inject vỏ — blocker về LAB, không tự vá.
+
+## Sprint 11 — Cleanup + Documentation ⏳ (người chốt 18/7 — CUỐI CÙNG, sau S12)
+- **Theme:** dọn repo (archive nháp, chuẩn hoá docs/, README) + bộ tài liệu thi. Nguồn
+  methodology: `../battle/de-archive/METHODOLOGY-132.md` → port `docs/METHODOLOGY.md` (khuôn:
+  định kiến → cơ chế thật → lựa chọn → trade-off khai thật).
+- **Đối chiếu THẬT khi port:** §3 RAG 4 tầng khai được TRỌN sau khi S12 port xong (LAB đã
+  build — hết caveat nói-vống); vẫn rà từng § khớp hệ thật (vd doc nói "pgvector" nhưng bản
+  build là BLOB+numpy — sửa doc theo THẬT).
+- **Theme:** đóng gói compose full-stack (BE + FE build + PG đã có service). **SỐNG CÒN — SDK
+  lưu session trên DISK, PHẢI mount volume ra ngoài** (người nhắc đích danh): (1) `~/.claude/`
+  của user trong container (transcripts resume — mất là MAIN lú toàn bộ ca); (2)
+  `backend/data/conversations/` (neo cwd per-ca); (3) PG data (đã volume); (4) `.env` keys.
+  - Claude CLI phải có trong image; provider deploy = api-kind (zai/wrap qua `SHB_PROVIDER` —
+    D-45 "lúc deploy set lại provider default là xong"; subscription claude-cli cần CLI-login
+    tương tác, không hợp container → không làm default deploy.
+  - Gate: container restart GIỮA ca → resume vẫn nhớ (bằng chứng thật) · e2e trong container ·
+    **user + tester cùng verify** trước khi coi là deploy-ready.
 
 ---
 
