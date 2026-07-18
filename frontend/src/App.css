@@ -24,7 +24,7 @@
 }
 /* nút Control Tower / Đăng xuất luôn thấy — không cho co mất */
 .ws__topbar .ws__logout { flex: none; }
-/* subtitle "Workspace · SHB #132" là phụ — ẩn khi hẹp để nhường nút bấm */
+/* subtitle "Workspace · BANK Digital" là phụ — ẩn khi hẹp để nhường nút bấm */
 @media (max-width: 1440px) {
   .ws__subtitle { display: none; }
 }

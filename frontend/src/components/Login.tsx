@@ -52,7 +52,7 @@ export function Login({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
           <span className="login__logo">G</span>
           <div>
             <div className="login__title">Digital Expert Guild</div>
-            <div className="login__sub">Đội chuyên gia số ngân hàng — SHB #132</div>
+            <div className="login__sub">Đội chuyên gia số ngân hàng — BANK Digital</div>
           </div>
         </div>
 
