@@ -54,3 +54,28 @@ kickoff)
 Ca hồ sơ vay live: legal chạy 3 nguồn THẬT (police/CIC/lương có audit rows) → classify ghi
 assessments → hồ sơ xanh dưới ngưỡng TỰ DUYỆT dẫn assessment id, hồ sơ đỏ/thiếu → phiếu người
 duyệt. Suite ≥ 302. Script v5 rehearsal 1 vòng.
+
+---
+
+## Kickoff — 2026-07-18 (architect)
+
+**Drift so plan gốc: <10%** — plan viết cùng ngày từ phong bì, đọc code LAB thật xác nhận +
+3 điểm cụ thể hoá (D-55 log DECISIONS):
+
+1. **LAB code viết trên sqlite3** (`?` placeholder, `conn.execute`, `lastrowid`, `commit`) —
+   prod đã có PGConnAdapter (D-27) nhưng **read-only** (`gated.py` note "adapter chỉ cho LAB
+   read tool"). → T7-2 thêm việc: mở WRITE khoanh vùng bảng `assessments` (INSERT + commit +
+   lastrowid emulate qua RETURNING id). LAB code byte-identical.
+2. **`legal.py` import `from .credit import _assumptions, credit_assess`** — LAB để chung 1
+   package, prod tách `roles/<role>/`. → đổi ĐÚNG 1 dòng import sang labpack credit prod
+   (share-tool server-side, user đã chốt 18/7). Kèm điều kiện: **đối chiếu credit prod (312
+   LOC) vs credit LAB hiện tại** — classify gọi credit_assess, nếu LAB credit đã tiến hoá so
+   bản prod cầm (S1 port) thì đồng bộ credit TRƯỚC trong T7-2 (cùng nguyên tắc copy nguyên).
+3. **Bảng cần soát ở T7-1**: mới chắc chắn = `police_records` / `employment_records` /
+   `assessments`; nghi ĐÃ CÓ từ port trước = `cic_records`, `legal_requirements`,
+   `owner_documents`, `collateral_legal`, `restricted_purposes` — backend grep migration cũ
+   trước khi viết migration mới, chỉ tạo cái thiếu.
+
+**Task list final:** T7-1 (gating, một mình) → T7-2 (sau T7-1) → T7-3 ∥ T7-4 (sau T7-2) →
+T7-5 xuyên suốt. Thứ tự giữ nguyên plan. Verdict-hook `_auto_approve_ok(args, verdict)` đã
+chừa sẵn từ S5 — T7-3 chỉ wire, không đổi cấu trúc phanh.

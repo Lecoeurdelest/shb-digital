@@ -4,6 +4,19 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-55 · Port LAB legal CERTIFIED: byte-identical TRỪ đúng 1 dòng import; adapter mở WRITE
+  có kiểm soát** (architect, kickoff S7 18/7) — (a) `roles/legal/functions.py` chép nguyên bản
+  LAB (skill v3 · tool a354fd), CHỈ đổi `from .credit import ...` → import từ labpack credit
+  của prod (layout roles/<role>/ tách thư mục; user 18/7 đã chốt "share tool tốt nhất" — import
+  server-side python = share, không dup); (b) PGConnAdapter (D-27, vốn read-only) mở thêm
+  INSERT+commit+lastrowid CHỈ cho bảng `assessments` (emulate qua `RETURNING id`) — LAB code
+  giữ nguyên, quyền ghi khoanh vùng; (c) 2 TẦNG ngưỡng SONG SONG: verdict-hồ-sơ (lane/decision
+  từ assessments, auto_approve_max_vnd=2e9 LAB) là điều kiện CẦN mới, rule-tiền 500tr disburse
+  hiện hành GIỮ NGUYÊN là điều kiện đủ — thắt chặt, không nới (chi tiết Logic ở dispatch T7-3).
+  — vì sao: thước LAB đã trả $35 train + certify, sửa nội dung = vứt certify; adapter khoanh
+  vùng giữ nguyên tắc gated-path-raw-psycopg2. — cách đổi: lật ở kickoff sau / khi LAB drop
+  bản mới (version 4 dấu trong AGENT-legal-DONE.md).
+
 ## ① VƯỢT-SPEC
 
 - (trống)
