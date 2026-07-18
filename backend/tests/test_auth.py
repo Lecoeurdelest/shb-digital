@@ -120,3 +120,28 @@ def test_login_missing_field_400_envelope():
     body = r.json()
     assert set(body) == {"code", "message", "hint", "retryable"}
     assert body["code"] == "bad_request"
+
+
+# ── logout endpoint (S11 micro — clear cookie thật) ─────────────────────────
+
+
+@requires_db
+def test_logout_clears_cookie_me_401():
+    """login → /api/me 200 → logout → /api/me 401 (cookie chết THẬT, không re-auth khi reload)."""
+    fresh = TestClient(app)
+    r = fresh.post("/api/auth/login", json={"username": "user", "password": "user"})
+    assert r.status_code == 200
+    assert fresh.get("/api/me").status_code == 200  # cookie sống → authed
+    lo = fresh.post("/api/auth/logout")
+    assert lo.status_code == 200
+    assert lo.json() == {"ok": True}
+    # cookie đã bị xoá (delete_cookie khớp attributes) → /api/me 401
+    assert fresh.get("/api/me").status_code == 401
+
+
+def test_logout_idempotent_when_not_logged_in():
+    """logout khi CHƯA login → vẫn 200 {ok:true} (idempotent — gọi là xoá, không cần auth)."""
+    fresh = TestClient(app)
+    r = fresh.post("/api/auth/logout")
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}

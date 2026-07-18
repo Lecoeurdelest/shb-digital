@@ -53,6 +53,23 @@ def _set_auth_cookie(response: Response, token: str) -> None:
     )
 
 
+@router.post("/logout")
+def logout(response: Response) -> dict:
+    """Log out — clear the httponly JWT cookie so reload does not re-auth.
+
+    KHÔNG cần auth (gọi là xoá — idempotent). delete_cookie PHẢI khớp attributes lúc set (path/
+    samesite/secure) — lệch thì browser GIỮ cookie (bug: khách thoát không thoát thật, máy chung).
+    """
+    response.delete_cookie(
+        key=AUTH_COOKIE,
+        path="/",
+        samesite="lax",
+        secure=config.COOKIE_SECURE,
+        httponly=True,
+    )
+    return {"ok": True}
+
+
 @router.post("/login")
 def login(body: LoginBody, response: Response) -> dict:
     """Password login → {token, user} + httponly JWT cookie.
