@@ -135,3 +135,20 @@
 .ct__cmp-text { font-size: 12px; color: var(--dim); line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .ct__cmp-link { margin-top: 10px; font-size: 10.5px; color: var(--mute); }
 .ct__cmp-partial { font-size: 12px; color: var(--faint); padding: 20px 0; }
+
+/* badge phiếu-bay trên tab "Hàng chờ duyệt" (D-56) */
+.ct__tab-badge {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--fail);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  vertical-align: middle;
+}

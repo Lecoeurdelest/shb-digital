@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { conversationApi } from '../api';
 import { ApiRequestError } from '../api/client';
+import { useApprovalBadge } from '../hooks/useApprovalBadge';
 import { roleLabel } from '../roles';
 import type { ApprovalRow, AuditRow, CompareResult, CompareSide, Conversation } from '../types';
 import './ControlTower.css';
@@ -13,6 +14,8 @@ type Tab = 'queue' | 'audit' | 'agents' | 'compare';
 
 export function ControlTower({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<Tab>('queue');
+  // ControlTower chỉ render cho admin (App gate) → poll badge phiếu-bay luôn bật. Số nổi trên tab queue.
+  const pending = useApprovalBadge(true);
   return (
     <div className="ct">
       <header className="ct__head">
@@ -28,6 +31,9 @@ export function ControlTower({ onBack }: { onBack: () => void }) {
               onClick={() => setTab(t)}
             >
               {t === 'queue' ? 'Hàng chờ duyệt' : t === 'audit' ? 'Nhật ký tool' : t === 'agents' ? 'Trạng thái đội' : 'So sánh 1 vs đội'}
+              {t === 'queue' && pending > 0 && (
+                <span className="ct__tab-badge" data-testid="ct-queue-badge">{pending}</span>
+              )}
             </button>
           ))}
         </div>

@@ -13,7 +13,7 @@ type CiteFn = (taskId: string | null, source: string) => void;
 // card chiếm cả 2 cột (rộng) cho case_file/document/approval; còn lại 1 cột.
 const WIDE = new Set(['case_file', 'document', 'approval']);
 
-export function CardRenderer({ card, onCite, onDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn }) {
+export function CardRenderer({ card, onCite, onDecide, canDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn; canDecide?: boolean }) {
   const wide = WIDE.has(card.type);
   return (
     <div className={`card${wide ? ' card--wide' : ''}`} id={`card-${card.id}`} data-testid={`card-${card.type}`}>
@@ -22,13 +22,13 @@ export function CardRenderer({ card, onCite, onDecide }: { card: Card; onCite?: 
         <span className="card__type">{card.type}</span>
       </div>
       <div className="card__body">
-        <CardBody card={card} onCite={onCite} onDecide={onDecide} />
+        <CardBody card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} />
       </div>
     </div>
   );
 }
 
-function CardBody({ card, onCite, onDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn }) {
+function CardBody({ card, onCite, onDecide, canDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn; canDecide?: boolean }) {
   switch (card.type) {
     case 'metric':
       return <MetricBody card={card} onCite={onCite} />;
@@ -43,7 +43,7 @@ function CardBody({ card, onCite, onDecide }: { card: Card; onCite?: CiteFn; onD
     case 'document':
       return <DocumentBody card={card} onCite={onCite} />;
     case 'approval':
-      return <ApprovalPanel card={card} onDecide={onDecide} />;
+      return <ApprovalPanel card={card} onDecide={onDecide} canDecide={canDecide} />;
     default:
       return <RawBody card={card} />;
   }

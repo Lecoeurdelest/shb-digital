@@ -25,7 +25,10 @@ function approvalStatus(card: Card): string {
   return String(s);
 }
 
-export function ApprovalPanel({ card, onDecide }: { card: Card; onDecide?: DecideFn }) {
+// canDecide (D-56): chỉ NGÂN HÀNG (admin) thấy nút ✓/✗. Khách (customer) thấy phiếu pending dạng
+// "⏳ Đang chờ ngân hàng phê duyệt" — không quyết được (backend cũng 403 nếu cố). Default true để
+// giữ backward (test/chỗ cũ chưa truyền role = hành vi admin như trước D-56).
+export function ApprovalPanel({ card, onDecide, canDecide = true }: { card: Card; onDecide?: DecideFn; canDecide?: boolean }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const items = cardItems(card);
@@ -60,7 +63,12 @@ export function ApprovalPanel({ card, onDecide }: { card: Card; onDecide?: Decid
         </div>
       )}
 
-      {pending ? (
+      {pending && !canDecide ? (
+        // khách hàng: phiếu chờ ngân hàng — không có nút quyết (D-56)
+        <div className="approval__waiting" data-testid="approval-waiting">
+          ⏳ Đang chờ ngân hàng phê duyệt
+        </div>
+      ) : pending ? (
         <div className="approval__actions">
           <textarea
             className="approval__reason"

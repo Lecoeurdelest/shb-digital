@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { conversationApi, USE_MOCK_API } from './api';
 import { ApiRequestError } from './api/client';
 import { useConversationSSE, type ConversationSSEHandlers } from './hooks/useConversationSSE';
+import { useApprovalBadge } from './hooks/useApprovalBadge';
 import { ConversationSidebar } from './components/ConversationSidebar';
 import { ModelPicker } from './components/ModelPicker';
 import { Composer } from './components/Composer';
@@ -49,7 +50,7 @@ const CONV_STATUS_LABEL: Record<ConversationStatus, string> = {
   failed: 'Lỗi',
 };
 
-const ROLE_LABEL_USER: Record<AuthUser['role'], string> = { user: 'RM', admin: 'Quản lý' };
+const ROLE_LABEL_USER: Record<AuthUser['role'], string> = { customer: 'Khách hàng', user: 'RM', admin: 'Quản lý' };
 
 interface Props {
   user: AuthUser;
@@ -334,6 +335,9 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
   const busy = convStatus === 'running';
   const hasContent = messages.length > 0 || streaming !== null;
+  const isAdmin = user.role === 'admin';
+  // badge phiếu-bay (D-56, admin-only): poll approvals?pending 5s → số phiếu chờ. Non-admin → 0 (hook tự tắt).
+  const pendingApprovals = useApprovalBadge(isAdmin);
   // sub đang xem (F2a). Nếu task biến mất (đổi ca) → focusedTask null → về Canvas.
   const focusedTask = focusSub ? tasks.find((t) => t.id === focusSub) ?? null : null;
 
@@ -346,7 +350,16 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
         <div className="ws__spacer" />
         {USE_MOCK_API && <span className="ws__mockflag" title="VITE_USE_MOCK_API != false — dữ liệu mock, chưa nối backend thật">● MOCK API</span>}
         <span className="ws__user">{user.username} · {ROLE_LABEL_USER[user.role]}</span>
-        {onOpenTower && <button className="ws__logout" onClick={onOpenTower} type="button" data-testid="open-tower">🗼 Control Tower</button>}
+        {onOpenTower && (
+          <button className="ws__logout ws__tower-btn" onClick={onOpenTower} type="button" data-testid="open-tower">
+            🗼 Control Tower
+            {pendingApprovals > 0 && (
+              <span className="ws__tower-badge" data-testid="tower-badge" aria-label={`${pendingApprovals} phiếu chờ duyệt`}>
+                {pendingApprovals}
+              </span>
+            )}
+          </button>
+        )}
         <button className="ws__logout" onClick={onAuthExpired} type="button">Đăng xuất</button>
       </header>
 
@@ -443,7 +456,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
             onBack={() => setFocusSub(null)}
           />
         ) : (
-          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} onSelectSub={setFocusSub} />
+          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} canDecide={user.role === 'admin'} onSelectSub={setFocusSub} />
         )}
       </div>
     </div>

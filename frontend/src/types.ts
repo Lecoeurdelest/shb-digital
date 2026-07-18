@@ -2,12 +2,15 @@
 // bản thi hành gọn của SPEC §5/§9/§10/§11. BE define, FE ăn theo (1 codepath render).
 // Đổi shape → sửa CONTRACT.md TRƯỚC. KHÔNG tự chế field ngoài CONTRACT.
 
-// ── Auth (CONTRACT §1) ──
-export type UserRole = 'user' | 'admin';
+// ── Auth (CONTRACT §1 · D-56 persona) ──
+// 'customer' = khách hàng (cửa khách, chat + agent tự duyệt khoản nhỏ); 'admin' = ngân hàng
+// (duyệt khoản lớn, Control Tower); 'user' = nhân viên thường (giữ backward, không admin).
+export type UserRole = 'customer' | 'user' | 'admin';
 
 export interface AuthUser {
   username: string;
   role: UserRole;
+  owner_id?: string | null; // D-56 — mã khách của account (customer); admin/user = null. Thiếu (server cũ) → null.
 }
 
 // POST /api/auth/login trả {token, user} + set cookie httponly shb_token.

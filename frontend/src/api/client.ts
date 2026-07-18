@@ -54,10 +54,16 @@ export const apiClient = {
     });
   },
 
-  // boot-check (D-39/T3-0): 200 {user} nếu đã login HOẶC DEV_SKIP_AUTH ON → skip Login;
-  // 401 (ApiRequestError) nếu chưa login + flag OFF → App bắt lỗi → hiện Login.
-  me(): Promise<{ user: AuthUser }> {
-    return request<{ user: AuthUser }>('/api/auth/me');
+  // boot-check (D-39/T3-0 · D-56): GET /api/me → {username, role, owner_id, user:{...}}.
+  // 200 nếu đã login HOẶC DEV_SKIP_AUTH ON → skip Login; 401 → App hiện Login.
+  // Map từ TOP-LEVEL (có owner_id — role customer/admin/user); fallback `user` wrap nếu server cũ
+  // chỉ trả wrap (owner_id thiếu → null, không crash — defensive D-56).
+  async me(): Promise<{ user: AuthUser }> {
+    const p = await request<{ username?: string; role?: string; owner_id?: string | null; user?: AuthUser }>('/api/me');
+    const username = p.username ?? p.user?.username ?? '';
+    const role = (p.role ?? p.user?.role ?? 'user') as AuthUser['role'];
+    const owner_id = p.owner_id ?? null;
+    return { user: { username, role, owner_id } };
   },
 
   listConversations(): Promise<Conversation[]> {

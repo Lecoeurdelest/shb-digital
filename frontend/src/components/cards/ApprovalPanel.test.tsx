@@ -66,4 +66,31 @@ describe('ApprovalPanel', () => {
     expect(screen.getByTestId('approval-approve')).toBeInTheDocument();
     expect(screen.queryByText(/Sprint 4/)).not.toBeInTheDocument();
   });
+
+  // ── D-56: canDecide (khách vs ngân hàng) ──
+  it('canDecide=false (khách) + pending → "chờ ngân hàng", KHÔNG nút quyết', () => {
+    render(<ApprovalPanel card={approvalCard()} onDecide={vi.fn()} canDecide={false} />);
+    expect(screen.getByTestId('approval-waiting')).toHaveTextContent(/Đang chờ ngân hàng phê duyệt/);
+    expect(screen.queryByTestId('approval-approve')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('approval-reject')).not.toBeInTheDocument();
+  });
+
+  it('canDecide=false + approved → vẫn render kết quả như cũ (khách thấy kết quả, chỉ không quyết)', () => {
+    render(<ApprovalPanel card={approvalCard({ status: 'approved' })} onDecide={vi.fn()} canDecide={false} />);
+    expect(screen.getByText(/ĐÃ DUYỆT/)).toBeInTheDocument();
+    expect(screen.getByText(/hành động thực thi/)).toBeInTheDocument();
+    expect(screen.queryByTestId('approval-waiting')).not.toBeInTheDocument(); // chỉ pending mới "chờ"
+  });
+
+  it('canDecide=true (admin, mặc định) + pending → có nút quyết', () => {
+    render(<ApprovalPanel card={approvalCard()} onDecide={vi.fn()} canDecide={true} />);
+    expect(screen.getByTestId('approval-approve')).toBeInTheDocument();
+    expect(screen.queryByTestId('approval-waiting')).not.toBeInTheDocument();
+  });
+
+  it('CardRenderer canDecide=false → ApprovalPanel khách (chờ ngân hàng)', () => {
+    render(<CardRenderer card={approvalCard()} onDecide={vi.fn()} canDecide={false} />);
+    expect(screen.getByTestId('approval-waiting')).toBeInTheDocument();
+    expect(screen.queryByTestId('approval-approve')).not.toBeInTheDocument();
+  });
 });

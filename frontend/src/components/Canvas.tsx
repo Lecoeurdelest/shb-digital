@@ -24,6 +24,7 @@ interface Props {
   cards: Card[];
   tasks: OrchTask[];
   onDecide?: DecideFn;
+  canDecide?: boolean; // D-56 — chỉ admin (ngân hàng) quyết phiếu; customer thấy "chờ ngân hàng"
   onSelectSub?: (taskId: string) => void; // click sub (live map/bảng việc) → mở SubAgentView (F2a)
 }
 
@@ -45,7 +46,7 @@ function latestTaskOfRole(tasks: OrchTask[], role: string): OrchTask | undefined
   return tasks.filter((t) => t.role === role).at(-1);
 }
 
-export function Canvas({ cards, tasks, onDecide, onSelectSub }: Props) {
+export function Canvas({ cards, tasks, onDecide, canDecide, onSelectSub }: Props) {
   const [tab, setTab] = useState<'lobby' | 'work'>('lobby');
   // citation chip bấm — S2: hiện banner tên tool (tooltip đã có). Trace view mở tool-call = S4.
   const [cited, setCited] = useState<string | null>(null);
@@ -164,7 +165,7 @@ export function Canvas({ cards, tasks, onDecide, onSelectSub }: Props) {
           ) : (
             <div className="canvas__cards">
               {cards.map((card) => (
-                <CardRenderer key={card.id} card={card} onCite={onCite} onDecide={onDecide} />
+                <CardRenderer key={card.id} card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} />
               ))}
             </div>
           )}

@@ -74,3 +74,15 @@
   background: var(--bg2);
   border-radius: 8px;
 }
+
+/* khách chờ ngân hàng (D-56) — pending nhưng không quyền quyết */
+.approval__waiting {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warn);
+  background: var(--tone-warn-bg);
+  border: 1px solid var(--tone-warn-bd);
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}

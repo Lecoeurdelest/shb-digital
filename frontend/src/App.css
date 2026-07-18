@@ -260,3 +260,26 @@
   font-size: 10.5px;
   color: var(--mute);
 }
+
+/* badge phiếu-bay trên nút Control Tower (D-56, admin) — số phiếu pending nổi đỏ.
+   INLINE (không absolute) vì topbar overflow:hidden (fix finding #4) sẽ clip badge tràn ngoài nút. */
+.ws__tower-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ws__tower-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--fail);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  animation: deg-fadein 0.25s;
+}
+/* nút Tower có badge → viền đỏ nhẹ để nổi (phiếu đang chờ) */
+.ws__tower-btn:has(.ws__tower-badge) { border-color: var(--tone-fail-bd); }
