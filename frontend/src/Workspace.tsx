@@ -363,7 +363,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
       <header className="ws__topbar">
         <span className="ws__logo">G</span>
         <span className="ws__brand">Digital Expert Guild</span>
-        <span className="ws__subtitle">Workspace · SHB #132</span>
+        <span className="ws__subtitle">Workspace · BANK Digital</span>
         <div className="ws__spacer" />
         {USE_MOCK_API && <span className="ws__mockflag" title="VITE_USE_MOCK_API != false — dữ liệu mock, chưa nối backend thật">● MOCK API</span>}
         <span className="ws__user">{user.username} · {ROLE_LABEL_USER[user.role]}</span>
