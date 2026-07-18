@@ -117,12 +117,19 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
 | Lớp | Công nghệ |
 |---|---|
 | Backend | Python 3.11 · FastAPI + uvicorn (1 worker) · SQLAlchemy + Alembic · psycopg2 |
-| Agent runtime | **claude-agent-sdk** — multi-provider qua registry (Anthropic subscription hoặc provider keyed như `zai` cho container/headless) |
+| Agent runtime | **claude-agent-sdk** — multi-provider qua registry (`configs/providers.yaml`): Claude (subscription) · GLM z.ai (keyed) · GPT (gateway) · **model on-prem qua Ollama** |
 | Database | PostgreSQL 15 (data nghiệp vụ + render + audit cùng một DB) |
 | Frontend | React 19 + Vite + TypeScript · three.js (lobby 3D) · SSE (EventSource) |
 | Auth | JWT cookie httponly · bcrypt · Google OAuth 2.0 (authorization-code, server-side) |
 | Kiểm thử | pytest (BE) · vitest + Testing Library (FE) · ruff · tsc |
 | Deploy | Docker Compose · nginx (FE + proxy /api) · cloudflared tunnel |
+
+**Chủ quyền dữ liệu (on-prem):** hệ chạy được **model local** — Ollama nói giọng Anthropic API
+native nên chỉ cần khai một provider (`local`) trong `configs/providers.yaml` rồi chọn live trên
+model picker, dữ liệu ngân hàng không rời hạ tầng. Đã kiểm chứng thực tế trên máy 24 GB RAM với
+Qwen3-8B: điều phối MAIN + tool-call chạy đúng cơ chế end-to-end (hệ báo trung thực khi kết quả
+rỗng — không bịa số); chất lượng chuyên gia SUB cần model lớn hơn 8B. Vì vậy provider on-prem là
+**năng lực đã chứng minh** của kiến trúc, không phải đường demo chính (mặc định vẫn Claude/GLM).
 
 ## Cấu trúc thư mục
 
