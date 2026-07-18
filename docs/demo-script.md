@@ -7,17 +7,26 @@
 
 ## Mạch chuyện: "Hồ sơ vay 5 tỷ của DN Gỗ Việt Phát — từ câu hỏi tới giải ngân"
 
-### CẢNH 1 — Đội chuyên gia + luồng nghiệp vụ (deliverable #1 + #2) — ~2 phút
+### CẢNH 1 — Đội chuyên gia + luồng nghiệp vụ (deliverable #1 + #2) — ~3 phút
 - Mở app → vào thẳng Workspace admin (skip-auth). GIỚI THIỆU 3 panel: sidebar ca | chat | canvas.
-**Nhịp A — câu hỏi nhanh: đội fan-out SONG SONG:**
-- Gõ: **"Khách hàng B001 (DN Gỗ Việt Phát) muốn vay 5 tỷ — kiểm tra tín dụng, pháp lý và gợi ý gói vay, đánh giá tổng thể."**
-- CHỈ **constellation "Đội làm việc"**: Main giữa, đường nối CHẢY XANH tới từng sub đang chạy
-  SONG SONG — "điều phối viên tự phân rã việc, không ai lập trình luồng cứng" (planner→executor, #2).
-**Nhịp B (kể miệng hoặc demo nếu dư giờ) — hồ sơ VAY chính quy: TUẦN TỰ có BÀN GIAO (D-52):**
-- "Với quy trình thẩm định chính quy, điều phối viên đi ĐÚNG nghiệp vụ: Tín dụng TRƯỚC → kết quả
-  (DSCR, CIC, nợ) BÀN GIAO vào brief Pháp lý — pháp lý không kiểm mù → Vận hành tổng hợp cuối.
-  Cùng bộ máy, luồng theo đúng quy trình tín dụng ngân hàng." (Demo: "xin vay 500tr thẩm định
-  hồ sơ" → thấy credit chạy 1 mình → legal sau với ngữ cảnh.)
+- ⚠️ MỌI TÊN/MÃ phải KHỚP SEED (đừng bịa — Legal ĐỐI CHIẾU danh tính, lệch tên là nó dừng hỏi lại.
+  Đó là hành vi đúng của hệ — nhưng làm gãy demo).
+**Nhịp A — khảo sát nhanh: đội fan-out SONG SONG:**
+- Gõ: **"Cho tôi bức tranh nhanh về Công ty TNHH Cơ khí Xưởng X (mã B001): sức khoẻ tín dụng,
+  tình trạng pháp lý hồ sơ, và các gói vay phù hợp — khảo sát tổng quan, chưa phải hồ sơ vay."**
+  (chữ "khảo sát tổng quan, chưa phải hồ sơ vay" = tín hiệu cho điều phối viên FAN-OUT; mục đích
+  rõ sẵn → Pháp chế không phải dừng hỏi.)
+- CHỈ **constellation "Đội làm việc"**: Main giữa, đường nối CHẢY XANH tới từng sub SONG SONG —
+  "điều phối viên tự phân rã việc, không ai lập trình luồng cứng" (planner→executor, #2).
+- *Thoát hiểm: nếu điều phối viên chọn TUẦN TỰ (model tự quyết — có thể xảy ra) → kể luôn điểm
+  nhịp B ("nó đang đi đúng quy trình tín dụng!") — cả hai đường đều là điểm cộng, đừng khựng.*
+**Nhịp B — hồ sơ VAY chính quy: TUẦN TỰ có BÀN GIAO (D-52 — pain người ra đề):**
+- Gõ ca mới: **"Công ty TNHH Cơ khí Xưởng X (B001) nộp hồ sơ xin vay bổ sung 1 tỷ đồng vốn lưu
+  động — thẩm định hồ sơ vay theo quy trình."** ("nộp hồ sơ xin vay... theo quy trình" = tín hiệu
+  TUẦN TỰ; mục đích vay "vốn lưu động" cho sẵn → Legal đủ context.)
+- CHỈ: Tín dụng chạy MỘT MÌNH trước → xong → Pháp lý nhận brief KÈM KẾT QUẢ tín dụng (mở SubAgent
+  View Pháp lý, chỉ brief: "Tín dụng đã thẩm định: DSCR..., CIC nhóm..." ) — "bàn giao thật giữa
+  phòng ban, pháp lý không kiểm mù. Đây là quy trình tín dụng thật của ngân hàng."
 - **Khối "Diễn tiến đội"** (F1): mở ra — thấy 🧠 suy nghĩ thật + 🔧 từng tool call sống.
 - Click 1 sub (Tín dụng) → **SubAgentView**: nhiệm vụ + tool đã gọi + kết quả. (Nút Huỷ: nói
   "có thể huỷ từng chuyên gia không đụng người khác" — KHÔNG bấm trong demo.)
@@ -62,9 +71,17 @@ truy vết 100% · và bằng chứng đo được vì sao multi-agent thắng. 
 |---|---|
 | Sub chậm >90s | kể kiến trúc tiếp; trace F1 cho thấy nó ĐANG làm (không chết) |
 | Model từ chối/lạc đề | ca mới chạy lại (seed-reset đảm bảo lặp được) |
+| Main chọn tuần-tự thay song-song (hoặc ngược) | CẢ HAI đều điểm cộng — kể theo đường nó chọn, đừng khựng |
+| Legal dừng hỏi lại (thiếu context/lệch tên) | "Agent KHÔNG đoán bừa danh tính — nó đối chiếu hồ sơ và hỏi lại. Đây là kiểm soát rủi ro." → trả lời câu nó hỏi, luồng tiếp |
+| Nút header bị che (màn hẹp/máy chiếu) | F11 fullscreen hoặc Ctrl+- zoom out |
 | Compare timeout | cột single vẫn hiện — kể điểm "single không đủ" luôn |
 | Mất mạng provider ngoài | claude-cli/zai dự phòng; đổi SHB_PROVIDER |
 | DB bẩn giữa buổi | reset_demo 1 lệnh (~5s) |
+
+## Timing THẬT (rehearsal 18/7 — vòng nhiễu tên-sai, đo lại sau fix)
+Cảnh 1 ~2-3ph (gồm chờ sub) · Cảnh 2 ~2.5ph (2 nhịp) · Cảnh 3 ~1.5ph · Cảnh 4 ~2.5ph (chạy 70s +
+đọc) · Cảnh 5 ~2.5ph (GLM chậm — cân câu NGẮN "Khách C001 vay được 200 triệu không?"). TỔNG mục
+tiêu ≤13ph — cắt được: Cảnh 1 nhịp B kể miệng thay demo (−1.5ph) nếu ban giám khảo giục.
 
 ## Checklist trước giờ G
 - [ ] `reset_demo` chạy sạch · [ ] server :8000 sống + health OK · [ ] .env đủ key (zai/wrap)
