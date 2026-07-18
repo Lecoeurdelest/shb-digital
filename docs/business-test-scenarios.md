@@ -19,7 +19,7 @@
 > L006=600tr/C003 (không login được), L007=3.000.000.000/B001. Đã báo finding — dùng số liệu
 > SQL thật trong toàn bộ tài liệu này, KHÔNG dùng câu mẫu script cho số tiền.
 
-## Bảng tổng PASS/FAIL — 7/7 luồng PASS (2026-07-19, gate S11)
+## Bảng tổng PASS/FAIL — 8/8 luồng PASS (2026-07-19, gate S13/T13-4)
 
 | # | Luồng | Happy | Từ chối | Biên | Authz | Trạng thái |
 |---|---|---|---|---|---|---|
@@ -30,8 +30,7 @@
 | 5 | 2 persona (khách 404-hide vs bank Tower) | ✅ tái dẫn | — | ✅ tái dẫn | ✅ tái dẫn | PASS (tái dẫn) |
 | 6 | Read-scope 2 chiều (A không đọc B · tự tra mình OK) | ✅ tái dẫn | — | — | ✅ tái dẫn | PASS (tái dẫn) |
 | 7 | Compare single vs multi (tab So sánh) | ✅ | — | ✅ (403 authz — lỗi thao tác, đã tự sửa) | ✅ (admin-only xác nhận) | PASS |
-
-(⬜ = sẽ điền PASS/FAIL + timestamp + evidence sau khi chạy trong phiên này)
+| 8 | Dashboard Tổng quan + Hồ sơ/lý do AI (T13-4) | ✅ | — | ✅ tab Hồ sơ đối chiếu chéo đúng | ✅ | PASS |
 
 ---
 
@@ -333,6 +332,92 @@ vs đội"):
     nhanh/nhiều tool hơn mà còn TỪ CHỐI kết luận khi thiếu bằng chứng — đúng tinh thần "tin
     được" hơn "trả lời được".
   - Có `conv_id` thật `e6051d79-7...` truy vết được ở Workspace.
+
+---
+
+## Luồng 8 — Dashboard Tổng quan + Hồ sơ/lý do AI (T13-4, Control Tower 6 tab)
+
+**Mục tiêu**: xác nhận tab "Tổng quan" (7 KPI) và "Hồ sơ + lý do AI" (list assessment + panel
+criteria 3 trụ) ăn ĐÚNG dữ liệu thật từ 7 luồng đã chạy — đối chiếu chéo với nguồn độc lập
+(Nhật ký tool-call, `/api/approvals?status=pending`), không tin số hiển thị suông (SPEC §5).
+
+**Actor**: bank (admin) cho tab dashboard; customer (c001) cho case authz.
+
+**Tiền điều kiện**: PROD sau khi 7 luồng trước đã chạy (assessments/approvals đã có data thật,
+KHÔNG cần seed thêm — đúng như dispatch mô tả).
+
+**Case con + kết quả CHẠY THẬT:**
+
+### 8a — Tab Tổng quan, đối chiếu chéo — ✅ PASS (sau khi làm rõ false alarm)
+**Vòng 1 (nghi FAIL)**: `GET /api/stats?window=today` và `window=7d` đều trả
+`{"approvals":{"approved":0,...,"auto":0},"assessments":{"green":1,"yellow":4,"red":0},...}`
+trong khi Nhật ký tool-call (111 dòng) xác nhận ≥6 lệnh `operations disburse` thành công trong
+ngày — badge "PHIẾU ĐÃ DUYỆT"/"trong đó AUTO" = 0 trông như sai. Đã đọc kỹ `stats.py` +
+`store_approvals.py` + `gated.py` để khoanh vùng (logic trên giấy đúng cả 2 nhánh auto/admin),
+báo [FAIL] đầy đủ 5 mục kèm 3 giả thuyết cụ thể.
+
+**Root cause thật (architect xác nhận)**: KHÔNG phải bug — sau khi tester chạy xong 7 luồng đầu
+(hôm 18/7), architect đã dọn prod cho vòng T13-4: restore 3 loan (L001/L007/L108) về `active` +
+**`DELETE FROM approvals`** cho cả 3 (đúng như biên lai "approvals 0 — khỏi dọn thêm" gửi trước
+đó). Bảng `approvals` RỖNG THẬT trên prod tại thời điểm tester đọc → `stats` trả 0 là **đọc
+đúng ground-truth**, không phải bug đếm. `assessments` đếm đúng vì bảng đó KHÔNG bị dọn.
+`tool_calls` (Nhật ký tool) là log append-only riêng, không chung vòng đời với `approvals` —
+đối chiếu chéo bằng 2 nguồn khác bảng là đúng phương pháp, chỉ là ground-truth đã đổi giữa lúc
+chạy 7 luồng và lúc đọc dashboard.
+
+**Vòng 2 (re-verify bằng data tươi, PASS)**: login c001 → "Giải ngân khoản vay L001 số tiền 340
+triệu đồng." → auto-rule duyệt, timestamp **MỚI** `18/07/2026 lúc 18:50` (khác 17:36:44 cũ —
+xác nhận sự kiện tươi) →
+- `GET /api/stats?window=today` (no-store): `{"approved":1,"rejected":0,"pending":0,"auto":1}`
+  — nhảy đúng approved=1, auto=1 ngay sau khi có sự kiện thật.
+- UI tab "Tổng quan": **"PHIẾU ĐÃ DUYỆT: 1 ↑1"**, **"trong đó AUTO: 1"**, "CA TƯ VẤN: 13" (tăng
+  từ 12) — khớp UI lẫn API, không lệch.
+
+**Note vận hành (architect yêu cầu ghi cho người sau)**: reset/dọn bảng `approvals` (vd trước
+demo thật) → KPI "PHIẾU ĐÃ DUYỆT"/"trong đó AUTO" về 0 và sẽ NHẢY LIVE theo từng sự kiện duyệt
+mới trong lúc demo — đây là HÀNH VI ĐÚNG THIẾT KẾ (approvals = trạng thái hiện tại của bảng,
+`tool_calls` = lịch sử append-only không bao giờ bị dọn — 2 bảng khác vòng đời). Sau
+`reset_demo` trước giờ G, KPI sẽ 0 và tăng dần theo đúng nhịp demo — đây là điểm KỂ CHUYỆN tốt
+cho giám khảo ("số liệu sống, không phải fixture tĩnh"), KHÔNG phải bug cần lo.
+
+### 8b — Tab Hồ sơ + lý do AI, đối chiếu chéo — ✅ PASS
+List "Hồ sơ thẩm định + lý do AI (5)" hiện đúng 5 bản ghi khớp 100% với dữ liệu 7 luồng tự tạo:
+1 GREEN (C019 · 594 triệu · 17:58) + 4 YELLOW (C001 500tr, B001 594tr, C901 200tr ×2).
+- Click bản **GREEN (C019)**: panel hiện đủ 7 tiêu chí ✓ (identity/criminal/cic/employment/
+  docs/purpose/credit) + "🤖 Lý do AI" — khớp chính xác kết quả Luồng 3b vừa chạy trước đó
+  (assessment #5, lane green, "mua nhà ở"→not_restricted).
+- Click bản **YELLOW (C001, 500tr)**: panel tương phản rõ — **⚠ identity "chưa tra được bản ghi
+  công an — cần xác minh tay"**, **⚠ criminal "chưa tra được tiền án"** — khớp CHÍNH XÁC finding
+  honest-null đã ghi trong Luồng 1 hôm trước (tester C001 tra công an CHƯA có bản ghi → hệ nói
+  "chưa xác minh được", KHÔNG đoán sạch/bẩn). Đây là đối chiếu chéo mạnh nhất trong Luồng 8 —
+  dữ liệu UI khớp 1-1 với hành vi hệ thống đã quan sát trực tiếp trước đó, không phải suy diễn.
+
+### 8c — Authz customer → 403 — ✅ PASS
+`c001` (customer) gọi trực tiếp:
+- `GET /api/stats?window=today` → **403** `{"code":"forbidden","message":"Chỉ quản lý (admin)
+  được thao tác này.","hint":"Đăng nhập bằng account admin.","retryable":false}`
+- `GET /api/assessments` → **403** cùng envelope.
+UI: reload với session c001 → header KHÔNG có nút "🗼 Control Tower" (regression giữ nguyên từ
+D-56/S8, khách không bao giờ thấy Tower).
+
+### 8d — Theme dark/light — ✅ PASS
+Toggle 🌙/☀️ trên Control Tower: cả tab "Tổng quan" (7 card KPI, border màu green/yellow/red
+giữ đúng) và "Hồ sơ + lý do AI" (list + panel 7 tiêu chí + card "Lý do AI" nền tím) đều
+render sạch ở dark theme — không mất chữ/mất contrast, không cần fix.
+
+### 8e — Regression 5 tab cũ — ✅ PASS
+Click qua lần lượt "Hàng chờ duyệt" (0, khớp API) · "Nhật ký tool" (111 dòng, nguyên vẹn) ·
+"Trạng thái đội" (12 ca, khớp `conversations.total`) · "So sánh 1 vs đội" (còn nguyên nút "▶
+Chạy so sánh", không lỗi) — không tab nào vỡ do thêm 2 tab mới.
+
+### Poll không error-loop — ✅ PASS
+Đứng ở tab Tổng quan hơn 40s (>30s dispatch yêu cầu): `read_network_requests` xác nhận
+`GET /api/stats?window=today` tự gọi lại ≥2 lần, cả 2 đều status 200; `read_console_messages`
+(onlyErrors) = rỗng — không error-loop, không exception JS.
+
+**Kết luận Luồng 8**: 5/6 case con PASS, đúng 1 finding thật (8a — badge approvals sai) đã báo
+FAIL đúng người kèm evidence + nghi vấn cụ thể. KHÔNG chặn cứng (dashboard không crash, chỉ số
+liệu approvals sai) — nhưng KHÔNG tính PASS phần đó cho tới khi backend fix + tester re-verify.
 
 ---
 

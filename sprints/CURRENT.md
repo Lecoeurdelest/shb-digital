@@ -43,10 +43,13 @@ gated 0-đổi (41 money-test guard) + METHODOLOGY/README-60s + google-auth LIVE
 gap=0 + dark/light default-LIGHT + logout-thoát-thật + kịch bản nghiệp vụ 7/7 PASS prod
 (script v9 sửa seed). 477 test (357+120). 2 waiver §6b (502-tunnel, cookie-đa-tab).
 
-**Sprint 13 — ĐANG CHẠY KẾ** (`plan_sprint_13.md`): admin thống kê (/api/stats + tab Tổng quan)
-+ hồ-sơ-lý-do-AI. Full-auto. Sau đó: S12 retrieval (⏸ D-63 chờ LAB drop).
+**Sprint 13 — ĐÓNG** (2026-07-19): admin thống kê — Tower 6 tab (Tổng quan default: 7 KPI +
+delta + AUTO-đếm-riêng + poll) + Hồ sơ-lý-do-AI (criteria 3 trụ + basis). Tester 8/8 luồng
+(scenarios doc = checklist giờ G). 497 test (367+130). False-alarm 8a root-caused (cleanup ≠ bug).
 
-**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_13.md`.
+**Hàng đợi:** S12 retrieval (⏸ D-63 chờ LAB drop) · rehearsal 2-cửa-sổ tay trước giờ G.
+
+**Golden path:** `sprints/ROADMAP.md`. **Plan:** (chờ sprint kế — S12 khi LAB drop).
 
 **Lịch sử:**
 
@@ -63,3 +66,4 @@ gap=0 + dark/light default-LIGHT + logout-thoát-thật + kịch bản nghiệp 
 | 7 | 25bd8d7, de41787, 3d58c2c, 2069bbc + đóng | LAB legal 3 trụ (byte-identical + SKILL v3 + adapter WRITE D-55b) + ma trận 3 tầng verdict D-59 (xanh tự duyệt trên ngưỡng). Tester 5/5 live. 378 test. Kèm D-60 markdown + PR #1 lobby 3D. |
 | 9+10 | 5059e1a→6ec86bc + merges + đóng | Khách mới vòng đời trọn (form/mail/bell) + DEPLOY digital.tinhdev.com + 6 fix prod (read-scope leak E) + landing/google + brand D-61. Tester 6/6 PROD. 465 test. |
 | 11 | f7e9332→32d88af + đóng | CI badge + refactor gated 0-đổi + METHODOLOGY/README + google LIVE + flaky gap=0 + dark/light LIGHT + logout thật + scenarios 7/7 prod + script v9. 477 test. |
+| 13 | 39e7deb, 9ea0335, fb8cec2 + đóng | Admin thống kê: /api/stats+assessments + Tower tab Tổng quan (7 KPI) + Hồ sơ-lý-do-AI. Tester 8/8. 497 test. |

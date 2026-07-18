@@ -168,3 +168,9 @@
   LIVE + flaky gap=0 + dark/light default-LIGHT + logout-thoát-thật (bug FE bắt) · kịch bản
   nghiệp vụ 7/7 PASS prod (`docs/business-test-scenarios.md` — kiêm regression) · script v9
   (finding seed-amounts lớp 3). 477 test (357 BE + 120 FE). 2 waiver §6b.
+
+## Sprint 13 — Admin thống kê + hồ sơ-lý-do-AI ✅ ĐÓNG (9ea0335 · fb8cec2 + đóng, 19/7)
+- **Gate:** ✅ tester 8/8 luồng nghiệp vụ (Luồng 8 mới: KPI verify bằng SỰ KIỆN TƯƠI approved/
+  auto nhảy cả UI+API; panel lý-do khớp chính xác assessment thật). 497 test (367+130), CI xanh.
+  Rào giữ trọn (chỉ-đọc, 0 bảng mới). False-alarm 8a root-caused: cleanup-DB ≠ bug — note vận
+  hành "reset → KPI 0 nhảy live trong demo = kể chuyện" vào scenarios doc.
