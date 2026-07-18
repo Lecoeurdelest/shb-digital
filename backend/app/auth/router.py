@@ -50,6 +50,7 @@ def login(body: LoginBody, response: Response) -> dict:
         httponly=True,
         samesite="lax",
         max_age=JWT_TTL_SECONDS,
+        secure=config.COOKIE_SECURE,  # prod https (COOKIE_SECURE=1) — dev http default off
     )
     # Success = resource trần (CONTRACT §0) — trả token (FE dùng nếu cần) + user
     return result
@@ -91,7 +92,9 @@ def google_start() -> RedirectResponse:
         "prompt": "select_account",
     }
     resp = RedirectResponse(f"{google_oauth.GOOGLE_AUTH_URL}?{urlencode(params)}")
-    resp.set_cookie(_STATE_COOKIE, state, httponly=True, samesite="lax", max_age=600)
+    resp.set_cookie(
+        _STATE_COOKIE, state, httponly=True, samesite="lax", max_age=600, secure=config.COOKIE_SECURE
+    )
     return resp
 
 
@@ -136,7 +139,14 @@ def google_callback(request: Request, code: str | None = None, state: str | None
     user = google_oauth.upsert_google_user(google_sub=info["sub"], email=info["email"])
     token = make_token(user_id=str(user["id"]), username=user["username"], role=user["role"])
     resp = RedirectResponse(config.FRONTEND_URL)
-    resp.set_cookie(key=AUTH_COOKIE, value=token, httponly=True, samesite="lax", max_age=JWT_TTL_SECONDS)
+    resp.set_cookie(
+        key=AUTH_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=JWT_TTL_SECONDS,
+        secure=config.COOKIE_SECURE,
+    )
     resp.delete_cookie(_STATE_COOKIE)
     return resp
 

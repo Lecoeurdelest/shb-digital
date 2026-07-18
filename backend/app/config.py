@@ -43,3 +43,7 @@ GOOGLE_OAUTH_REDIRECT_URI = os.environ.get(
 )
 # FE redirect về sau callback (cookie đã set; cookie theo host, không phân biệt port → localhost OK)
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
+# Secure flag cho MỌI cookie auth (login + google + oauth_state). Default OFF (dev http).
+# Deploy https (digital.tinhdev.com) → đặt COOKIE_SECURE=1: cookie không bao giờ đi qua http trần.
+COOKIE_SECURE = _env_bool("COOKIE_SECURE", default=False)
