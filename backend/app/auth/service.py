@@ -32,7 +32,8 @@ def authenticate(username: str, password: str) -> dict[str, Any] | None:
     So mật khẩu bằng bcrypt (không lộ user-có-tồn-tại-hay-không qua timing khác biệt lớn —
     verify_password vẫn chạy trên hash rỗng nếu user vắng để giảm chênh timing)."""
     user = _get_user_by_username(username)
-    stored_hash = user["pass_hash"] if user else ""
+    # pass_hash NULL = account Google-only (không mật khẩu) → so trên "" → 401 bình thường, không 500
+    stored_hash = (user["pass_hash"] or "") if user else ""
     if not verify_password(password, stored_hash) or user is None:
         return None
     token = make_token(user_id=str(user["id"]), username=user["username"], role=user["role"])

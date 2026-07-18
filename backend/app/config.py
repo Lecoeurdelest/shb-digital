@@ -31,3 +31,15 @@ DEV_SKIP_AUTH = _env_bool("DEV_SKIP_AUTH", default=False)
 
 # Claims admin seed trả thẳng khi DEV_SKIP_AUTH ON (không cần cookie/JWT). sub uuid lấy DB lúc dùng.
 DEV_ADMIN_CLAIMS = {"username": "admin", "role": "admin"}
+
+# ── Google OAuth (cửa phát JWT THÊM cho persona KHÁCH D-56 — port pattern có sẵn, người cấp env) ──
+# Default OFF: thiếu env → app chạy y hệt cũ (login user/pass + DEV_SKIP_AUTH). Đọc các giá trị này
+# qua module attr (`config.AUTH_GOOGLE_ENABLED`) để test monkeypatch được — KHÔNG from-import.
+AUTH_GOOGLE_ENABLED = _env_bool("AUTH_GOOGLE_ENABLED", default=False)
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
+GOOGLE_OAUTH_REDIRECT_URI = os.environ.get(
+    "GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback"
+)
+# FE redirect về sau callback (cookie đã set; cookie theo host, không phân biệt port → localhost OK)
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
