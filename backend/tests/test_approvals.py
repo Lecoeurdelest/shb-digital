@@ -20,7 +20,7 @@ from app.orch import gated, registry, room, store_approvals
 from app.orch.main_prompts import _build_event_prompt
 from app.sse import bus
 
-from .conftest import requires_db
+from .conftest import requires_db, requires_test_db
 
 client = TestClient(app)
 
@@ -73,6 +73,34 @@ def test_prompt_rejected_says_no_execute():
         {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}},
     )
     assert "TỪ CHỐI" in p and "KHÔNG thực thi" in p
+
+
+def test_prompt_rejected_with_reason_verbatim():
+    """DF-B-07: reason có → chèn NGUYÊN VĂN + lệnh truyền đạt cho khách (không diễn dịch)."""
+    p = _build_event_prompt(
+        "approval_decided",
+        {
+            "action": "disburse",
+            "decision": "rejected",
+            "payload": {"loan_id": "L001"},
+            "reason": "DSCR dưới ngưỡng 1.2, cần bổ sung tài sản đảm bảo",
+        },
+    )
+    assert "TỪ CHỐI" in p and "KHÔNG thực thi" in p
+    assert "DSCR dưới ngưỡng 1.2, cần bổ sung tài sản đảm bảo" in p  # reason nguyên văn trong prompt
+    assert "NGUYÊN VĂN" in p  # lệnh MAIN không diễn dịch lại
+
+
+def test_prompt_rejected_no_reason_no_none():
+    """reason None/rỗng → prompt KHÔNG in 'None', dùng câu 'không ghi lý do cụ thể'."""
+    for data in (
+        {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}},  # thiếu key
+        {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}, "reason": None},
+        {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}, "reason": "  "},  # whitespace
+    ):
+        p = _build_event_prompt("approval_decided", data)
+        assert "TỪ CHỐI" in p and "None" not in p
+        assert "không ghi lý do" in p
 
 
 def test_valid_decision():
@@ -168,6 +196,38 @@ async def test_emit_and_wake_reuses_handle_room_event():
     finally:
         room.set_turn_runner(None)
         registry.reset_room("wake-t32")
+
+
+@pytest.mark.asyncio
+async def test_emit_and_wake_carries_reason_in_payload():
+    """DF-B-07: reason của quyết định phải ĐI KÈM wake payload (đứt mạch trước đây)."""
+    registry.reset_room("wake-reason")
+    captured = {}
+
+    async def tr(conv_id, event, data):
+        captured.update(data)
+
+    room.set_turn_runner(tr)
+    try:
+        from app.api.approvals import _emit_and_wake
+
+        _emit_and_wake(
+            {
+                "id": "a2",
+                "conv_id": "wake-reason",
+                "action": "disburse",
+                "status": "rejected",
+                "decided_by": "admin",
+                "reason": "Vượt hạn mức chi nhánh",
+                "payload": {"loan_id": "L001"},
+            }
+        )
+        await asyncio.sleep(0.05)
+        assert captured.get("reason") == "Vượt hạn mức chi nhánh"  # reason nối vào payload wake
+        assert captured.get("decision") == "rejected"
+    finally:
+        room.set_turn_runner(None)
+        registry.reset_room("wake-reason")
 
 
 # ── API 400/404/409 (cần DB + admin cookie) ─────────────────────────────────
@@ -277,3 +337,164 @@ async def test_emit_and_wake_guarded_logs_not_swallow(caplog):
 
 def _payload(env: dict) -> dict:
     return json.loads(env["content"][0]["text"])
+
+
+# ── DF-B-01: enrich hàng chờ duyệt (display object) — cán bộ thấy tên khách + số + lane ──
+
+
+def _mk_pending_raw(conv: str, payload: dict) -> str:
+    """INSERT thẳng 1 phiếu pending với payload cho trước (KHÔNG qua money-path — test enrich đọc).
+    payload_hash unique để không đụng constraint. Trả approval id."""
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO approvals (conv_id, action, payload, payload_hash, status) "
+                "VALUES (%s,'disburse',%s,%s,'pending') RETURNING id",
+                (conv, json.dumps(payload), "dfb01_" + uuid4().hex[:12]),
+            )
+            return str(cur.fetchone()[0])
+    finally:
+        conn.close()
+
+
+def _seed_assessment(owner_id: str, lane: str) -> int:
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO assessments (owner_id, lane, loan_amount_vnd, criteria_json, created_at) "
+                "VALUES (%s,%s,%s,'[]',now()::text) RETURNING id",
+                (owner_id, lane, 100_000_000),
+            )
+            return cur.fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _rm_dfb01(conv: str, owners: tuple[str, ...] = ()) -> None:
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM approvals WHERE conv_id=%s", (conv,))
+        for o in owners:
+            cur.execute("DELETE FROM assessments WHERE owner_id=%s", (o,))
+    conn.close()
+
+
+@requires_test_db
+@pytest.mark.asyncio
+async def test_enrich_display_real_loan_full_5_fields():
+    """(a) Phiếu có loan THẬT (L001→C001) + assessment → display đủ 5 field, không null."""
+    lane_id = _seed_assessment("C001", "green")
+    aid = _mk_pending_raw("dfb01a", {"loan_id": "L001", "amount": 5000000000})
+    try:
+        rows = await store_approvals.list_pending("dfb01a")
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["id"] == aid
+        # field cũ giữ nguyên (không phá contract cũ)
+        assert row["payload"] == {"loan_id": "L001", "amount": 5000000000}
+        assert row["status"] == "pending"
+        d = row["display"]
+        assert set(d) == {"customer_name", "owner_id", "loan_id", "amount_vnd", "lane"}
+        assert d["customer_name"] == "Nguyễn Văn An"  # L001 → C001 → full_name
+        assert d["owner_id"] == "C001"
+        assert d["loan_id"] == "L001"
+        assert d["amount_vnd"] == 5000000000  # int
+        assert d["lane"] == "green"  # assessment mới nhất của C001
+    finally:
+        _rm_dfb01("dfb01a")
+        _cleanup_assessment(lane_id)
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_enrich_display_loan_id_is_owner_fallback():
+    """(b) Edge tester: loan_id="C001" (owner nhét vào loan_id) → loans MISS → fallback customers.id.
+    customer_name điền được, loan_id GIỮ giá trị gốc "C001"."""
+    aid = _mk_pending_raw("dfb01b", {"loan_id": "C001", "amount": 300000000})
+    try:
+        rows = await store_approvals.list_pending("dfb01b")
+        d = next(r for r in rows if r["id"] == aid)["display"]
+        assert d["customer_name"] == "Nguyễn Văn An"  # fallback customers.id=C001
+        assert d["owner_id"] == "C001"
+        assert d["loan_id"] == "C001"  # GIỮ nguyên giá trị gốc, không đổi
+        assert d["amount_vnd"] == 300000000
+    finally:
+        _rm_dfb01("dfb01b")
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_enrich_display_garbage_payload_all_null_no_500():
+    """(c) payload rác (amount không phải số / thiếu key / payload rỗng) → display toàn null, KHÔNG 500."""
+    a_bad_amt = _mk_pending_raw("dfb01c", {"loan_id": "L001", "amount": "notanumber"})
+    a_empty = _mk_pending_raw("dfb01c", {})
+    a_no_loan = _mk_pending_raw("dfb01c", {"amount": 123})
+    try:
+        rows = await store_approvals.list_pending("dfb01c")
+        by_id = {r["id"]: r["display"] for r in rows}
+        # amount rác → amount_vnd null NHƯNG customer vẫn resolve (loan L001 thật)
+        assert by_id[a_bad_amt]["amount_vnd"] is None
+        assert by_id[a_bad_amt]["customer_name"] == "Nguyễn Văn An"
+        # payload rỗng → toàn null
+        assert all(by_id[a_empty][k] is None for k in ("customer_name", "owner_id", "loan_id", "amount_vnd", "lane"))
+        # thiếu loan_id → tên/owner null, amount vẫn cast được
+        assert by_id[a_no_loan]["customer_name"] is None
+        assert by_id[a_no_loan]["loan_id"] is None
+        assert by_id[a_no_loan]["amount_vnd"] == 123
+    finally:
+        _rm_dfb01("dfb01c")
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_enrich_orphan_loan_owner_not_customer_name_null():
+    """Defensive: loan mồ côi (owner không có trong customers) → owner_id có, customer_name null."""
+    # tạo loan mồ côi owner giả
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO loans (loan_id, owner_id, principal, outstanding, monthly_payment, status) "
+            "VALUES ('LDFB1','GHOST_OWNER',1,1,1,'active') ON CONFLICT (loan_id) DO NOTHING"
+        )
+    conn.close()
+    aid = _mk_pending_raw("dfb01d", {"loan_id": "LDFB1", "amount": 1})
+    try:
+        d = next(r for r in (await store_approvals.list_pending("dfb01d")) if r["id"] == aid)["display"]
+        assert d["owner_id"] == "GHOST_OWNER"  # loan tồn tại → owner_id có
+        assert d["customer_name"] is None  # owner không trong customers → name null
+    finally:
+        _rm_dfb01("dfb01d")
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = True
+        conn.cursor().execute("DELETE FROM loans WHERE loan_id='LDFB1'")
+        conn.close()
+
+
+@requires_db
+def test_enrich_api_endpoint_returns_display():
+    """(d) qua API TestClient (require_admin) — phiếu có display, field cũ nguyên vẹn."""
+    aid = _mk_pending_raw("dfb01e", {"loan_id": "L001", "amount": 5000000000})
+    try:
+        r = client.get("/api/approvals?status=pending", cookies=_admin_cookie())
+        assert r.status_code == 200
+        rows = r.json()
+        row = next(x for x in rows if x["id"] == aid)
+        assert "display" in row and row["display"]["customer_name"] == "Nguyễn Văn An"
+        # field cũ vẫn còn (không phá contract cũ)
+        assert row["payload"] == {"loan_id": "L001", "amount": 5000000000}
+        assert row["status"] == "pending" and "payload_hash" in row
+    finally:
+        _rm_dfb01("dfb01e")
+
+
+def _cleanup_assessment(aid: int) -> None:
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    conn.cursor().execute("DELETE FROM assessments WHERE id=%s", (aid,))
+    conn.close()

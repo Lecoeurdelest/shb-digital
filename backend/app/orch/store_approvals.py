@@ -40,18 +40,68 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# DF-B-01: enrich hàng chờ duyệt lúc ĐỌC — cán bộ thấy TÊN KHÁCH + số tiền + lane, không chỉ UUID.
+# JOIN read-time (KHÔNG đổi schema/payload GHI — money-path gated đóng băng). fail-soft tuyệt đối:
+# lookup miss → field null; payload rác → display toàn null; KHÔNG BAO GIỜ 500 hàng chờ.
+#
+# Chuỗi resolve owner (1 query, LEFT JOIN):
+#   loan_id = payload->>'loan_id' → loans.loan_id → loans.owner_id (đường chuẩn)
+#   FALLBACK (edge tester bắt: MAIN nhét owner vào loan_id, vd "C902") loans MISS → customers.id=loan_id
+#   → COALESCE(loan.owner_id, cust_fallback.id) = eff_owner. customer_name theo eff_owner.
+#   lane = assessments MỚI NHẤT của eff_owner (ORDER BY id DESC LIMIT 1).
+# amount_vnd KHÔNG cast ở SQL (::bigint THROW trên payload rác → giết CẢ hàng chờ) — cast Python per-row.
+_ENRICH_SELECT = (
+    "SELECT a.*, "
+    "  a.payload->>'loan_id' AS _disp_loan_id, "
+    "  a.payload->>'amount' AS _disp_amount_raw, "
+    "  COALESCE(l.owner_id, cf.id) AS _disp_owner_id, "
+    "  COALESCE(cl.full_name, cf.full_name) AS _disp_customer_name, "
+    "  (SELECT s.lane FROM assessments s WHERE s.owner_id = COALESCE(l.owner_id, cf.id) "
+    "     ORDER BY s.id DESC LIMIT 1) AS _disp_lane "
+    "FROM approvals a "
+    "LEFT JOIN loans l ON l.loan_id = a.payload->>'loan_id' "
+    "LEFT JOIN customers cl ON cl.id = l.owner_id "
+    "LEFT JOIN customers cf ON cf.id = a.payload->>'loan_id' "
+    "WHERE a.status='pending'"
+)
+
+
+def _safe_int(raw: Any) -> int | None:
+    """Cast amount → int fail-soft (float-then-int như _notify_decided). Rác/None → None."""
+    if raw is None:
+        return None
+    try:
+        return int(float(raw))
+    except (ValueError, TypeError):
+        return None
+
+
+def _display_of(row: dict[str, Any]) -> dict[str, Any]:
+    """Object `display` (contract FE DF-B-01) — 5 field, mọi miss = null. Không phá field cũ."""
+    return {
+        "customer_name": row.get("_disp_customer_name"),
+        "owner_id": row.get("_disp_owner_id"),
+        "loan_id": row.get("_disp_loan_id"),
+        "amount_vnd": _safe_int(row.get("_disp_amount_raw")),
+        "lane": row.get("_disp_lane"),
+    }
+
+
 def _list_pending_sync(conv_id: str | None) -> list[dict[str, Any]]:
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             if conv_id:
-                cur.execute(
-                    "SELECT * FROM approvals WHERE status='pending' AND conv_id=%s ORDER BY id",
-                    (conv_id,),
-                )
+                cur.execute(_ENRICH_SELECT + " AND a.conv_id=%s ORDER BY a.id", (conv_id,))
             else:
-                cur.execute("SELECT * FROM approvals WHERE status='pending' ORDER BY id")
-            return [_row_to_dict(dict(r)) for r in cur.fetchall()]
+                cur.execute(_ENRICH_SELECT + " ORDER BY a.id")
+            out = []
+            for r in cur.fetchall():
+                r = dict(r)
+                base = _row_to_dict(r)  # mọi field cũ giữ nguyên (payload/status/receipt...)
+                base["display"] = _display_of(r)  # DF-B-01: thêm display, KHÔNG đổi field cũ
+                out.append(base)
+            return out
     finally:
         conn.close()
 

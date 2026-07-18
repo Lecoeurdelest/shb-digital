@@ -118,6 +118,31 @@ def test_render_email_html_escapes_injection():
     assert "&lt;script&gt;" in h
 
 
+def test_render_email_html_rejected_shows_reason_escaped():
+    """DF-B-07: kind rejected + reject_reason → mail hiện 'Lý do từ chối' + reason; HTML trong reason ESCAPE."""
+    from app.notify.email import render_email_html
+
+    d = {
+        "greeting_name": "Nguyễn Văn An",
+        "amount_vnd": 1,
+        "app_url": "x",
+        "reject_reason": 'DSCR thấp <b>1.1</b> & "rủi ro" cao',
+    }
+    h = render_email_html("rejected", d)
+    assert "Lý do từ chối" in h  # label hiện
+    assert "DSCR thấp" in h  # nội dung reason hiện
+    assert "<b>1.1</b>" not in h  # HTML trong reason bị escape (XSS)
+    assert "&lt;b&gt;" in h and "&amp;" in h and "&quot;" in h  # escape đủ < & "
+
+
+def test_render_email_html_no_reason_row_when_absent():
+    """reject_reason vắng → KHÔNG in dòng 'Lý do từ chối' (không hiện 'Lý do: None')."""
+    from app.notify.email import render_email_html
+
+    h = render_email_html("rejected", {"greeting_name": "An", "amount_vnd": 1, "app_url": "x"})
+    assert "Lý do từ chối" not in h
+
+
 def test_send_email_multipart_when_html(monkeypatch):
     """html_body có → multipart/alternative (plain fallback + html). Client text-only vẫn đọc plain."""
     monkeypatch.setenv("SMTP_USER", "s@gmail.com")

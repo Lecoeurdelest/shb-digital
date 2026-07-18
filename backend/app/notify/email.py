@@ -49,6 +49,8 @@ def _info_rows(d: dict[str, Any]) -> str:
     ]
     if d.get("assessment_id"):  # auto-rule kèm biên bản thẩm định → kể ma trận trong mail
         rows.append(("Biên bản thẩm định", f"#{d['assessment_id']}"))
+    if d.get("reject_reason"):  # DF-B-07: khoản bị từ chối kèm lý do (escape ở f-string dưới — chống XSS)
+        rows.append(("Lý do từ chối", str(d["reject_reason"])))
     cell_l = 'style="padding:10px 16px;font-size:13px;color:#777;border-bottom:1px solid #f0ece8;"'
     cell_r = (
         'align="right" style="padding:10px 16px;font-size:13px;color:#222;font-weight:bold;'

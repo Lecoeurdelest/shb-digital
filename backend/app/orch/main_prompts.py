@@ -108,8 +108,18 @@ def _build_event_prompt(event: str, data: dict) -> str:
                 f"Hãy giao lại cho chuyên gia Vận hành (operations) gọi lại '{action}' ĐÚNG tham số "
                 f"({payload_summary}) để thực thi. Xong thì báo người dùng kết quả."
             )
+        # DF-B-07: reason nay ĐI KÈM wake payload (approvals._emit_and_wake) → nếu có, chèn NGUYÊN
+        # VĂN vào prompt + lệnh MAIN truyền đạt đúng lời người duyệt (không diễn dịch/bịa lý do).
+        reason = (data.get("reason") or "").strip()
+        if reason:
+            return (
+                f"Sự kiện: hành động '{action}' ({payload_summary}) đã bị NGƯỜI DUYỆT TỪ CHỐI. "
+                f'Lý do từ NGƯỜI DUYỆT: "{reason}". '
+                f"KHÔNG thực thi. Báo người dùng đã bị từ chối và truyền đạt NGUYÊN VĂN lý do trên "
+                f"cho khách (không diễn dịch lại, không tự thêm lý do khác)."
+            )
         return (
             f"Sự kiện: hành động '{action}' ({payload_summary}) đã bị NGƯỜI DUYỆT TỪ CHỐI. "
-            f"KHÔNG thực thi. Báo người dùng đã bị từ chối và lý do (nếu có)."
+            f"KHÔNG thực thi. Báo người dùng đã bị từ chối (người duyệt không ghi lý do cụ thể)."
         )
     return json.dumps(data, ensure_ascii=False)

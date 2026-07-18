@@ -98,9 +98,11 @@ def _notify_decided(decided: dict[str, Any]) -> None:
     amount = int(float(payload.get("amount"))) if payload.get("amount") else 0
     loan_id = payload.get("loan_id", "")
     amount_str = f" số tiền {amount:,} VND" if amount else ""
+    reason_txt = "" if approved else (decided.get("reason") or "").strip()
+    reason_line = f"\n\nLý do: {reason_txt}" if reason_txt else ""  # plain fallback (client text-only)
     body = (
         f"Kính gửi anh/chị,\n\nYêu cầu '{decided.get('action')}'{amount_str} của anh/chị đã được "
-        f"{verb}.\n\nTrân trọng,\nBANK Digital."
+        f"{verb}.{reason_line}\n\nTrân trọng,\nBANK Digital."
     )
     d = {
         "greeting_name": owner_greeting(decided["conv_id"]),
@@ -111,6 +113,10 @@ def _notify_decided(decided: dict[str, Any]) -> None:
         "ref": decided.get("id"),
         "app_url": app_url(),
     }
+    # DF-B-07: khoản bị TỪ CHỐI kèm lý do → mail hiện lý do (email.py escape — reason là input người gõ).
+    # approved/used không có "lý do từ chối" nên chỉ set cho kind rejected.
+    if not approved and (decided.get("reason") or "").strip():
+        d["reject_reason"] = decided["reason"].strip()
     html_body = render_email_html(kind, d)
     icon = "✅" if approved else "✖️"
     subject = f"{icon} Khoản vay {loan_id} đã được {verb} — BANK Digital"
@@ -158,6 +164,7 @@ def _emit_and_wake(decided: dict[str, Any]) -> None:
         "action": decided["action"],
         "decision": decided["status"],  # approved | rejected
         "payload": decided.get("payload") or {},
+        "reason": decided.get("reason"),  # DF-B-07: nối mạch reason → prompt rejected truyền cho khách
     }
 
     async def _wake_guarded() -> None:
