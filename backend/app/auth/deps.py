@@ -78,8 +78,8 @@ def require_admin(request: Request) -> dict[str, Any]:
         raise ApiError(
             status_code=403,
             code="forbidden",
-            message="Chỉ quản lý (admin) được thao tác này.",
-            hint="Đăng nhập bằng account admin.",
+            message="Chỉ quản lý mới được thao tác này.",  # D-64: giữ ROLE "quản lý", bỏ tên account "admin"
+            hint="Cần quyền quản lý.",
             retryable=False,
         )
     return claims

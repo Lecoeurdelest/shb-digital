@@ -82,7 +82,7 @@ def login(body: LoginBody, response: Response) -> dict:
             status_code=401,
             code="unauthorized",
             message="Sai tên đăng nhập hoặc mật khẩu.",
-            hint="Kiểm lại credential. 2 account demo: user / admin.",
+            hint="Kiểm lại thông tin đăng nhập.",  # D-64: KHÔNG liệt kê account demo trên bề mặt public
             retryable=True,
         )
     _set_auth_cookie(response, result["token"])  # helper đã kèm secure=COOKIE_SECURE (google flag)

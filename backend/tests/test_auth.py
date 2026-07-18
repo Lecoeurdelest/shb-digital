@@ -101,6 +101,11 @@ def test_login_wrong_password_401_envelope():
     # envelope 4-field TRẦN (không bọc {detail})
     assert set(body) == {"code", "message", "hint", "retryable"}
     assert body["code"] == "unauthorized"
+    # D-64: hint generic — bề mặt 401 public KHÔNG liệt kê account demo nào
+    assert body["hint"] == "Kiểm lại thông tin đăng nhập."
+    blob = (body["message"] + " " + body["hint"]).lower()
+    for leak in ("admin", "user /", "c001", "b001", "account demo"):
+        assert leak not in blob, f"401 body lộ account demo: {leak!r}"
 
 
 @requires_db
