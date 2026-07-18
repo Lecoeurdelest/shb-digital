@@ -5,6 +5,10 @@
 # Chạy: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 #   → verify: curl localhost:8011/api/health · mở localhost:3011
 
+# name riêng (compose v2) — TÁCH project khỏi dev docker-compose.yml (cùng dir → nếu không tách,
+# container db TRÙNG TÊN 'shb-digital-db-1' → `down -v` prod GIẾT dev db). Bài học 11-fail-transient.
+name: shb132-prod
+
 services:
   db:
     image: postgres:15

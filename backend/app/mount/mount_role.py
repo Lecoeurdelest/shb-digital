@@ -67,6 +67,16 @@ def _make_handler(
         pg_conn = acquire()
         adapter = PGConnAdapter(pg_conn)
         try:
+            # READ-SCOPE guard (FIX E — CHẶN S9): ca KHÁCH chỉ tra hồ sơ CỦA MÌNH. Choke point VỎ
+            # TRƯỚC fn LAB (N1). conv_id từ CTX_CONV (set trước mỗi tool call — sub_runner/main_session).
+            from app.mount.read_scope import read_scope_refusal
+            from app.orch import registry
+
+            refusal = read_scope_refusal(pg_conn, registry.CTX_CONV.get(), name, args)
+            if refusal is not None:
+                pg_conn.rollback()  # chưa gọi fn — rollback sạch (finally vẫn release)
+                return _text(refusal)
+
             result = fn(adapter, **args)
             pg_conn.commit()  # read-only trong S1 nhưng commit sạch transaction (tránh idle-in-tx)
         except psycopg2.Error as e:
