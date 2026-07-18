@@ -26,10 +26,10 @@
   text-align: center;
   box-shadow: 0 0 0 2px var(--p1);
 }
+/* DF-B-08: portal ra body → position:fixed, toạ độ top/left set inline từ rect nút chuông (JS).
+   z-index 1000 = trên mọi lớp Workspace (max khác = 50) → không bị canvas/topbar che/clip. */
 .notif__dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
   width: 300px;
   max-height: 380px;
   overflow-y: auto;
@@ -37,7 +37,7 @@
   border: 1px solid var(--bd2);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  z-index: 50;
+  z-index: 1000;
   animation: deg-fadein 0.2s;
 }
 .notif__head {
