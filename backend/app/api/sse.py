@@ -32,6 +32,7 @@ _SSE_HEADERS = {
 
 @router.get("/{conv_id}/sse")
 async def sse(conv_id: str, request: Request, claims: dict = Depends(require_user)) -> StreamingResponse:
+    """Server-Sent Events stream for a conversation (live cards/thinking/status; others → 404-hide)."""
     # D-56 scoping: customer subscribe ca người khác → 404 (hide), KHÔNG stream. admin → mọi ca.
     from app.auth.deps import can_access_conv
     from app.orch import store

@@ -32,7 +32,9 @@ class ChatBody(BaseModel):
 
 @router.post("")
 async def create_conversation(body: CreateConvBody, claims: dict = Depends(require_user)) -> JSONResponse:
-    """Tạo ca → Conversation (201). user_id từ JWT claims. provider/model optional (D-45b c)."""
+    """Create a conversation → 201. (Vietnamese detail below.)
+
+    Tạo ca → Conversation (201). user_id từ JWT claims. provider/model optional (D-45b c)."""
     # validate provider nếu truyền — fail LOUD (4-field) thay vì lưu provider sai → hang lúc chạy.
     if body.provider:
         from app.orch.providers import providers as _providers
@@ -51,7 +53,9 @@ async def create_conversation(body: CreateConvBody, claims: dict = Depends(requi
 
 @router.get("")
 async def list_conversations(claims: dict = Depends(require_user)) -> list[dict[str, Any]]:
-    """List ca (200). D-56 scoping: admin (ngân hàng) → TẤT CẢ ca; customer/user → CHỈ ca mình."""
+    """List conversations (admin sees all; customer sees own — D-56 scoping).
+
+    List ca (200). D-56 scoping: admin (ngân hàng) → TẤT CẢ ca; customer/user → CHỈ ca mình."""
     if claims.get("role") == "admin":
         return await store.list_all_conversations()
     return await store.list_conversations(claims["username"])
@@ -59,7 +63,9 @@ async def list_conversations(claims: dict = Depends(require_user)) -> list[dict[
 
 @router.get("/{conv_id}")
 async def get_conversation(conv_id: str, claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """Full state (CONTRACT §3). D-56: ca người khác → 404 (hide existence, KHÔNG 403)."""
+    """Get full conversation state (others' convs → 404-hide, not 403).
+
+    Full state (CONTRACT §3). D-56: ca người khác → 404 (hide existence, KHÔNG 403)."""
     conv = await store.get_conversation(conv_id)
     if conv is None or not can_access_conv(conv, claims):
         raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
@@ -71,7 +77,9 @@ async def get_conversation(conv_id: str, claims: dict = Depends(require_user)) -
 
 @router.post("/{conv_id}/chat")
 async def chat(conv_id: str, body: ChatBody, request: Request, claims: dict = Depends(require_user)) -> JSONResponse:
-    """Đẩy user_message vào phòng (spine) → 202 NGAY (main stream qua SSE, KHÔNG chờ).
+    """Post a user message → 202 immediately (MAIN streams the reply over SSE, no wait).
+
+    Đẩy user_message vào phòng (spine) → 202 NGAY (main stream qua SSE, KHÔNG chờ).
 
     Main bận → handle_room_event tự xếp queue (T1-2). Lưu message user TRƯỚC, rồi spawn lượt.
     """

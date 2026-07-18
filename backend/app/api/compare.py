@@ -154,7 +154,9 @@ async def _run_multi(question: str) -> dict[str, Any]:
 
 @router.post("")
 async def compare(body: CompareBody, claims: dict = Depends(require_admin)) -> dict[str, Any]:
-    """So sánh single (nhẩm chay) vs multi (có nguồn). 2 nhánh SONG SONG. Partial khi multi lỗi/timeout."""
+    """Compare single-model vs multi-agent answers, run in parallel (admin — deliverable #5).
+
+    So sánh single (nhẩm chay) vs multi (có nguồn). 2 nhánh SONG SONG. Partial khi multi lỗi/timeout."""
     question = (body.question or "").strip()
     if not question:
         raise ApiError(400, "empty_question", "Câu hỏi trống.", "Nhập câu hỏi để so sánh.", retryable=False)

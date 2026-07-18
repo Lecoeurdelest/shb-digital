@@ -34,7 +34,9 @@ class DecideBody(BaseModel):
 
 @router.get("")
 async def list_approvals(status: str = Query("pending"), claims: dict = Depends(require_admin)) -> list[dict[str, Any]]:
-    """Hàng chờ duyệt (admin). S3 chỉ status=pending (khác → 400)."""
+    """List pending approval tickets (admin only).
+
+    Hàng chờ duyệt (admin). S3 chỉ status=pending (khác → 400)."""
     if status != "pending":
         raise ApiError(
             400, "bad_status", f"status '{status}' không hỗ trợ.", "Chỉ status=pending ở S3.", retryable=False
@@ -44,7 +46,9 @@ async def list_approvals(status: str = Query("pending"), claims: dict = Depends(
 
 @router.post("/{approval_id}/decide")
 async def decide(approval_id: str, body: DecideBody, claims: dict = Depends(require_admin)) -> dict[str, Any]:
-    """ADMIN (ngân hàng — D-56) duyệt/từ chối phiếu → atomic → SSE + đánh thức main.
+    """Approve/reject an approval ticket (admin only) — atomic, wakes MAIN, emits SSE.
+
+    ADMIN (ngân hàng — D-56) duyệt/từ chối phiếu → atomic → SSE + đánh thức main.
 
     decide atomic (UPDATE…WHERE status='pending') → None = 409 (đã quyết) hoặc 404 (không tồn tại).
     """

@@ -28,7 +28,9 @@ class InterruptBody(BaseModel):
 
 @router.post("/{conv_id}/interrupt")
 async def interrupt(conv_id: str, body: InterruptBody, claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """Huỷ 1 sub đang chạy. target = task_id. 200 {cancelled:true} NGAY (fire).
+    """Cancel a running sub-agent by task_id → 200 {cancelled:true} immediately.
+
+    Huỷ 1 sub đang chạy. target = task_id. 200 {cancelled:true} NGAY (fire).
 
     404 task không tồn tại / không thuộc conv · 409 đã xong hoặc không còn chạy (double-cancel).
     """

@@ -105,7 +105,9 @@ PRESENT_TYPES = ["case_file", "metric", "checklist", "options", "timeline", "doc
     },
 )
 async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
-    """present THẬT (canvas-present §1): validate shape → persist cards → SSE card → rendered.
+    """Render a card on the canvas — validate shape, persist, emit SSE (shell-owned id).
+
+    present THẬT (canvas-present §1): validate shape → persist cards → SSE card → rendered.
     id VỎ-inject (§15 — model không bơm id). conv/task từ ContextVar (set trước mỗi call)."""
     from app.orch import registry, store
     from app.sse.emit import emit
@@ -188,7 +190,9 @@ FORM_REQUIRED = [f["name"] for f in FORM_FIELDS if f["required"]]
     input_schema={"type": "object", "properties": {}},  # không nhận field từ model (server-side)
 )
 async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
-    """present_form THẬT: persist card type 'form' (fields server-side + status='pending') → SSE.
+    """Present the customer intake form card (fields server-defined, model cannot alter them).
+
+    present_form THẬT: persist card type 'form' (fields server-side + status='pending') → SSE.
     id/conv/task VỎ-inject (§15). Model KHÔNG bơm fields — chống model tự chế shape hồ sơ."""
     from app.orch import registry, store
     from app.sse.emit import emit

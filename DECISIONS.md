@@ -4,6 +4,13 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-63 · S12 (retrieval 4 tầng) HOÃN — xếp SAU, vì LAB đang training nguồn port** (người chốt
+  19/7) — S12 phụ thuộc `../shb-digital-experts` retrieval CERTIFIED; LAB còn đang train → nguồn
+  chưa khoá, port bây giờ = port bản chưa xong. Thứ tự mới: S11 (cleanup+docs) → **sprint admin
+  thống kê/hồ-sơ-lý-do** (data đã có sẵn trong hệ, KHÔNG phụ thuộc LAB — ứng viên tự nhiên) →
+  S12 khi LAB drop bản certified. KHÔNG kickoff S12 tới khi người báo LAB xong. — cách đổi: LAB
+  drop → đảo thứ tự lại, ROADMAP S12 giữ nguyên phong bì.
+
 - **D-62 · Deploy seed = SNAPSHOT trong repo + entrypoint SEED-NẾU-RỖNG** (architect chốt 18/7,
   backend build + verify) — (a) `deploy/seed/shb-132.db` (2.4MB, md5 8b3597cd, README ghi rõ
   "snapshot deploy — nguồn sự thật vẫn là LAB, refresh = copy + cập nhật md5"); code

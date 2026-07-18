@@ -55,7 +55,9 @@ def _set_auth_cookie(response: Response, token: str) -> None:
 
 @router.post("/login")
 def login(body: LoginBody, response: Response) -> dict:
-    """{username, password} → {token, user:{username, role}} (CONTRACT §1).
+    """Password login → {token, user} + httponly JWT cookie.
+
+    {username, password} → {token, user:{username, role}} (CONTRACT §1).
     JWT cũng set vào cookie httponly (EventSource dùng cookie — không set header được)."""
     result = authenticate(body.username, body.password)
     if result is None:
@@ -81,13 +83,17 @@ _STATE_COOKIE = "oauth_state"
 
 @router.get("/providers")
 def providers() -> dict:
-    """Public — FE đọc lúc boot để render đúng nút login. Bool-only, không lộ key/client_id."""
+    """Public auth-provider flags for FE boot (password + google bool; no secrets).
+
+    Public — FE đọc lúc boot để render đúng nút login. Bool-only, không lộ key/client_id."""
     return {"password": True, "google": google_oauth.is_configured()}
 
 
 @router.get("/google/start")
 def google_start() -> RedirectResponse:
-    """Redirect sang màn chọn account Google. State ngẫu nhiên vào cookie httponly (chống CSRF)."""
+    """Start Google OAuth — redirect to account chooser (CSRF state in httponly cookie).
+
+    Redirect sang màn chọn account Google. State ngẫu nhiên vào cookie httponly (chống CSRF)."""
     if not google_oauth.is_configured():
         raise ApiError(
             status_code=503,
@@ -113,7 +119,9 @@ def google_start() -> RedirectResponse:
 
 @router.get("/google/callback")
 def google_callback(request: Request, code: str | None = None, state: str | None = None) -> RedirectResponse:
-    """Google gọi lại với ?code&state → verify state, đổi code, upsert KHÁCH, set cookie JWT, về FE."""
+    """Google OAuth callback — verify state, exchange code, upsert customer, set JWT cookie, redirect FE.
+
+    Google gọi lại với ?code&state → verify state, đổi code, upsert KHÁCH, set cookie JWT, về FE."""
     if not google_oauth.is_configured():
         raise ApiError(
             status_code=503,
@@ -166,7 +174,9 @@ def google_callback(request: Request, code: str | None = None, state: str | None
 
 @router.post("/register", status_code=201)
 def register_endpoint(body: RegisterBody, response: Response) -> dict:
-    """{username, password, email?} → 201 {token, user} (D-57 khách mới). Auto-login (set cookie).
+    """Register a new customer → 201 {token, user}, auto-login (D-57).
+
+    {username, password, email?} → 201 {token, user} (D-57 khách mới). Auto-login (set cookie).
 
     Validate (tầng HTTP): username 3-32 ký tự · password ≥4 (demo-grade) · email format thô nếu có.
     username trùng → 409 message CHUNG (không lộ user-nào-tồn-tại kiểu khác — defensive §3)."""
@@ -197,13 +207,17 @@ def _me_payload(claims: dict) -> dict:
 
 @router.get("/me")
 def me_auth(claims: dict = Depends(require_user)) -> dict:
-    """/api/auth/me — FE boot-check cũ. Giữ backward + thêm owner_id (D-56)."""
+    """Current user identity (username, role, owner_id) — legacy FE boot-check path.
+
+    /api/auth/me — FE boot-check cũ. Giữ backward + thêm owner_id (D-56)."""
     return _me_payload(claims)
 
 
 @me_router.get("/me")
 def me(claims: dict = Depends(require_user)) -> dict:
-    """/api/me (D-56 Export FE T8-2) — {username, role, owner_id}. Cùng payload /api/auth/me."""
+    """Current user identity (username, role, owner_id) — canonical /api/me endpoint.
+
+    /api/me (D-56 Export FE T8-2) — {username, role, owner_id}. Cùng payload /api/auth/me."""
     return _me_payload(claims)
 
 

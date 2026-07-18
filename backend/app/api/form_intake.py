@@ -45,7 +45,9 @@ class FormSubmitBody(BaseModel):
 
 @router.post("/{conv_id}/form-submit")
 async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """Khách nộp hồ sơ → tạo customers C9xx + link + wake MAIN. 404-hide ca người khác · card sai
+    """Submit customer intake form → create C9xx profile, link account, wake MAIN.
+
+    Khách nộp hồ sơ → tạo customers C9xx + link + wake MAIN. 404-hide ca người khác · card sai
     ca/không tồn tại 404 · thiếu field bắt buộc 400 · income không phải số 400 · đã submit 409."""
     conv = await get_conversation(conv_id)
     if conv is None or not can_access_conv(conv, claims):

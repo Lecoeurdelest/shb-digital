@@ -27,7 +27,9 @@ _LIMIT = 20
 
 @router.get("")
 async def list_notifications(claims: dict = Depends(require_user)) -> list[dict[str, Any]]:
-    """Sự kiện ca của CHÍNH mình (JOIN conversations.user_id = username), mới nhất trước, cap 20.
+    """List the caller's own notifications (approval-decided / disbursed), newest first, cap 20.
+
+    Sự kiện ca của CHÍNH mình (JOIN conversations.user_id = username), mới nhất trước, cap 20.
     Ca 0 sự kiện → [] (không 404). Derive — không bảng notifications riêng."""
     username = claims.get("username")
     if not username:

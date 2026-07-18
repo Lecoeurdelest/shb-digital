@@ -18,7 +18,9 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 
 @router.get("")
 async def list_models(claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """Provider + model cho FE dropdown. reload() bắt .env mới (điền key runtime → has_key đổi).
+    """List providers + models for the FE dropdown (keys never exposed — has_key bool only).
+
+    Provider + model cho FE dropdown. reload() bắt .env mới (điền key runtime → has_key đổi).
 
     Trả {providers: [...], default: <name>}. KHÔNG key (public_view). default = provider mặc định
     (FE chọn sẵn). Mỗi provider: {name, kind, base_url, models[], default, has_key, note}.

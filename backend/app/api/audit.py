@@ -26,7 +26,9 @@ async def list_audit(
     limit: int = Query(200, ge=1, le=1000),
     claims: dict = Depends(require_admin),
 ) -> list[dict[str, Any]]:
-    """tool_calls theo filter (admin — D-56 ngân hàng giám sát). Mới nhất trước. Ít nhất 1 filter
+    """Search the tool-call audit log by filter (admin oversight — append-only), newest first.
+
+    tool_calls theo filter (admin — D-56 ngân hàng giám sát). Mới nhất trước. Ít nhất 1 filter
     khuyến nghị nhưng không bắt (audit toàn cục cũng hợp lệ cho Control Tower). limit cap 1000."""
     filters = {"task_id": task_id, "conv_id": conv_id, "tool": tool, "actor": actor}
     # bỏ None → chỉ filter cột được truyền
