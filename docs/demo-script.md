@@ -12,18 +12,20 @@
 - ⚠️ MỌI TÊN/MÃ phải KHỚP SEED (đừng bịa — Legal ĐỐI CHIẾU danh tính, lệch tên là nó dừng hỏi lại.
   Đó là hành vi đúng của hệ — nhưng làm gãy demo).
 **Nhịp A — khảo sát nhanh: đội fan-out SONG SONG:**
-- Gõ: **"Cho tôi bức tranh nhanh về Công ty TNHH Cơ khí Xưởng X (mã B001): sức khoẻ tín dụng,
-  tình trạng pháp lý hồ sơ, và các gói vay phù hợp — khảo sát tổng quan, chưa phải hồ sơ vay."**
-  (chữ "khảo sát tổng quan, chưa phải hồ sơ vay" = tín hiệu cho điều phối viên FAN-OUT; mục đích
-  rõ sẵn → Pháp chế không phải dừng hỏi.)
+- Gõ: **"Công ty TNHH Cơ khí Xưởng X (mã B001) muốn vay 5 tỷ MỞ RỘNG SẢN XUẤT, thế chấp nhà
+  xưởng (COL06) — khảo sát tổng quan nhanh: sức khoẻ tín dụng, pháp lý hồ sơ thế chấp, gói vay
+  phù hợp. Chưa phải hồ sơ chính thức."**
+  (Đủ NGAY: ai=B001 · mục đích=mở rộng sản xuất · tài sản=COL06 → Pháp chế luật #6 "đủ thông tin
+  → check NGAY, đừng hỏi thừa" — không còn vòng dừng-hỏi (3/3 lần rehearsal cũ dừng vì thiếu 2 ý
+  này). "Khảo sát... chưa chính thức" = tín hiệu FAN-OUT.)
 - CHỈ **constellation "Đội làm việc"**: Main giữa, đường nối CHẢY XANH tới từng sub SONG SONG —
   "điều phối viên tự phân rã việc, không ai lập trình luồng cứng" (planner→executor, #2).
 - *Thoát hiểm: nếu điều phối viên chọn TUẦN TỰ (model tự quyết — có thể xảy ra) → kể luôn điểm
   nhịp B ("nó đang đi đúng quy trình tín dụng!") — cả hai đường đều là điểm cộng, đừng khựng.*
 **Nhịp B — hồ sơ VAY chính quy: TUẦN TỰ có BÀN GIAO (D-52 — pain người ra đề):**
 - Gõ ca mới: **"Công ty TNHH Cơ khí Xưởng X (B001) nộp hồ sơ xin vay bổ sung 1 tỷ đồng vốn lưu
-  động — thẩm định hồ sơ vay theo quy trình."** ("nộp hồ sơ xin vay... theo quy trình" = tín hiệu
-  TUẦN TỰ; mục đích vay "vốn lưu động" cho sẵn → Legal đủ context.)
+  động, thế chấp nhà xưởng (COL06) — thẩm định hồ sơ vay theo quy trình."** ("nộp hồ sơ... theo
+  quy trình" = tín hiệu TUẦN TỰ; mục đích + tài sản cho sẵn → Legal đủ, không dừng hỏi.)
 - CHỈ: Tín dụng chạy MỘT MÌNH trước → xong → Pháp lý nhận brief KÈM KẾT QUẢ tín dụng (mở SubAgent
   View Pháp lý, chỉ brief: "Tín dụng đã thẩm định: DSCR..., CIC nhóm..." ) — "bàn giao thật giữa
   phòng ban, pháp lý không kiểm mù. Đây là quy trình tín dụng thật của ngân hàng."
