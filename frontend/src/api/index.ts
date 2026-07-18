@@ -16,6 +16,7 @@ export interface ConversationApi {
   createConversation(title: string): Promise<Conversation>;
   getConversation(id: string): Promise<ConversationFullState>;
   sendChat(id: string, content: string): Promise<void>;
+  decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown>;
   openEventSource(convId: string): MinimalEventSource;
 }
 
@@ -40,6 +41,9 @@ const mockApi: ConversationApi = {
   },
   async sendChat(id: string, content: string) {
     await mockBackend.sendChat(id, content);
+  },
+  async decideApproval(id: string, decision: 'approved' | 'rejected', reason: string) {
+    await mockBackend.decideApproval(id, decision, reason);
   },
   openEventSource(convId: string) {
     return createMockEventSource(convId);
@@ -68,6 +72,7 @@ const realApi: ConversationApi = {
   createConversation: apiClient.createConversation,
   getConversation: apiClient.getConversation,
   sendChat: apiClient.sendChat,
+  decideApproval: apiClient.decideApproval,
   openEventSource: browserEventSource,
 };
 

@@ -47,7 +47,7 @@ function taskEv(type: 'task.created' | 'task.status', task: OrchTask): SSEEnvelo
 }
 
 function makeHandlers(): ConversationSSEHandlers & { calls: Record<string, unknown[][]> } {
-  const calls: Record<string, unknown[][]> = { appendText: [], turnDone: [], upsertTask: [], setConversationStatus: [], applyFullState: [], upsertCard: [] };
+  const calls: Record<string, unknown[][]> = { appendText: [], turnDone: [], upsertTask: [], setConversationStatus: [], applyFullState: [], upsertCard: [], approvalDecided: [] };
   return {
     calls,
     applyFullState: (s) => calls.applyFullState.push([s]),
@@ -56,6 +56,7 @@ function makeHandlers(): ConversationSSEHandlers & { calls: Record<string, unkno
     upsertTask: (t) => calls.upsertTask.push([t]),
     setConversationStatus: (s) => calls.setConversationStatus.push([s]),
     upsertCard: (c) => calls.upsertCard.push([c]),
+    approvalDecided: (p) => calls.approvalDecided.push([p]),
   };
 }
 
@@ -145,6 +146,18 @@ describe('useConversationSSE — ghép chunk streaming', () => {
     });
     expect(h.calls.upsertCard.length).toBe(1);
     expect((h.calls.upsertCard[0][0] as { id: string }).id).toBe('card1');
+  });
+
+  it('approval.decided event → approvalDecided với phieu', async () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    const phieu = { id: 'appr1', action: 'disburse', status: 'approved', decided_by: 'admin', reason: 'ok' };
+    await act(async () => {
+      fakeES.fire('open');
+      fakeES.emit({ type: 'approval.decided', conversation_id: 'c1', seq: null, ts: '', data: { phieu } });
+    });
+    expect(h.calls.approvalDecided.length).toBe(1);
+    expect((h.calls.approvalDecided[0][0] as { id: string }).id).toBe('appr1');
   });
 
   it('frame malformed (JSON hỏng) → không crash, bỏ qua', async () => {

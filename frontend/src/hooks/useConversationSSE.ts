@@ -10,6 +10,7 @@ import type {
   ChatDeltaData,
   ConversationFullState,
   OrchTask,
+  Phieu,
   SSEEnvelope,
 } from '../types';
 
@@ -20,6 +21,7 @@ export interface ConversationSSEHandlers {
   upsertTask: (task: OrchTask) => void;
   setConversationStatus: (status: string) => void;
   upsertCard: (card: Card) => void;
+  approvalDecided: (phieu: Phieu) => void;
 }
 
 interface TurnBuffer {
@@ -78,7 +80,17 @@ export function useConversationSSE(convId: string | null, handlers: Conversation
           if (data.card) handlersRef.current.upsertCard(data.card);
           return;
         }
-        if (ev.type !== 'chat.delta') return; // toolcall/approval — sprint sau (S4)
+        if (ev.type === 'approval.pending') {
+          // phiếu tạo → card approval đã đến qua event 'card' (vỏ sinh cùng lúc). Chỉ badge/status
+          // cần — conversation.status→waiting_approval đã lo. Không cần xử thêm ở đây.
+          return;
+        }
+        if (ev.type === 'approval.decided') {
+          const data = ev.data as { phieu: Phieu };
+          if (data.phieu) handlersRef.current.approvalDecided(data.phieu);
+          return;
+        }
+        if (ev.type !== 'chat.delta') return; // toolcall — sprint sau (S4)
 
         const d = ev.data as ChatDeltaData;
         const t = turns.get(d.turn_id) ?? { last: 0, buf: new Map<number, ChatDeltaData>() };

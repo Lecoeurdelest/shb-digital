@@ -115,7 +115,36 @@ class MockBackend {
     // Trigger nhánh FAILED để drive contract §4b (test/demo được) — từ khoá trong câu hỏi.
     const mainFail = /(main fail|lỗi main|quá tải|hết trần)/i.test(question);
     const subFail = /(sub fail|credit fail|lỗi tín dụng|timeout)/i.test(question);
+    const wantsDisburse = /(giải ngân|disburse|duyệt vay|phê duyệt)/i.test(question);
     const wantsCredit = /dscr|c001|tín dụng|vay/i.test(question);
+
+    // ── Nhánh PHANH (D-40 happy-path): câu "giải ngân" → Ops gọi disburse → wrapper phanh chặn →
+    //    VỎ tự sinh card approval (type='approval') + conversation.status=waiting_approval. Chờ admin
+    //    duyệt (decideApproval). Mock mô phỏng đúng shape T3-1 §E cho FE render panel. ──
+    if (wantsDisburse) {
+      await delay(MOCK_LATENCY_MS);
+      const opener = 'Dạ, để em xử lý giải ngân cho khoản vay này… Thao tác cần người có thẩm quyền duyệt ạ.';
+      await this.streamText(convId, turnId, seq, opener, true);
+      await delay(MOCK_LATENCY_MS);
+      // card approval VỎ tự sinh (id vỏ-inject = approval_id phiếu). task_id null (main dispatch ops).
+      const approvalPhieuId = uid('appr');
+      const card: Card = {
+        id: uid('card'), conv_id: convId, task_id: null, type: 'approval', ts: nowIso(),
+        title: 'Phê duyệt giải ngân', action: 'Giải ngân khoản vay L001',
+        approval_id: approvalPhieuId, status: 'pending',
+        items: [
+          { label: 'Khoản vay', value: 'L001' },
+          { label: 'Số tiền', value: '5,000,000,000 VND' },
+          { label: 'Khách hàng', value: 'DN Gỗ Việt Phát (B001)' },
+        ],
+        options: ['Duyệt', 'Từ chối'],
+      };
+      this.pushCard(convId, card);
+      this.emit(convId, envelope(convId, 'approval.pending', { phieu: { id: approvalPhieuId, action: 'disburse', status: 'pending' } }));
+      r.conversation.status = 'waiting_approval';
+      this.emit(convId, envelope(convId, 'conversation.status', { status: 'waiting_approval' }));
+      return;
+    }
 
     // ── Nhánh MAIN FAIL (§4b Gap2 B): main hết trần retry → ghi system message lỗi +
     //    VẪN bắn chat.delta done (full_text = phần đã stream) + conversation.status:failed ──
@@ -229,6 +258,45 @@ class MockBackend {
     r.cards = r.cards.filter((c) => !(c.task_id === taskId && c.type === type));
     r.cards.push(card);
     this.emit(convId, envelope(convId, 'card', { card }));
+  }
+
+  // ghi card đã dựng sẵn (approval — vỏ tự sinh, không replace-by-type vì mỗi phiếu 1 card riêng).
+  private pushCard(convId: string, card: Card): void {
+    this.room(convId).cards.push(card);
+    this.emit(convId, envelope(convId, 'card', { card }));
+  }
+
+  // admin quyết phiếu (mock — mô phỏng T3-2): cập nhật card approval status + emit approval.decided
+  // + card mới (KHÔNG xoá card — bằng chứng §6) + resume (conversation.status). D-40 happy-path.
+  async decideApproval(approvalId: string, decision: 'approved' | 'rejected', reason: string): Promise<void> {
+    // tìm ĐÚNG conv chứa card approval có approval_id này (mock quyết từ queue có thể khác conv đang mở)
+    let target: MockRoom | undefined;
+    let card: Card | undefined;
+    for (const room of this.rooms.values()) {
+      const c = room.cards.find((x) => x.type === 'approval' && x.approval_id === approvalId);
+      if (c) { target = room; card = c; break; }
+    }
+    if (!target || !card) throw new ApiErrorLike(404, 'not_found', 'Phiếu không tồn tại (mock)');
+    if (card.status !== 'pending') throw new ApiErrorLike(409, 'approval_already_decided', 'Phiếu đã được quyết (mock)');
+
+    await delay(MOCK_LATENCY_MS);
+    // decision đã là 'approved'|'rejected' (chốt backend T3-2) — dùng thẳng làm card.status.
+    card.status = decision;
+    card.decided_by = 'admin';
+    if (reason) card.reason = reason;
+    card.ts = nowIso();
+    const cid = target.conversation.id;
+    this.emit(cid, envelope(cid, 'card', { card }));
+    this.emit(cid, envelope(cid, 'approval.decided', { phieu: { id: approvalId, action: 'disburse', status: decision, decided_by: 'admin', reason } }));
+
+    // resume (D-42): approved → main giao lại → giải ngân xong → done; rejected → main báo từ chối → failed.
+    target.conversation.status = decision === 'approved' ? 'done' : 'failed';
+    this.emit(cid, envelope(cid, 'conversation.status', { status: target.conversation.status }));
+    if (decision === 'approved') {
+      const turnId = uid('turn');
+      const seq = { n: 0 };
+      await this.streamText(cid, turnId, seq, '✓ Phiếu đã được duyệt — em đã thực hiện giải ngân khoản vay L001. Biên nhận đã lưu.', true);
+    }
   }
 
   // Stream 1 đoạn text theo từng "từ". seq TĂNG DẦN xuyên suốt lượt (dùng chung counter cho

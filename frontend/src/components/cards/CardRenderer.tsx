@@ -5,6 +5,7 @@
 import type { Card } from '../../types';
 import { cardItems, cardField, itemField, renderValue, collectSources } from './cardUtil';
 import { CitationChip } from './CitationChip';
+import { ApprovalPanel, type DecideFn } from './ApprovalPanel';
 import './CardRenderer.css';
 
 type CiteFn = (taskId: string | null, source: string) => void;
@@ -12,7 +13,7 @@ type CiteFn = (taskId: string | null, source: string) => void;
 // card chiếm cả 2 cột (rộng) cho case_file/document/approval; còn lại 1 cột.
 const WIDE = new Set(['case_file', 'document', 'approval']);
 
-export function CardRenderer({ card, onCite }: { card: Card; onCite?: CiteFn }) {
+export function CardRenderer({ card, onCite, onDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn }) {
   const wide = WIDE.has(card.type);
   return (
     <div className={`card${wide ? ' card--wide' : ''}`} id={`card-${card.id}`} data-testid={`card-${card.type}`}>
@@ -21,13 +22,13 @@ export function CardRenderer({ card, onCite }: { card: Card; onCite?: CiteFn }) 
         <span className="card__type">{card.type}</span>
       </div>
       <div className="card__body">
-        <CardBody card={card} onCite={onCite} />
+        <CardBody card={card} onCite={onCite} onDecide={onDecide} />
       </div>
     </div>
   );
 }
 
-function CardBody({ card, onCite }: { card: Card; onCite?: CiteFn }) {
+function CardBody({ card, onCite, onDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn }) {
   switch (card.type) {
     case 'metric':
       return <MetricBody card={card} onCite={onCite} />;
@@ -42,7 +43,7 @@ function CardBody({ card, onCite }: { card: Card; onCite?: CiteFn }) {
     case 'document':
       return <DocumentBody card={card} onCite={onCite} />;
     case 'approval':
-      return <ApprovalPlaceholderBody />;
+      return <ApprovalPanel card={card} onDecide={onDecide} />;
     default:
       return <RawBody card={card} />;
   }
@@ -220,15 +221,6 @@ function DocumentBody({ card, onCite }: { card: Card; onCite?: CiteFn }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ── approval: S2 placeholder (panel bấm thật = S4). Chỉ hiện thông báo. ──
-function ApprovalPlaceholderBody() {
-  return (
-    <div className="card-approval-ph">
-      ⏸ Phê duyệt — panel duyệt/từ chối sẽ có ở Sprint 4 (phanh).
     </div>
   );
 }

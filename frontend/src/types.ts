@@ -74,6 +74,19 @@ export interface CardEventData {
   card: Card;
 }
 
+// approval.decided SSE (T3-2): {phieu:{id, action, status, decided_by, reason}}. FE ghép card+phieu
+// (card KHÔNG xoá §6): tìm card approval có approval_id === phieu.id → cập nhật status/decided_by/reason.
+export interface Phieu {
+  id: string;
+  action?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'used';
+  decided_by?: string;
+  reason?: string;
+}
+export interface ApprovalDecidedData {
+  phieu: Phieu;
+}
+
 export interface ConversationFullState {
   conversation: Conversation;
   messages: Message[];

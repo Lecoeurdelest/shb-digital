@@ -75,6 +75,20 @@ export const apiClient = {
     return request<ConversationFullState>(`/api/conversations/${id}`);
   },
 
+  // admin quyết phiếu (T3-2 · CONTRACT §11). id = card.approval_id (phiếu vỏ-inject).
+  // decision CHỐT "approved"|"rejected" (backend T3-2). Response 200 approval row trần; 409 already_decided.
+  decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown> {
+    return request<unknown>(`/api/approvals/${id}/decide`, {
+      method: 'POST',
+      body: JSON.stringify({ decision, reason }),
+    });
+  },
+
+  // list phiếu pending (approval queue Control Tower — admin). CONTRACT §11.
+  listApprovals(status = 'pending'): Promise<unknown[]> {
+    return request<unknown[]>(`/api/approvals?status=${encodeURIComponent(status)}`);
+  },
+
   sendChat(id: string, content: string): Promise<void> {
     return request<void>(`/api/conversations/${id}/chat`, {
       method: 'POST',

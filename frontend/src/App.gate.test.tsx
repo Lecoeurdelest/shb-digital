@@ -1,30 +1,34 @@
-// App.gate.test.tsx — auth gate (App) + Login (mock API luôn cho login OK).
-// Chưa login → Login; login → Workspace. CONTRACT §1.
+// App.gate.test.tsx — auth gate + boot-check /me (D-39). Mock me() mặc định ném 401 (mock mode) →
+// App qua phase checking → Login. Test skip-auth: spyOn me() trả 200 admin → vào thẳng Workspace.
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import App from './App';
+import { conversationApi } from './api';
 
-describe('Auth gate (App)', () => {
-  it('mặc định hiện màn Login (chưa có user)', () => {
+afterEach(() => vi.restoreAllMocks());
+
+describe('Auth gate (App) — boot-check /me', () => {
+  it('/me 401 (mock) → sau checking hiện Login', async () => {
     render(<App />);
-    expect(screen.getByRole('button', { name: /Đăng nhập/i })).toBeInTheDocument();
-    // chưa vào Workspace
+    // boot-check chạy → Login xuất hiện (async)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Đăng nhập/i })).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /Ca mới/i })).not.toBeInTheDocument();
   });
 
   it('login (mock chấp nhận mọi cred) → vào Workspace, hiện user badge', async () => {
     render(<App />);
+    await screen.findByRole('button', { name: /Đăng nhập/i });
     fireEvent.change(screen.getByLabelText('Tên đăng nhập'), { target: { value: 'user' } });
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'user' } });
     fireEvent.click(screen.getByRole('button', { name: /Đăng nhập/i }));
 
-    // vào Workspace: nút "+ Ca mới" + badge user
     await waitFor(() => expect(screen.getByRole('button', { name: /Ca mới/i })).toBeInTheDocument());
     expect(screen.getByText(/user · RM/)).toBeInTheDocument();
   });
 
   it('đăng xuất → quay lại Login', async () => {
     render(<App />);
+    await screen.findByRole('button', { name: /Đăng nhập/i });
     fireEvent.change(screen.getByLabelText('Tên đăng nhập'), { target: { value: 'admin' } });
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'admin' } });
     fireEvent.click(screen.getByRole('button', { name: /Đăng nhập/i }));
@@ -32,5 +36,14 @@ describe('Auth gate (App)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Đăng xuất/i }));
     expect(screen.getByRole('button', { name: /Đăng nhập/i })).toBeInTheDocument();
+  });
+
+  it('boot-check /me 200 admin (DEV_SKIP_AUTH) → SKIP Login vào thẳng Workspace admin', async () => {
+    vi.spyOn(conversationApi, 'me').mockResolvedValue({ user: { username: 'admin', role: 'admin' } });
+    render(<App />);
+    // KHÔNG qua Login — vào thẳng Workspace, badge admin
+    await waitFor(() => expect(screen.getByRole('button', { name: /Ca mới/i })).toBeInTheDocument());
+    expect(screen.getByText(/admin · Quản lý/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Đăng nhập/i })).not.toBeInTheDocument();
   });
 });

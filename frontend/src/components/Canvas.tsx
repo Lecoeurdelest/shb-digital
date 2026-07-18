@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import type { Card, OrchTask } from '../types';
 import { CardRenderer } from './cards/CardRenderer';
+import type { DecideFn } from './cards/ApprovalPanel';
 import { TaskBadge } from './TaskBadge';
 import { roleLabel } from '../roles';
 import './Canvas.css';
@@ -15,6 +16,7 @@ const ROLE_ICON: Record<string, string> = { credit: '🧮', legal: '⚖', produc
 interface Props {
   cards: Card[];
   tasks: OrchTask[];
+  onDecide?: DecideFn;
 }
 
 // trạng thái sub từ task mới nhất của role đó (running/done/failed) → dot màu.
@@ -30,7 +32,7 @@ const STATUS_TEXT: Record<string, string> = {
   idle: '— chờ', queued: '● hàng đợi', running: '● đang làm', done: '✓ xong', failed: '✗ lỗi',
 };
 
-export function Canvas({ cards, tasks }: Props) {
+export function Canvas({ cards, tasks, onDecide }: Props) {
   const [tab, setTab] = useState<'lobby' | 'work'>('lobby');
   // citation chip bấm — S2: hiện banner tên tool (tooltip đã có). Trace view mở tool-call = S4.
   const [cited, setCited] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export function Canvas({ cards, tasks }: Props) {
           ) : (
             <div className="canvas__cards">
               {cards.map((card) => (
-                <CardRenderer key={card.id} card={card} onCite={onCite} />
+                <CardRenderer key={card.id} card={card} onCite={onCite} onDecide={onDecide} />
               ))}
             </div>
           )}

@@ -71,9 +71,9 @@ describe('CardRenderer — 7 type', () => {
     expect(screen.getByTestId('cite-credit_assess')).toBeInTheDocument();
   });
 
-  it('approval: placeholder S2 (panel thật S4)', () => {
-    render(<CardRenderer card={card('approval')} />);
-    expect(screen.getByText(/Sprint 4/)).toBeInTheDocument();
+  it('approval: render ApprovalPanel (T3-3 — chi tiết ở ApprovalPanel.test)', () => {
+    render(<CardRenderer card={card('approval', { approval_id: 'a1', status: 'pending', items: [] })} onDecide={() => {}} />);
+    expect(screen.getByTestId('card-approval')).toBeInTheDocument();
   });
 });
 

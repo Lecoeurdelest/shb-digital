@@ -23,6 +23,7 @@ import type {
   ConversationStatus,
   Message,
   OrchTask,
+  Phieu,
 } from './types';
 import './App.css';
 
@@ -114,6 +115,18 @@ export function Workspace({ user, onAuthExpired }: Props) {
     setCards((prev) => upsertCardInto(prev, card));
   }, []);
 
+  // SSE approval.decided → ghép card+phieu (card KHÔNG xoá §6): tìm card approval có approval_id ===
+  // phieu.id → cập nhật status/decided_by/reason → panel re-render sang "đã duyệt/từ chối".
+  const approvalDecided = useCallback((phieu: Phieu) => {
+    setCards((prev) =>
+      prev.map((c) =>
+        c.type === 'approval' && c.approval_id === phieu.id
+          ? { ...c, status: phieu.status, decided_by: phieu.decided_by, reason: phieu.reason }
+          : c,
+      ),
+    );
+  }, []);
+
 
   const appendText = useCallback((turnId: string, chunk: string) => {
     setStreaming((cur) =>
@@ -169,8 +182,8 @@ export function Workspace({ user, onAuthExpired }: Props) {
   }, [applyFullState]);
 
   const handlers: ConversationSSEHandlers = useMemo(
-    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard }),
-    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard],
+    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided }),
+    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided],
   );
 
   useConversationSSE(activeId, handlers);
@@ -215,8 +228,28 @@ export function Workspace({ user, onAuthExpired }: Props) {
     setConvStatus('running');
     conversationApi
       .sendChat(id, text)
-      .catch((err: unknown) => setLoadError(handleError(err, 'Gửi câu hỏi thất bại')));
+      .catch((err: unknown) => {
+        // POST /chat fail (backend timeout/lỗi) → báo lỗi + reset status (không kẹt "đang xử lý").
+        setLoadError(handleError(err, 'Gửi câu hỏi thất bại'));
+        setConvStatus('idle');
+      });
   }, [handleError]);
+
+  // admin quyết phiếu (T3-2 · D-40). SSE approval.decided + card sẽ cập nhật panel (KHÔNG xoá card §6).
+  // 409 approval_already_decided (2 admin bấm) → thông báo + refetch full-state (DB nguồn sự thật §0).
+  const handleDecide = useCallback((approvalId: string, decision: 'approved' | 'rejected', reason: string) => {
+    conversationApi
+      .decideApproval(approvalId, decision, reason)
+      .catch((err: unknown) => {
+        if (err instanceof ApiRequestError && err.status === 409) {
+          setLoadError('Phiếu đã được quyết trước đó — đang đồng bộ lại.');
+          const id = activeIdRef.current;
+          if (id) conversationApi.getConversation(id).then((s) => { if (id === activeIdRef.current) applyFullState(s); }).catch(() => {});
+        } else {
+          setLoadError(handleError(err, 'Quyết phiếu thất bại'));
+        }
+      });
+  }, [handleError, applyFullState]);
 
   // auto-scroll khi có message mới / chữ stream
   useEffect(() => {
@@ -313,8 +346,8 @@ export function Workspace({ user, onAuthExpired }: Props) {
           )}
         </section>
 
-        {/* canvas: live map 2D + bảng việc + card render (S2 — T2-3) */}
-        <Canvas cards={cards} tasks={tasks} />
+        {/* canvas: live map 2D + bảng việc + card render (S2) + approval panel (S3 — T3-3) */}
+        <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} />
       </div>
     </div>
   );
