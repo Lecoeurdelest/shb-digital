@@ -27,11 +27,8 @@ PDF gốc: [`docs/132-SHB-agents.pdf`](docs/132-SHB-agents.pdf).
 - [Công nghệ sử dụng](#công-nghệ-sử-dụng)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
 - [Cài đặt & chạy local](#cài-đặt--chạy-local)
-- [Tài khoản demo](#tài-khoản-demo)
-- [Biến môi trường](#biến-môi-trường)
 - [Kiểm thử](#kiểm-thử)
 - [API chính](#api-chính)
-- [Triển khai (deploy)](#triển-khai-deploy)
 - [Tài liệu](#tài-liệu)
 - [Quy trình phát triển](#quy-trình-phát-triển)
 
@@ -176,48 +173,14 @@ npm install
 VITE_USE_MOCK_API=false npm run dev
 ```
 
-Mở http://localhost:5173 và đăng nhập bằng một trong các [tài khoản demo](#tài-khoản-demo).
+Mở http://localhost:5173 và đăng nhập bằng tài khoản đã seed.
 
 Ghi chú:
 
 - Muốn agent chạy thật cần credential LLM: hoặc đăng nhập Claude CLI trên máy (subscription),
-  hoặc đặt `SHB_PROVIDER=<tên>` + key tương ứng trong `.env` (xem [Biến môi trường](#biến-môi-trường)).
+  hoặc đặt `SHB_PROVIDER=<tên>` + key tương ứng trong `.env` (gitignored).
 - `DEV_SKIP_AUTH=1` bỏ qua màn login (mọi request là admin) — chỉ dùng khi dev.
 - Reset dữ liệu demo về ban đầu: `uv run python -m app.db.reset_demo` (không xoá tài khoản).
-
-## Tài khoản demo
-
-| Tài khoản | Mật khẩu | Vai | Phạm vi |
-|---|---|---|---|
-| `b001` | `b001` | Khách doanh nghiệp (Cty B001) | Cửa khách — chỉ thấy ca của mình |
-| `c001` | `c001` | Khách cá nhân (C001) | Cửa khách |
-| `admin` | `admin` | Ngân hàng (quản lý) | Mọi ca + Control Tower + quyền duyệt phiếu |
-| `user` | `user` | RM (nhân viên) | Workspace nhân viên |
-
-Khách mới: dùng nút **Đăng ký** (username/password) hoặc **Đăng nhập với Google** — tài khoản
-khách tạo tự động, sau đó điền form tiếp nhận hồ sơ trong hội thoại.
-
-## Biến môi trường
-
-Tạo file `.env` ở repo root (đã gitignore — **không commit secret**). Tất cả đều có default
-chạy-được cho dev; bảng dưới là các biến chính:
-
-| Biến | Default | Ý nghĩa |
-|---|---|---|
-| `DATABASE_URL` | `postgresql://shb:shb@localhost:5432/shb` | Kết nối Postgres |
-| `SHB_PROVIDER` | *(trống — dùng Claude CLI subscription)* | Provider LLM keyed (vd `zai`) cho môi trường headless/container; kèm biến key cùng tên provider |
-| `SHB_PROVIDERS_DISABLED` | *(trống)* | Ẩn provider không khả dụng trên môi trường deploy |
-| `DEV_SKIP_AUTH` | `0` | `1` = bỏ login, mọi request là admin (chỉ dev/demo nội bộ) |
-| `JWT_SECRET` | dev-only | Secret ký JWT — bắt buộc đổi khi deploy |
-| `JWT_TTL_SECONDS` | `43200` | Hạn phiên đăng nhập (12h) |
-| `AUTH_GOOGLE_ENABLED` | `0` | `1` = bật Sign in with Google |
-| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | OAuth client (Google Cloud Console → Credentials) |
-| `GOOGLE_OAUTH_REDIRECT_URI` | `http://localhost:8000/api/auth/google/callback` | Phải khớp URI đã đăng ký với Google; prod: `https://digital.tinhdev.com/api/auth/google/callback` |
-| `FRONTEND_URL` | `http://localhost:5173` | Nơi redirect về sau khi Google callback |
-| `COOKIE_SECURE` | `0` | `1` khi chạy HTTPS |
-| `SMTP_USER` / `SMTP_APP_PASSWORD` / `NOTIFY_FROM_NAME` | *(trống — no-op)* | Gửi mail Gmail thông báo (phiếu chờ duyệt, ca xong) |
-| `APP_URL` | — | Link CTA trong mail (prod: `https://digital.tinhdev.com`) |
-| `TEST_DATABASE_URL` | *(trống)* | DB riêng cho pytest (tự tạo + migrate + seed) |
 
 ## Kiểm thử
 
@@ -257,13 +220,6 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 | GET | `/api/audit` | Audit log tool-call (filter theo ca/task) |
 | GET | `/api/models` | Provider + model khả dụng |
 | POST | `/api/compare` | Chạy so sánh single-agent vs multi-agent |
-
-## Triển khai (deploy)
-
-Production chạy Docker Compose (`docker-compose.prod.yml`: Postgres + backend + nginx FE) sau
-Cloudflare tunnel, domain `digital.tinhdev.com`. Backend entrypoint tự migrate + seed-nếu-rỗng
-(idempotent — restart không mất dữ liệu khách đã đăng ký). Từng bước + verify + rollback:
-[`docs/deploy.md`](docs/deploy.md).
 
 ## Tài liệu
 
