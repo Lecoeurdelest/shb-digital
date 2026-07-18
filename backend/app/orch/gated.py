@@ -31,6 +31,7 @@ import psycopg2.extras
 
 from app.db.config import DATABASE_URL
 from app.orch import registry
+from app.orch.disburse_guard import cross_owner_refusal
 from app.orch.verdict import disburse_decision
 
 log = logging.getLogger("orch.gated")
@@ -115,6 +116,16 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
     conn = psycopg2.connect(DATABASE_URL)  # conn RIÊNG (mirror store/D-34 — KHÔNG mount pool adapter)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # GUARD CROSS-OWNER (T9-4 finding, money-adjacent): ca creator = KHÁCH → loan giải ngân
+            # PHẢI thuộc hồ sơ creator. TRƯỚC advisory-lock + 4-step (không phí lock/phiếu cho ca bị
+            # chặn). fail-closed: mismatch / creator owner NULL / lookup lỗi → REFUSE. Ca bank (creator
+            # role≠customer) → qua như cũ (bank thao tác hộ mọi khách). Chỉ áp disburse (có loan_id).
+            if action == "disburse":
+                refusal = cross_owner_refusal(cur, conv_id, args.get("loan_id"))
+                if refusal is not None:
+                    conn.rollback()  # chưa ghi gì — rollback sạch, không giữ lock
+                    return _GatedResult(refusal)
+
             # SERIALIZE per-key (architect phán quyết — chống race phiếu-rác): 2 gọi đồng thời cùng
             # (conv_id, action, ph) → con thua CHỜ con thắng commit → thấy used/pending đã commit →
             # KHÔNG đẻ phiếu giả ở bước 4. tx-scoped → tự release ở commit/rollback (không rò lock).
