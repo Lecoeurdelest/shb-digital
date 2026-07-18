@@ -21,6 +21,7 @@ from app.api.interrupt import router as interrupt_router
 from app.api.models import router as models_router
 from app.api.notifications import router as notifications_router
 from app.api.sse import router as sse_router
+from app.api.stats import router as stats_router
 from app.auth.router import me_router
 from app.auth.router import router as auth_router
 from app.errors import register_error_handler
@@ -68,6 +69,7 @@ app.include_router(interrupt_router)  # POST /interrupt huỷ sub (T4-3 §4.3)
 app.include_router(compare_router)  # POST /compare single vs multi (T4-4 deliverable #5)
 app.include_router(form_intake_router)  # POST /form-submit khách mới nộp hồ sơ (T9-1 D-57)
 app.include_router(notifications_router)  # GET /notifications bell khách (T9-2 D-57)
+app.include_router(stats_router)  # GET /stats + /assessments dashboard Control Tower (T13-1)
 
 
 @app.get("/api/health")
