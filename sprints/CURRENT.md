@@ -38,8 +38,10 @@ ngưỡng, dẫn assessment #id). Tester 5/5 live + 378 test. Script v7. D-55/58
 cross-owner + READ-SCOPE leak + provider/image/env/volume) + merge PR#1/#2/#3 (lobby 3D, landing,
 google-OFF) + brand D-61. Tester 6/6 PASS trên prod. 465 test (355+110).
 
-**Kế: S11 (cleanup + docs — draft METHODOLOGY đã park `.archive/drafts/`) → S12 (retrieval 4
-tầng — kết bằng rebuild image + redeploy).**
+**Sprint 11 — ĐANG CHẠY** (`plan_sprint_11.md`): cleanup + docs + nâng-điểm-chấm (CI GitHub
+Actions · refactor gated 0-đổi-hành-vi · README-60s · METHODOLOGY khai-thật · polish). Backlog
+bổ sung từ review ngoài user đưa (phản biện: nửa A = artifact backup; nhận CI/refactor/docs).
+Kế: **S12** (retrieval 4 tầng — kết bằng rebuild image + redeploy).
 
 **Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_9.md`.
 
