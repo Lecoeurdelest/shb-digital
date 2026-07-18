@@ -97,3 +97,8 @@ tiêu ≤13ph — cắt được: Cảnh 1 nhịp B kể miệng thay demo (−1
 > bộ trạng thái thật (SSE có thể chết nếu server gián đoạn; conv thật sự đã idle trong DB).
 > **Luật vận hành demo: KHÔNG restart server / đụng DB khi đang chạy ca** — restart giết task
 > đang chạy (failed "server restart") và MAIN không báo user (gap đã ghi finding).
+
+> **2 luật vận hành bổ sung (verdict rehearsal):** (a) KHÔNG chạy `pytest` full suite trên DB đang
+> dùng rehearsal/demo (test bơm approvals/conv rác vào queue Tower) — chạy khi DB rảnh rồi
+> `reset_demo`, hoặc tách DB test. (b) Trước giờ-G: 1 vòng cuối LIỀN MẠCH không xen debug, đo
+> timing sạch (kỳ vọng <13').
