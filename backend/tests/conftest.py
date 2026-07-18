@@ -11,6 +11,12 @@ quên TEST_DATABASE_URL, warning KHÔNG đủ chặn). Mọi test GỌI reset_de
 trên DATABASE_URL PHẢI mang `@requires_test_db` (skip cứng khi thiếu TEST_DATABASE_URL) — KHÔNG
 BAO GIỜ chạy trên DB chính kể cả có warning. Test chỉ SEED thêm row (assessments) rồi tự dọn thì
 `@requires_db` đủ; test WIPE/reset toàn bộ = `@requires_test_db`.
+
+LUẬT TEST KHÔNG PHỤ THUỘC SECRET THẬT (T11-1 CI — sự cố thật: test_conv_provider_env_keyed FAIL
+trên CI vì .env gitignored không có key zai). Test cần key provider/SMTP chỉ để kiểm SHAPE (env
+inject, không gọi API) → `monkeypatch.setenv("zai"/"WRAP_API_KEY", "dummy")` (reload đọc os.environ
+merge-over .env). Test NÀO thật sự gọi API bằng key → env-gate skip như live-SDK (RUN_LIVE_SDK).
+Local-mirror phải mirror cả SỰ VẮNG MẶT secret: verify bằng `mv .env /tmp && pytest && mv lại`.
 """
 
 from __future__ import annotations

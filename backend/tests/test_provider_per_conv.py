@@ -41,8 +41,13 @@ def test_conv_provider_env_null_server_default():
     assert env == {}  # subscription default → rỗng (SDK dùng CLI auth)
 
 
-def test_conv_provider_env_keyed():
-    """provider keyed (zai) → 3 biến ANTHROPIC_* (env inject)."""
+def test_conv_provider_env_keyed(monkeypatch):
+    """provider keyed (zai) → 3 biến ANTHROPIC_* (env inject).
+
+    Test chỉ kiểm SHAPE env (keys), KHÔNG gọi API → key zai chỉ cần TỒN TẠI, không cần THẬT.
+    monkeypatch dummy (reload đọc os.environ merge-over .env) → chạy được cả CI KHÔNG có .env
+    (test không phụ thuộc secret thật — conftest docstring)."""
+    monkeypatch.setenv("zai", "dummy-ci-key")
     env = conv_provider_env("zai")
     assert set(env) == {"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY"}
 
