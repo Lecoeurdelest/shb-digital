@@ -17,12 +17,14 @@ interface CardProps {
   onDecide?: DecideFn;
   canDecide?: boolean;
   onFormSubmit?: FormSubmitFn; // T9-3 — khách nộp hồ sơ (card type 'form')
+  formDrafts?: Record<string, Record<string, string>>; // DF-A-04 — form values sống qua đổi tab (theo card.id)
+  onFormDraftChange?: (cardId: string, values: Record<string, string>) => void;
 }
 
 // card chiếm cả 2 cột (rộng) cho case_file/document/approval/form; còn lại 1 cột.
 const WIDE = new Set(['case_file', 'document', 'approval', 'form']);
 
-export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit }: CardProps) {
+export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange }: CardProps) {
   const wide = WIDE.has(card.type);
   return (
     <div className={`card${wide ? ' card--wide' : ''}`} id={`card-${card.id}`} data-testid={`card-${card.type}`}>
@@ -31,13 +33,14 @@ export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit }
         <span className="card__type">{card.type}</span>
       </div>
       <div className="card__body">
-        <CardBody card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit} />
+        <CardBody card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit}
+          formDrafts={formDrafts} onFormDraftChange={onFormDraftChange} />
       </div>
     </div>
   );
 }
 
-function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit }: CardProps) {
+function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange }: CardProps) {
   switch (card.type) {
     case 'metric':
       return <MetricBody card={card} onCite={onCite} />;
@@ -54,7 +57,8 @@ function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit }: CardProps
     case 'approval':
       return <ApprovalPanel card={card} onDecide={onDecide} canDecide={canDecide} />;
     case 'form':
-      return <FormCard card={card} onSubmit={onFormSubmit} />;
+      return <FormCard card={card} onSubmit={onFormSubmit}
+        draftValues={formDrafts?.[card.id] ?? {}} onDraftChange={onFormDraftChange} />;
     default:
       return <RawBody card={card} />;
   }
@@ -74,21 +78,48 @@ function cardTypeLabel(type: string): string {
 }
 
 // ── metric: bảng chỉ số. value MIXED, pass NULLABLE (null→không badge), source→chip ──
+// DF-A-06: dịch thuật ngữ tiếng Anh hay gặp ở tầng HIỂN THỊ (fallback map — KHÔNG đổi data; tên lạ
+// giữ nguyên pass-through). Chỉ áp cụm tiếng Anh trong ngoặc / tên trụ phổ biến.
+const METRIC_LABEL_MAP: Record<string, string> = {
+  Identity: 'Định danh', Criminal: 'Án tích', Income: 'Thu nhập', Collateral: 'Tài sản đảm bảo',
+  Credit: 'Tín dụng', Legal: 'Pháp lý', Residence: 'Cư trú', Employment: 'Việc làm',
+};
+function mapMetricLabel(raw: string): string {
+  // "Nhân thân (Identity)" → thay cụm trong ngoặc bằng tiếng Việt; "Identity" đơn → dịch cả.
+  let out = raw;
+  for (const [en, vi] of Object.entries(METRIC_LABEL_MAP)) {
+    out = out.replace(new RegExp(`\\(${en}\\)`, 'g'), `(${vi})`).replace(new RegExp(`^${en}$`), vi);
+  }
+  return out;
+}
+
 function MetricBody({ card, onCite }: { card: Card; onCite?: CiteFn }) {
   const items = cardItems(card);
   if (items.length === 0) return <EmptyBody />;
+  // có item nào có threshold không → hiện cột Ngưỡng + header phân tách (DF-A-06: value vs threshold dính nhau).
+  const hasThreshold = items.some((it) => itemField(it, 'threshold') != null);
   return (
     <table className="card-metric">
+      <thead>
+        <tr className="card-metric__head">
+          <th>Chỉ tiêu</th>
+          <th>Thực tế</th>
+          {hasThreshold && <th>Ngưỡng</th>}
+          <th>Kết quả</th>
+          <th>Nguồn</th>
+        </tr>
+      </thead>
       <tbody>
         {items.map((it, i) => {
           const pass = itemField<boolean | null>(it, 'pass');
           const source = itemField<string>(it, 'source');
           const threshold = itemField(it, 'threshold');
+          const nameRaw = renderValue(itemField(it, 'name'));
           return (
             <tr key={i}>
-              <td className="card-metric__name">{renderValue(itemField(it, 'name'))}</td>
+              <td className="card-metric__name">{mapMetricLabel(nameRaw)}</td>
               <td className="card-metric__value">{renderValue(itemField(it, 'value'))}</td>
-              <td className="card-metric__thr">{threshold != null ? renderValue(threshold) : ''}</td>
+              {hasThreshold && <td className="card-metric__thr">{threshold != null ? renderValue(threshold) : ''}</td>}
               <td className="card-metric__pass">
                 {pass === true && <span className="badge badge--pass">✓ Đạt</span>}
                 {pass === false && <span className="badge badge--fail">✗ Không đạt</span>}
@@ -157,25 +188,71 @@ function OptionsBody({ card, onCite }: { card: Card; onCite?: CiteFn }) {
   );
 }
 
-// ── timeline: item {step, owner, eta} + total_days ──
+// ── timeline: item shape TỰ DO (N3 vỏ-mù) — DF-A-05-FE render TOLERANT theo evidence prod.
+// Shape thật sub emit: {name, detail, status, assignee}. Dòng chính = step??name; dòng mô tả =
+// detail??description??value; meta chips = owner/assignee/eta/status + field string LẠ nối vào mô tả.
+// Item rỗng hẳn → "(chưa có mô tả)". KHÔNG migrate data — card cũ (2afff539) tự đọc được sau fix.
+const TIMELINE_PRIMARY_KEYS = ['step', 'name'];
+const TIMELINE_DESC_KEYS = ['detail', 'description', 'value'];
+const TIMELINE_META_KEYS = ['owner', 'assignee', 'eta', 'status'];
+const TIMELINE_KNOWN = new Set([...TIMELINE_PRIMARY_KEYS, ...TIMELINE_DESC_KEYS, ...TIMELINE_META_KEYS]);
+
+function asRec(it: unknown): Record<string, unknown> {
+  return it && typeof it === 'object' ? (it as Record<string, unknown>) : {};
+}
+function firstStr(rec: Record<string, unknown>, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = rec[k];
+    if (v != null && String(v).trim()) return String(v).trim();
+  }
+  return null;
+}
+
+// dòng chính (step) — nếu vắng, dùng dòng mô tả làm chính (đừng để trống); vẫn vắng → "(chưa có mô tả)".
+function timelineTitle(rec: Record<string, unknown>): string {
+  return firstStr(rec, TIMELINE_PRIMARY_KEYS) ?? firstStr(rec, TIMELINE_DESC_KEYS) ?? '(chưa có mô tả)';
+}
+// dòng mô tả — detail/description/value + field string LẠ (ngoài known) nối vào, KHÔNG vứt nội dung.
+function timelineDesc(rec: Record<string, unknown>): string {
+  const parts: string[] = [];
+  // chỉ lấy desc key nếu KHÁC cái đã dùng làm title (tránh lặp)
+  const title = firstStr(rec, TIMELINE_PRIMARY_KEYS);
+  const desc = firstStr(rec, TIMELINE_DESC_KEYS);
+  if (title && desc && desc !== title) parts.push(desc);
+  for (const [k, v] of Object.entries(rec)) {
+    if (TIMELINE_KNOWN.has(k)) continue;
+    if (typeof v === 'string' || typeof v === 'number') { const s = String(v).trim(); if (s) parts.push(s); }
+  }
+  return parts.join(' · ');
+}
+
 function TimelineBody({ card }: { card: Card }) {
   const items = cardItems(card);
   if (items.length === 0) return <EmptyBody />;
   const total = cardField(card, 'total_days');
   return (
     <div className="card-timeline">
-      {items.map((it, i) => (
-        <div key={i} className="card-timeline__row">
-          <span className="card-timeline__num">{i + 1}</span>
-          <div className="card-timeline__body">
-            <div className="card-timeline__step">{renderValue(itemField(it, 'step') ?? itemField(it, 'name'))}</div>
-            <div className="card-timeline__meta">
-              {itemField(it, 'owner') != null && <span>{renderValue(itemField(it, 'owner'))}</span>}
-              {itemField(it, 'eta') != null && <span>· {renderValue(itemField(it, 'eta'))}</span>}
+      {items.map((it, i) => {
+        const rec = asRec(it);
+        const desc = timelineDesc(rec);
+        const metaChips = TIMELINE_META_KEYS
+          .map((k) => (rec[k] != null && String(rec[k]).trim() ? String(rec[k]).trim() : null))
+          .filter((v): v is string => v !== null);
+        return (
+          <div key={i} className="card-timeline__row">
+            <span className="card-timeline__num">{i + 1}</span>
+            <div className="card-timeline__body">
+              <div className="card-timeline__step">{timelineTitle(rec)}</div>
+              {desc && <div className="card-timeline__desc">{desc}</div>}
+              {metaChips.length > 0 && (
+                <div className="card-timeline__meta">
+                  {metaChips.map((m, j) => <span key={j} className="card-timeline__chip">{m}</span>)}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       {total != null && <div className="card-timeline__total">Tổng: {renderValue(total)} ngày</div>}
     </div>
   );

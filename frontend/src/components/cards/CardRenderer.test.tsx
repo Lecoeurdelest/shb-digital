@@ -105,4 +105,55 @@ describe('CardRenderer — defensive N3', () => {
     fireEvent.click(screen.getByTestId('cite-tool_x'));
     expect(onCite).toHaveBeenCalledWith('t1', 'tool_x');
   });
+
+  // DF-A-05-FE (spec mới, evidence prod): render tolerant shape tự do {name,detail,status,assignee}.
+  it('DF-A-05: shape chuẩn {step,owner,eta} → hiện step + meta (không regression card C019)', () => {
+    const c = card('timeline', { items: [{ step: 'Thẩm định tín dụng', owner: 'Tín dụng', eta: '2 ngày' }] });
+    render(<CardRenderer card={c} />);
+    expect(screen.getByText('Thẩm định tín dụng')).toBeInTheDocument();
+    expect(screen.getByText('Tín dụng')).toBeInTheDocument();
+    expect(screen.getByText('2 ngày')).toBeInTheDocument();
+  });
+
+  it('DF-A-05: shape PROD {name,detail,status,assignee} → title + mô tả detail + meta chips (KHÔNG trống)', () => {
+    const c = card('timeline', { items: [
+      { name: 'Bước 1', detail: 'Thu thập CCCD/CMTND bản gốc (bắt buộc)', status: 'pending', assignee: 'Điều phối viên/Khách hàng' },
+    ] });
+    render(<CardRenderer card={c} />);
+    expect(screen.getByText('Bước 1')).toBeInTheDocument();
+    expect(screen.getByText(/Thu thập CCCD\/CMTND bản gốc/)).toBeInTheDocument(); // detail KHÔNG bị vứt
+    expect(screen.getByText('pending')).toBeInTheDocument(); // status chip
+    expect(screen.getByText('Điều phối viên/Khách hàng')).toBeInTheDocument(); // assignee chip
+  });
+
+  it('DF-A-05: item chỉ detail (không step/name) → detail làm title, không trống', () => {
+    const c = card('timeline', { items: [{ detail: 'Xác nhận cư trú', foo: 'công an' }] });
+    render(<CardRenderer card={c} />);
+    expect(screen.getByText('Xác nhận cư trú')).toBeInTheDocument();
+    expect(screen.getByText(/công an/)).toBeInTheDocument(); // field lạ nối vào mô tả, không vứt
+  });
+
+  it('DF-A-05: item RỖNG hẳn → "(chưa có mô tả)", không trống', () => {
+    const c = card('timeline', { items: [{}] });
+    render(<CardRenderer card={c} />);
+    expect(screen.getByText('(chưa có mô tả)')).toBeInTheDocument();
+  });
+
+  // DF-A-06: metric header cột (Thực tế/Ngưỡng) + label-map dịch thuật ngữ.
+  it('DF-A-06: metric có threshold → header cột Thực tế + Ngưỡng phân tách', () => {
+    const c = card('metric', { items: [{ name: 'DSCR', value: '1.5', threshold: '≥ 1.2', pass: true }] });
+    render(<CardRenderer card={c} />);
+    expect(screen.getByText('Thực tế')).toBeInTheDocument();
+    expect(screen.getByText('Ngưỡng')).toBeInTheDocument();
+  });
+
+  it('DF-A-06: label-map dịch thuật ngữ trong ngoặc (Identity→Định danh); tên lạ pass-through', () => {
+    const c = card('metric', { items: [
+      { name: 'Nhân thân (Identity)', value: 'YELLOW', pass: false },
+      { name: 'Chỉ số lạ XYZ', value: '1', pass: true },
+    ] });
+    render(<CardRenderer card={c} />);
+    expect(screen.getByText('Nhân thân (Định danh)')).toBeInTheDocument(); // dịch
+    expect(screen.getByText('Chỉ số lạ XYZ')).toBeInTheDocument(); // giữ nguyên
+  });
 });

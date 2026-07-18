@@ -76,6 +76,9 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
   // draft mode (D-45b): "+ Ca mới" KHÔNG tạo ca ngay — mở khung soạn (composer + picker hiện) để user
   // chọn provider/model TRƯỚC, ca tạo LAZY lúc gửi câu đầu (kèm model đã chọn). Fix dây "chọn-sau-khi-tạo".
   const [drafting, setDrafting] = useState(false);
+  // DF-A-04: form-draft values NÂNG lên đây (theo card.id) để sống qua đổi tab canvas (FormCard unmount
+  // khi đổi tab → local state chết). Clear entry khi submit thành công (không dính form lần sau).
+  const [formDrafts, setFormDrafts] = useState<Record<string, Record<string, string>>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -83,6 +86,11 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
   // ref theo activeId — dùng trong callback async (refetch) để kiểm còn đúng ca không (tránh race).
   const activeIdRef = useRef<string | null>(null);
   activeIdRef.current = activeId;
+  // ref theo drafting — mount-effect auto-select ca (async) đọc REF để KHÔNG đè draft cố ý của user
+  // (DF-A-07: fresh load → user bấm "+ Ca mới" TRƯỚC khi listConversations resolve → startDraft set
+  // activeId=null → promise resolve `null ?? list[0]` ĐÈ về ca cũ → panel kẹt ca cũ. Guard ref chặn đè).
+  const draftingRef = useRef(false);
+  draftingRef.current = drafting;
 
   // 401 mid-session (cookie hết hạn) → đẩy về login. Ổn định qua ref để callback không stale.
   const onAuthExpiredRef = useRef(onAuthExpired);
@@ -104,7 +112,9 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
         if (!alive) return;
         setConversations(list);
         setListError(null);
-        if (list.length > 0) setActiveId((cur) => cur ?? list[0].id);
+        // auto-select ca đầu KHI chưa chọn gì — NHƯNG không đè nếu user đã chủ động vào draft "+ Ca mới"
+        // trong lúc list đang tải (DF-A-07 race): draftingRef true → giữ nguyên draft, không select ca cũ.
+        if (list.length > 0 && !draftingRef.current) setActiveId((cur) => cur ?? list[0].id);
       })
       .catch((err: unknown) => {
         if (!alive) return;
@@ -226,6 +236,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
     setFocusSub(null);
     setStreaming(null);
     setConvStatus('idle');
+    setFormDrafts({}); // đổi ca → clear form-draft (2 conv không lẫn — DF-A-04 defensive)
     setLoadError(null);
     conversationApi
       .getConversation(id)
@@ -260,6 +271,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
     setConvStatus('idle');
     setLoadError(null);
     setListError(null);
+    setFormDrafts({}); // draft mới → clear form-draft ca cũ (DF-A-04)
   }, []);
 
   // tạo ca THẬT (lazy) với provider/model đã chọn → trả conv để gửi câu đầu vào. Fail → ném cho caller.
@@ -330,11 +342,18 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
 
   // khách nộp hồ sơ (T9-3 D-57). form-submit → SSE card update (status submitted) → FormCard read-only.
   // Ném lỗi lại cho FormCard hiển thị message 4-field (missing_fields/bad_income); 409 → refetch read-only.
+  // DF-A-04: FormCard onChange → lưu draft theo card.id ở Workspace (sống qua đổi tab).
+  const handleFormDraftChange = useCallback((cardId: string, values: Record<string, string>) => {
+    setFormDrafts((prev) => ({ ...prev, [cardId]: values }));
+  }, []);
+
   const handleFormSubmit = useCallback(async (cardId: string, values: Record<string, string>): Promise<void> => {
     const id = activeIdRef.current;
     if (!id) throw new Error('Chưa mở ca');
     try {
       await conversationApi.submitForm(id, cardId, values);
+      // submit OK → clear draft entry (không dính sang form/lần sau — defensive DF-A-04)
+      setFormDrafts((prev) => { const next = { ...prev }; delete next[cardId]; return next; });
     } catch (err: unknown) {
       // 409 đã nộp → refetch full-state để card về read-only (DB nguồn sự thật §0)
       if (err instanceof ApiRequestError && err.status === 409) {
@@ -483,7 +502,8 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
             onBack={() => setFocusSub(null)}
           />
         ) : (
-          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} canDecide={user.role === 'admin'} onFormSubmit={handleFormSubmit} onSelectSub={setFocusSub} />
+          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} canDecide={user.role === 'admin'} onFormSubmit={handleFormSubmit}
+            formDrafts={formDrafts} onFormDraftChange={handleFormDraftChange} onSelectSub={setFocusSub} />
         )}
       </div>
     </div>

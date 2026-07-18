@@ -27,7 +27,13 @@ export function Login({ onSuccess, googleEnabled }: { onSuccess: (user: AuthUser
     const password = String(form.get('password') ?? '');
     const email = String(form.get('email') ?? '').trim();
     if (!username || !password) {
-      setError(mode === 'register' ? 'Nhập đủ tên đăng nhập và mật khẩu.' : 'Nhập đủ tên đăng nhập và mật khẩu.');
+      setError('Nhập đủ tên đăng nhập và mật khẩu.');
+      return;
+    }
+    // DF-A-03: validate email tự chủ (không dựa HTML5 type=email — nó chặn submit im lặng, app hiện
+    // message sai case). email TUỲ CHỌN: có giá trị mà sai định dạng → message đúng nguyên nhân.
+    if (mode === 'register' && email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Email không hợp lệ (hoặc bỏ trống — email là tuỳ chọn).');
       return;
     }
     setBusy(true);
@@ -106,7 +112,9 @@ export function Login({ onSuccess, googleEnabled }: { onSuccess: (user: AuthUser
         {mode === 'register' && (
           <label className="login__field">
             <span>Email (tuỳ chọn)</span>
-            <input name="email" type="email" autoComplete="email" aria-label="Email" placeholder="name@domain.com" />
+            {/* type="text" (KHÔNG "email") — HTML5 type=email chặn submit im lặng làm message sai case;
+               tự validate regex trong submit → báo đúng nguyên nhân (DF-A-03). */}
+            <input name="email" type="text" autoComplete="email" aria-label="Email" placeholder="name@domain.com" />
           </label>
         )}
 
@@ -144,7 +152,7 @@ export function Login({ onSuccess, googleEnabled }: { onSuccess: (user: AuthUser
         ) : null}
 
         {mode === 'login'
-          ? <div className="login__hint">Demo: <b>user / user</b> (RM) · <b>admin / admin</b> (quản lý) · <b>c001 / c001</b> (khách)</div>
+          ? <div className="login__hint">Demo: <b>c001 / c001</b> (khách)</div>
           : <div className="login__hint">Khách mới đăng ký → tạo hồ sơ vay ngay trong cuộc trò chuyện đầu tiên.</div>}
       </form>
     </div>

@@ -77,6 +77,19 @@
   border-bottom: 1px solid var(--bd);
   vertical-align: middle;
 }
+/* header cột (DF-A-06: phân tách Thực-tế vs Ngưỡng, đỡ dính nhau khó đọc) */
+.card-metric__head th {
+  padding: 4px 10px 6px;
+  text-align: left;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--bd2);
+  white-space: nowrap;
+}
+.card-metric__head th:last-child { text-align: right; }
 .card-metric tr:last-child td { border-bottom: none; }
 .card-metric__name { color: var(--dim); }
 .card-metric__value { font: 700 12.5px var(--mono); color: var(--tx); white-space: nowrap; }
@@ -156,7 +169,16 @@
   font: 700 10px var(--mono);
 }
 .card-timeline__step { font-size: 11.5px; font-weight: 600; color: var(--tx); }
-.card-timeline__meta { font-size: 10px; color: var(--mute); display: flex; gap: 5px; margin-top: 1px; }
+.card-timeline__desc { font-size: 11px; color: var(--dim); line-height: 1.45; margin-top: 2px; }
+.card-timeline__meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.card-timeline__chip {
+  font: 500 9.5px var(--mono);
+  color: var(--mute);
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
 .card-timeline__total {
   font-size: 11px;
   font-weight: 700;

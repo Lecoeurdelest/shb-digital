@@ -22,12 +22,28 @@ function formStatus(card: Card): string {
   return String(cardField<string>(card, 'status') ?? 'pending');
 }
 
-export function FormCard({ card, onSubmit }: { card: Card; onSubmit?: FormSubmitFn }) {
+interface FormCardProps {
+  card: Card;
+  onSubmit?: FormSubmitFn;
+  // DF-A-04: values NÂNG lên caller (Workspace) để sống qua đổi tab canvas (FormCard unmount khi
+  // đổi tab → local state chết). Nếu caller quản lý (draftValues + onDraftChange) → dùng; nếu không
+  // (test standalone) → local state fallback. busy/error/missing giữ local (không cần sống qua tab).
+  draftValues?: Record<string, string>;
+  onDraftChange?: (cardId: string, values: Record<string, string>) => void;
+}
+
+export function FormCard({ card, onSubmit, draftValues, onDraftChange }: FormCardProps) {
   const fields = readFields(card);
   const status = formStatus(card);
   const submitted = status === 'submitted';
 
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [localValues, setLocalValues] = useState<Record<string, string>>({});
+  const managed = draftValues !== undefined && onDraftChange !== undefined;
+  const values = managed ? draftValues : localValues;
+  const setValues = (next: Record<string, string>) => {
+    if (managed) onDraftChange!(card.id, next);
+    else setLocalValues(next);
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<Set<string>>(new Set());
@@ -79,7 +95,7 @@ export function FormCard({ card, onSubmit }: { card: Card; onSubmit?: FormSubmit
                   value={values[f.name] ?? ''}
                   disabled={busy}
                   aria-label={f.label}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [f.name]: e.target.value }))}
+                  onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
                 />
               </label>
             ))}

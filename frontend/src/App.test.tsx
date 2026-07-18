@@ -2,11 +2,12 @@
 // Chứng minh: tạo ca → gõ câu C001 → mock stream chat.delta + task credit → DSCR 3.709 render +
 // badge task "xong". Bổ trợ Chrome verify (không thay thế — Gate 2 vẫn đòi browser).
 // Test Workspace TRỰC TIẾP (auth gate ở App = test riêng App.gate.test.tsx) — inject user giả.
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Workspace } from './Workspace';
 import { mockBackend } from './api/mock';
-import type { AuthUser } from './types';
+import { conversationApi } from './api';
+import type { AuthUser, Conversation } from './types';
 
 const USER: AuthUser = { username: 'user', role: 'user' };
 const noop = vi.fn();
@@ -115,5 +116,40 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
     // bubble streaming đã đóng (done kết lượt — không treo)
     await waitFor(() => expect(screen.queryByTestId('streaming-bubble')).not.toBeInTheDocument());
     await waitFor(() => expect(screen.getAllByText(/^Lỗi$/).length).toBeGreaterThan(0));
+  });
+
+  // DF-A-07 regression: fresh load, user bấm "+ Ca mới" TRƯỚC khi listConversations resolve → mount
+  // auto-select KHÔNG được đè draft về ca cũ (race). Guard draftingRef.
+  it('DF-A-07: "+ Ca mới" trước khi list ca resolve → giữ NHÁP, không đè về ca cũ', async () => {
+    // listConversations DEFERRED — kiểm soát thời điểm resolve (mô phỏng mạng chậm ở prod).
+    let resolveList!: (v: Conversation[]) => void;
+    const deferred = new Promise<Conversation[]>((res) => { resolveList = res; });
+    vi.spyOn(conversationApi, 'listConversations').mockReturnValue(deferred);
+
+    render(<Workspace user={USER} onAuthExpired={noop} />);
+    // list CHƯA resolve → chưa có ca active. User bấm "+ Ca mới" NGAY (vào draft).
+    fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
+    expect(await screen.findByLabelText('Ô nhập câu hỏi')).toHaveAttribute('placeholder', expect.stringMatching(/Gõ câu hỏi đầu tiên/));
+
+    // GIỜ list resolve (muộn) với 1 ca cũ — KHÔNG được đè activeId (draft giữ nguyên).
+    await act(async () => {
+      resolveList([{ id: 'old1', title: 'Ca cũ', status: 'idle', created_at: '2026-07-18T10:00:00' }]);
+      await Promise.resolve();
+    });
+
+    // BẰNG CHỨNG bug: gửi tin đầu → PHẢI tạo ca MỚI (createConversation), KHÔNG gửi vào ca cũ old1.
+    // Nếu race đè activeId=old1 → sendChat(old1) chạy (bug), createConversation KHÔNG gọi.
+    const createSpy = vi.spyOn(conversationApi, 'createConversation').mockResolvedValue(
+      { id: 'new1', title: 'Ca mới', status: 'idle', created_at: '2026-07-19T00:00:00' },
+    );
+    const sendSpy = vi.spyOn(conversationApi, 'sendChat').mockResolvedValue(undefined);
+    const input = screen.getByLabelText('Ô nhập câu hỏi');
+    fireEvent.change(input, { target: { value: 'Tôi muốn hỏi vay mua xe' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(createSpy).toHaveBeenCalled()); // tạo ca MỚI (không nuốt vào ca cũ)
+    // KHÔNG gửi thẳng vào ca cũ old1 (bug DF-A-07)
+    expect(sendSpy).not.toHaveBeenCalledWith('old1', expect.anything());
+    vi.restoreAllMocks();
   });
 });

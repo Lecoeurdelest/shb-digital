@@ -65,6 +65,8 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
       <nav className="lp-nav">
         <span className="lp-logo">G</span>
         <span className="lp-nav__title">Digital Expert Guild</span>
+        {/* DF-A-02: "BANK Digital" ở vị trí đọc-đầu-tiên (nhận diện là dịch vụ ngân hàng số ngay 5s đầu) */}
+        <span className="lp-nav__brand">BANK Digital</span>
         <span className="lp-nav__sub">Hội đồng Chuyên gia Số</span>
         <span className="lp-nav__spacer" />
         <a className="lp-nav__link" href="#agents">Đội chuyên gia</a>

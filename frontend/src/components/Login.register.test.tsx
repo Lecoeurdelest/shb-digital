@@ -79,4 +79,45 @@ describe('Login — đăng ký khách mới (D-57)', () => {
     render(<Login onSuccess={vi.fn()} googleEnabled={true} />);
     expect(spy).not.toHaveBeenCalled();
   });
+
+  // DF-A-01 (D-64): hint demo bề mặt public CHỈ gợi ý c001 (khách) — KHÔNG lộ admin/RM.
+  it('DF-A-01: hint demo chỉ c001, KHÔNG có admin/user-RM', () => {
+    render(<Login onSuccess={vi.fn()} />);
+    const hint = screen.getByText(/Demo:/);
+    expect(hint).toHaveTextContent(/c001 \/ c001/);
+    expect(hint).not.toHaveTextContent(/admin \/ admin/);
+    expect(hint).not.toHaveTextContent(/user \/ user/);
+  });
+
+  // DF-A-03: message lỗi đăng ký ĐÚNG nguyên nhân (email sai ≠ thiếu user/pass).
+  it('DF-A-03: register email SAI định dạng → message "Email không hợp lệ" (không phải thiếu user/pass)', async () => {
+    const spy = vi.spyOn(conversationApi, 'register');
+    render(<Login onSuccess={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('tab-register'));
+    fireEvent.change(screen.getByLabelText('Tên đăng nhập'), { target: { value: 'dogfood-a1' } });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'dogfood123' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'khong-phai-email' } });
+    fireEvent.click(screen.getByRole('button', { name: /Đăng ký & vào/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/Email không hợp lệ/);
+    expect(spy).not.toHaveBeenCalled(); // không gửi request khi email sai
+  });
+
+  it('DF-A-03: register email RỖNG (tuỳ chọn) → hợp lệ, gọi register (email undefined)', async () => {
+    const spy = vi.spyOn(conversationApi, 'register').mockResolvedValue({ token: 't', user: { username: 'a', role: 'customer', owner_id: null } });
+    render(<Login onSuccess={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('tab-register'));
+    fireEvent.change(screen.getByLabelText('Tên đăng nhập'), { target: { value: 'dogfood-a2' } });
+    fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: 'dogfood123' } });
+    // email để rỗng
+    fireEvent.click(screen.getByRole('button', { name: /Đăng ký & vào/ }));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('dogfood-a2', 'dogfood123', undefined));
+  });
+
+  it('DF-A-03: thiếu user/pass → vẫn message "Nhập đủ tên đăng nhập và mật khẩu"', () => {
+    render(<Login onSuccess={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('tab-register'));
+    fireEvent.change(screen.getByLabelText('Tên đăng nhập'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /Đăng ký & vào/ }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/Nhập đủ tên đăng nhập và mật khẩu/);
+  });
 });

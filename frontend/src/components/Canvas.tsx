@@ -19,6 +19,8 @@ interface Props {
   onDecide?: DecideFn;
   canDecide?: boolean; // D-56 — chỉ admin (ngân hàng) quyết phiếu; customer thấy "chờ ngân hàng"
   onFormSubmit?: FormSubmitFn; // T9-3 — khách nộp hồ sơ (card type 'form')
+  formDrafts?: Record<string, Record<string, string>>; // DF-A-04 — form values sống qua đổi tab
+  onFormDraftChange?: (cardId: string, values: Record<string, string>) => void;
   onSelectSub?: (taskId: string) => void; // click sub (live map/bảng việc) → mở SubAgentView (F2a)
 }
 
@@ -33,7 +35,7 @@ function latestTaskOfRole(tasks: OrchTask[], role: string): OrchTask | undefined
   return tasks.filter((t) => t.role === role).at(-1);
 }
 
-export function Canvas({ cards, tasks, onDecide, canDecide, onFormSubmit, onSelectSub }: Props) {
+export function Canvas({ cards, tasks, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange, onSelectSub }: Props) {
   const [tab, setTab] = useState<'lobby' | 'work'>('lobby');
   // citation chip bấm — S2: hiện banner tên tool (tooltip đã có). Trace view mở tool-call = S4.
   const [cited, setCited] = useState<string | null>(null);
@@ -118,7 +120,8 @@ export function Canvas({ cards, tasks, onDecide, canDecide, onFormSubmit, onSele
           ) : (
             <div className="canvas__cards">
               {cards.map((card) => (
-                <CardRenderer key={card.id} card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit} />
+                <CardRenderer key={card.id} card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit}
+                  formDrafts={formDrafts} onFormDraftChange={onFormDraftChange} />
               ))}
             </div>
           )}

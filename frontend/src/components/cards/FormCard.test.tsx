@@ -73,4 +73,28 @@ describe('FormCard', () => {
     expect(screen.getByTestId('card-form')).toBeInTheDocument();
     expect(screen.getByTestId('form-card')).toBeInTheDocument();
   });
+
+  // DF-A-04: managed values (draftValues + onDraftChange) — gõ → gọi onDraftChange (caller lưu, sống
+  // qua đổi tab). Giá trị hiển thị THEO prop (không phải local state) → unmount/remount không mất.
+  it('DF-A-04 managed: gõ field → onDraftChange(cardId, values); value hiển thị theo draftValues prop', () => {
+    const onDraftChange = vi.fn();
+    const { rerender } = render(
+      <FormCard card={formCard()} onSubmit={vi.fn()} draftValues={{}} onDraftChange={onDraftChange} />,
+    );
+    fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'Trần B' } });
+    expect(onDraftChange).toHaveBeenCalledWith('card_f1', { full_name: 'Trần B' });
+    // caller cập nhật draftValues → remount (mô phỏng đổi-tab-về) vẫn hiện giá trị (không mất)
+    rerender(<FormCard card={formCard()} onSubmit={vi.fn()} draftValues={{ full_name: 'Trần B' }} onDraftChange={onDraftChange} />);
+    expect((screen.getByLabelText('Họ và tên') as HTMLInputElement).value).toBe('Trần B');
+  });
+
+  it('DF-A-04 submit dùng draftValues managed → onSubmit với values từ prop', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <FormCard card={formCard()} onSubmit={onSubmit}
+        draftValues={{ full_name: 'X', monthly_income: '9000000' }} onDraftChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByTestId('form-submit'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('card_f1', { full_name: 'X', monthly_income: '9000000' }));
+  });
 });
