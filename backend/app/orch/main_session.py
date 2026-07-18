@@ -120,10 +120,13 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
         UserMessage,
     )
 
-    from app.orch.providers import server_provider_env
+    from app.orch.providers import conv_provider_env
 
+    # D-45b (c): sub cùng conv dùng provider CỦA CONV (nhất quán trải nghiệm). null → server-default.
+    conv = await store.get_conversation(task.conv_id)
+    penv = conv_provider_env(conv.get("provider") if conv else None)
     brief = task.input or task.title
-    client = ClaudeSDKClient(options=_build_sub_options(task, server_provider_env()))
+    client = ClaudeSDKClient(options=_build_sub_options(task, penv))
     text_parts: list[str] = []
     tool_calls: list[dict[str, Any]] = []
     # T4-1 audit: buffer tool_use theo id (input) → match ToolResultBlock (output) → record 1 row đủ.
@@ -231,8 +234,13 @@ def _emit_thinking(conv_id: str, task_id: str | None, text: str) -> None:
         log.warning("emit thinking lỗi (bỏ qua): %s", e)
 
 
-def _build_main_options(conv_id: str, resume: str | None, provider_env: dict[str, str] | None = None) -> Any:
-    """Options MAIN: skill điều phối + orch_* + common. model=sonnet. resume phiên bền.
+def _build_main_options(
+    conv_id: str, resume: str | None, provider_env: dict[str, str] | None = None, model: str | None = None
+) -> Any:
+    """Options MAIN: skill điều phối + orch_* + common. model=conv.model hoặc MAIN_MODEL. resume bền.
+
+    D-45b (c): model per-conv override MAIN (null → MAIN_MODEL). Sub GIỮ SUB_MODEL (haiku rẻ, cố ý —
+    không promote sub thành model đắt vì user chọn cho chat). model theo provider của conv (dropdown FE).
 
     provider_env (D-45): xem _build_sub_options. subscription → rỗng → SDK dùng CLI auth.
     """
@@ -243,7 +251,7 @@ def _build_main_options(conv_id: str, resume: str | None, provider_env: dict[str
 
     return ClaudeAgentOptions(
         system_prompt=MAIN_SKILL,
-        model=MAIN_MODEL,
+        model=model or MAIN_MODEL,
         mcp_servers={"orch": build_orch_server(conv_id), "common": COMMON_SERVER},
         tools=[],
         allowed_tools=ORCH_ALLOWED + COMMON_ALLOWED,
@@ -287,19 +295,27 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
     registry.CTX_ACTOR.set("main")
     registry.CTX_TASK.set("")  # main present ngoài sub → task_id null (T2-1)
 
-    from app.orch.providers import server_provider_env
+    from app.orch.providers import conv_provider_env
 
-    penv = server_provider_env()  # resolve MỘT lần/lượt — resume + fresh dùng CÙNG provider
+    # D-45b (c) resume-consistency: provider CỦA CONV — resume + fresh-fallback dùng CÙNG (conv tạo
+    # trên X → mọi lượt X). null → server-default. resolve MỘT lần/lượt (cả 2 path dưới dùng chung).
+    _conv = await store.get_conversation(conv_id)
+    penv = conv_provider_env(_conv.get("provider") if _conv else None)
+    cmodel = _conv.get("model") if _conv else None  # D-45b (c): model per-conv → MAIN (null → MAIN_MODEL)
     expected = await store.get_conv_session_id(conv_id)
     try:
-        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=expected, provider_env=penv))
+        client = ClaudeSDKClient(
+            options=_build_main_options(conv_id, resume=expected, provider_env=penv, model=cmodel)
+        )
         await client.connect()
     except ProcessError:
         if not expected:
             raise
         log.warning("resume %s chết → fresh (conv %s)", expected, conv_id)
         await store.set_conv_session_id(conv_id, None)
-        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=None, provider_env=penv))
+        client = ClaudeSDKClient(
+            options=_build_main_options(conv_id, resume=None, provider_env=penv, model=cmodel)
+        )
         await client.connect()
 
     registry.main_clients[conv_id] = client  # cho interrupt (§7) — pop trong finally

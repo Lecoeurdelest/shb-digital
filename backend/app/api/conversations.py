@@ -22,6 +22,8 @@ router = APIRouter(prefix="/api/conversations", tags=["conversations"])
 
 class CreateConvBody(BaseModel):
     title: str = "Ca mới"
+    provider: str | None = None  # D-45b (c) — tên provider (providers.yaml). null = server-default.
+    model: str | None = None  # model string ("sonnet"/"glm-4.6"...). null = default.
 
 
 class ChatBody(BaseModel):
@@ -30,8 +32,20 @@ class ChatBody(BaseModel):
 
 @router.post("")
 async def create_conversation(body: CreateConvBody, claims: dict = Depends(require_user)) -> JSONResponse:
-    """Tạo ca → Conversation (201). user_id từ JWT claims."""
-    conv = await store.create_conversation(claims["username"], body.title)
+    """Tạo ca → Conversation (201). user_id từ JWT claims. provider/model optional (D-45b c)."""
+    # validate provider nếu truyền — fail LOUD (4-field) thay vì lưu provider sai → hang lúc chạy.
+    if body.provider:
+        from app.orch.providers import providers as _providers
+
+        if body.provider not in {p["name"] for p in _providers.public_view()}:
+            raise ApiError(
+                400,
+                "bad_provider",
+                f"provider '{body.provider}' không có trong cấu hình.",
+                "Xem GET /api/models để lấy tên provider hợp lệ.",
+                retryable=False,
+            )
+    conv = await store.create_conversation(claims["username"], body.title, body.provider, body.model)
     return JSONResponse(status_code=201, content=conv)
 
 

@@ -137,3 +137,16 @@ def server_provider_env() -> dict[str, str]:
     providers.reload()
     _, env = providers.resolve_env(os.environ.get("SHB_PROVIDER") or None)
     return env
+
+
+def conv_provider_env(conv_provider: str | None) -> dict[str, str]:
+    """D-45b (c) per-conv: env từ provider CỦA CONV (resume-consistency — conv tạo trên X chạy X).
+
+    conv_provider None → server-default (SHB_PROVIDER) — conv cũ + không chọn = hành vi (a). Có tên
+    → resolve_env raise KeyError nếu thiếu key/không tồn → caller (turn) fail LOUD (không hang câm).
+    reload .env mỗi lần (bắt key điền runtime).
+    """
+    providers.reload()
+    name = conv_provider or os.environ.get("SHB_PROVIDER") or None
+    _, env = providers.resolve_env(name)
+    return env
