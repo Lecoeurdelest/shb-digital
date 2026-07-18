@@ -38,12 +38,15 @@ ngưỡng, dẫn assessment #id). Tester 5/5 live + 378 test. Script v7. D-55/58
 cross-owner + READ-SCOPE leak + provider/image/env/volume) + merge PR#1/#2/#3 (lobby 3D, landing,
 google-OFF) + brand D-61. Tester 6/6 PASS trên prod. 465 test (355+110).
 
-**Sprint 11 — ĐANG CHẠY** (`plan_sprint_11.md`): cleanup + docs + nâng-điểm-chấm (CI GitHub
-Actions · refactor gated 0-đổi-hành-vi · README-60s · METHODOLOGY khai-thật · polish). Backlog
-bổ sung từ review ngoài user đưa (phản biện: nửa A = artifact backup; nhận CI/refactor/docs).
-Kế: **S12** (retrieval 4 tầng — kết bằng rebuild image + redeploy).
+**Sprint 11 — ĐÓNG** (2026-07-19): CI badge (bắt false-green-secret ngay run#1) + refactor
+gated 0-đổi (41 money-test guard) + METHODOLOGY/README-60s + google-auth LIVE + flaky-fix
+gap=0 + dark/light default-LIGHT + logout-thoát-thật + kịch bản nghiệp vụ 7/7 PASS prod
+(script v9 sửa seed). 477 test (357+120). 2 waiver §6b (502-tunnel, cookie-đa-tab).
 
-**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_9.md`.
+**Sprint 13 — ĐANG CHẠY KẾ** (`plan_sprint_13.md`): admin thống kê (/api/stats + tab Tổng quan)
++ hồ-sơ-lý-do-AI. Full-auto. Sau đó: S12 retrieval (⏸ D-63 chờ LAB drop).
+
+**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_13.md`.
 
 **Lịch sử:**
 
@@ -59,3 +62,4 @@ Kế: **S12** (retrieval 4 tầng — kết bằng rebuild image + redeploy).
 | 8 | 82883bb, 06585e4, 09c55c7, ac966b4 + đóng | 2 persona D-56 (đảo D-54): cửa khách + bàn duyệt bank + MAIN inject + badge phiếu-bay + script v6 hai-cửa-sổ. Matrix 7/7 + e2e 2-phía + rehearsal delta. 331 test. |
 | 7 | 25bd8d7, de41787, 3d58c2c, 2069bbc + đóng | LAB legal 3 trụ (byte-identical + SKILL v3 + adapter WRITE D-55b) + ma trận 3 tầng verdict D-59 (xanh tự duyệt trên ngưỡng). Tester 5/5 live. 378 test. Kèm D-60 markdown + PR #1 lobby 3D. |
 | 9+10 | 5059e1a→6ec86bc + merges + đóng | Khách mới vòng đời trọn (form/mail/bell) + DEPLOY digital.tinhdev.com + 6 fix prod (read-scope leak E) + landing/google + brand D-61. Tester 6/6 PROD. 465 test. |
+| 11 | f7e9332→32d88af + đóng | CI badge + refactor gated 0-đổi + METHODOLOGY/README + google LIVE + flaky gap=0 + dark/light LIGHT + logout thật + scenarios 7/7 prod + script v9. 477 test. |

@@ -161,3 +161,10 @@
 - **RÀO:** chỉ endpoint ĐỌC + màn trình bày — không bảng mới/cost-USD/health/tách-route.
 - **Plan:** `plan_sprint_13.md` (draft — kickoff chỉnh khi S11 đóng). Thứ tự: S11 → S13 → S12
   (retrieval, chờ LAB drop — D-63).
+
+## Sprint 11 — Cleanup + docs + nâng điểm ✅ ĐÓNG (f7e9332→32d88af + đóng, 19/7)
+- **Gate:** ✅ CI GitHub Actions xanh khách quan (badge, bắt false-green-secret run#1) · refactor
+  gated 0-đổi-hành-vi (41 money-test, SQL byte-identical) · METHODOLOGY/README-60s · google-auth
+  LIVE + flaky gap=0 + dark/light default-LIGHT + logout-thoát-thật (bug FE bắt) · kịch bản
+  nghiệp vụ 7/7 PASS prod (`docs/business-test-scenarios.md` — kiêm regression) · script v9
+  (finding seed-amounts lớp 3). 477 test (357 BE + 120 FE). 2 waiver §6b.
