@@ -1,104 +1,99 @@
-# DEMO SCRIPT — SYSTEM #132 "Chi nhánh ngân hàng số" (thi Đà Nẵng)
+# DEMO SCRIPT v6 — SYSTEM #132 "Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ (D-56)
 
-> Kể 5 deliverable đề #132 trong 1 mạch chuyện ~8-10 phút. Timing đo THẬT trên :8000
-> (18/7). Trước MỖI lần chạy: `cd backend && uv run python -m app.db.reset_demo` (DB sạch,
-> 18 loans active) + server sống `DEV_SKIP_AUTH=1 uv run uvicorn app.main:app --port 8000`
-> (KHÔNG --reload). Standalone không CLI-auth: thêm `SHB_PROVIDER=zai` (.env có key).
+> Kể 5 deliverable đề #132 trong 1 mạch chuyện ~10-13 phút, THEO HƯỚNG D-56: app là CỬA KHÁCH
+> HÀNG — khách tự chat với đội chuyên gia số, khoản nhỏ agent TỰ DUYỆT theo ma trận, khoản lớn
+> bắn về NGÂN HÀNG duyệt. **Sân khấu = 2 cửa sổ Chrome cạnh nhau: TRÁI = khách (b001) ·
+> PHẢI = ngân hàng (admin).** Cả 2 cửa sổ phải VISIBLE (badge poll dừng khi tab ẩn — đừng
+> minimize cửa sổ bank).
+>
+> Setup trước MỖI lần chạy: `cd backend && uv run python -m app.db.reset_demo` (users KHÔNG bị
+> wipe — seed_users riêng) + server `uv run uvicorn app.main:app --port 8000` với
+> **`DEV_SKIP_AUTH=0`** (BẮT BUỘC — demo persona cần login thật; khác script cũ).
+> Standalone không CLI-auth: `SHB_PROVIDER=zai`. Account: **b001/b001** (khách DN — Cty TNHH
+> Cơ khí Xưởng X, B001) · **c001/c001** (khách cá nhân — Nguyễn Văn An, C001) · **admin/admin**
+> (ngân hàng).
 
-## Mạch chuyện: "Hồ sơ vay 5 tỷ của DN Gỗ Việt Phát — từ câu hỏi tới giải ngân"
+## Mạch chuyện: "Doanh nghiệp tự đến chi nhánh số — vay, được thẩm định, giải ngân"
 
-### CẢNH 1 — Đội chuyên gia + luồng nghiệp vụ (deliverable #1 + #2) — ~3 phút
-- Mở app → vào thẳng Workspace admin (skip-auth). GIỚI THIỆU 3 panel: sidebar ca | chat | canvas.
-- ⚠️ MỌI TÊN/MÃ phải KHỚP SEED (đừng bịa — Legal ĐỐI CHIẾU danh tính, lệch tên là nó dừng hỏi lại.
-  Đó là hành vi đúng của hệ — nhưng làm gãy demo).
-**Nhịp A — khảo sát nhanh: đội fan-out SONG SONG:**
-- Gõ: **"Công ty TNHH Cơ khí Xưởng X (mã B001) muốn vay 5 tỷ MỞ RỘNG SẢN XUẤT, thế chấp nhà
-  xưởng (COL06) — khảo sát tổng quan nhanh: sức khoẻ tín dụng, pháp lý hồ sơ thế chấp, gói vay
-  phù hợp. Chưa phải hồ sơ chính thức."**
-  (Đủ NGAY: ai=B001 · mục đích=mở rộng sản xuất · tài sản=COL06 → Pháp chế luật #6 "đủ thông tin
-  → check NGAY, đừng hỏi thừa" — không còn vòng dừng-hỏi (3/3 lần rehearsal cũ dừng vì thiếu 2 ý
-  này). "Khảo sát... chưa chính thức" = tín hiệu FAN-OUT.)
-- CHỈ **constellation "Đội làm việc"**: Main giữa, đường nối CHẢY XANH tới từng sub SONG SONG —
-  "điều phối viên tự phân rã việc, không ai lập trình luồng cứng" (planner→executor, #2).
-- *Thoát hiểm: nếu điều phối viên chọn TUẦN TỰ (model tự quyết — có thể xảy ra) → kể luôn điểm
-  nhịp B ("nó đang đi đúng quy trình tín dụng!") — cả hai đường đều là điểm cộng, đừng khựng.*
-**Nhịp B — hồ sơ VAY chính quy: TUẦN TỰ có BÀN GIAO (D-52 — pain người ra đề):**
-- Gõ ca mới: **"Công ty TNHH Cơ khí Xưởng X (B001) nộp hồ sơ xin vay bổ sung 1 tỷ đồng vốn lưu
-  động, thế chấp nhà xưởng (COL06) — thẩm định hồ sơ vay theo quy trình."** ("nộp hồ sơ... theo
-  quy trình" = tín hiệu TUẦN TỰ; mục đích + tài sản cho sẵn → Legal đủ, không dừng hỏi.)
-- CHỈ: Tín dụng chạy MỘT MÌNH trước → xong → Pháp lý nhận brief KÈM KẾT QUẢ tín dụng (mở SubAgent
-  View Pháp lý, chỉ brief: "Tín dụng đã thẩm định: DSCR..., CIC nhóm..." ) — "bàn giao thật giữa
-  phòng ban, pháp lý không kiểm mù. Đây là quy trình tín dụng thật của ngân hàng."
-- **Khối "Diễn tiến đội"** (F1): mở ra — thấy 🧠 suy nghĩ thật + 🔧 từng tool call sống.
-- Click 1 sub (Tín dụng) → **SubAgentView**: nhiệm vụ + tool đã gọi + kết quả. (Nút Huỷ: nói
-  "có thể huỷ từng chuyên gia không đụng người khác" — KHÔNG bấm trong demo.)
-- ~60-90s: main tổng hợp — canvas đầy card CÓ NGUỒN (DSCR từ credit_assess, pháp lý 4 card,
-  gói vay). CHỈ chip nguồn trên card: "mọi con số đều truy được tool nào sinh ra".
+### CẢNH 1 — Khách tự chat với ĐỘI CHUYÊN GIA (deliverable #1 + #2) — ~3 phút
+- Cửa sổ TRÁI: login **b001/b001** → "b001 · Khách hàng". CHỈ RA: khách KHÔNG thấy Control
+  Tower, không thấy nút duyệt — "đây là cửa khách, như app ngân hàng thật".
+- ⚠️ Hệ TỰ BIẾT khách là ai (MAIN inject B001) — khách không cần khai mã. NHƯNG vẫn nêu
+  MỤC ĐÍCH + TÀI SẢN (luật Pháp chế #3/#6 — thiếu là nó dừng hỏi, đúng nghề nhưng tốn nhịp).
+- Gõ: **"Công ty tôi muốn vay 5 tỷ MỞ RỘNG SẢN XUẤT, thế chấp nhà xưởng (COL06) — khảo sát
+  nhanh giúp tôi: sức khoẻ tín dụng, pháp lý hồ sơ thế chấp, gói vay phù hợp. Chưa phải hồ sơ
+  chính thức."** ("khảo sát... chưa chính thức" = tín hiệu FAN-OUT.)
+- CHỈ constellation: Main giữa, đường nối CHẢY XANH tới các sub SONG SONG — "điều phối viên tự
+  phân rã việc" (#2). MAIN xưng "anh/chị" với khách — chỉ cho giám khảo thấy nó ĐANG nói
+  chuyện với khách hàng, không phải nhân viên.
+- Mở khối "Diễn tiến đội" (F1): 🧠 suy nghĩ + 🔧 tool call sống. Click 1 sub → SubAgentView.
+- ~60-90s: canvas đầy card CÓ NGUỒN (DSCR, pháp lý, gói vay) — chip nguồn: "mọi con số truy
+  được về tool".
+- *Thoát hiểm: Main chọn tuần-tự thay song-song → kể luôn "nó đang đi đúng quy trình tín dụng
+  — bàn giao thật giữa phòng ban" (D-52) — cả hai đường đều điểm cộng.*
 
-### CẢNH 2 — PHANH PHÂN TẦNG: hồ sơ nhỏ tự chạy, vay lớn cần chìa giám đốc (deliverable #3) — ~90s
-**Nhịp A — hồ sơ nhỏ (dưới ngưỡng 500tr) tự duyệt theo rule:**
-- Gõ: **"Giải ngân khoản vay L006 số tiền 300 triệu."** → ~15s: card **"✅ Tự động duyệt & thực
-  thi"** + biên nhận hiện LUÔN — "hồ sơ nhỏ, rule cho phép: agent tự duyệt — nhưng NHÌN audit:
-  phiếu vẫn ghi decided_by='auto-rule' + lý do. Phanh không biến mất, chỉ tự động CÓ KIỂM SOÁT."
-**Nhịp B — vay lớn: két khoá chờ người (tương phản):**
-- Gõ: **"Giải ngân khoản vay L007 số tiền 1 tỷ đồng."** (trên ngưỡng)
-- ~5-10s: card **"🔒 Duyệt: disburse"** — "vượt ngưỡng → agent BỊ CHẶN ở tầng tool. Luật nằm ở
-  cái két, không ở lời dặn — có dụ nó cũng không mở được." CHỈ: loans vẫn `active`.
-- Bấm **✓ Duyệt** → ~25-30s: resume → **"Biên nhận giải ngân"**. "Đúng MỘT lần — gọi lại chỉ trả
-  biên nhận cũ." → *"Đây chính là pain nghiệp vụ: không chặn hết (chậm), không thả hết (rủi ro) —
-  luật phân tầng nằm ở tầng tool, audit 100%."*
+### CẢNH 2 — PHANH PHÂN TẦNG 2 CỬA SỔ: khoản nhỏ TỰ DUYỆT, khoản lớn BAY về ngân hàng (deliverable #3 — CẢNH ĂN TIỀN) — ~3 phút
+**Chuẩn bị:** cửa sổ PHẢI đã login **admin/admin**, để ở Workspace (thấy nút 🗼 Control Tower).
+**Nhịp A — khoản nhỏ, ma trận cho tự duyệt:**
+- TRÁI gõ: **"Giải ngân khoản vay L006 số tiền 300 triệu."** → ~15s: card **"✅ Tự động duyệt &
+  thực thi"** + biên nhận LUÔN — "dưới ngưỡng 500 triệu, ma trận thẩm quyền cho agent tự duyệt.
+  Nhưng NHÌN: phiếu vẫn ghi `decided_by='auto-rule'` + lý do — tự động CÓ KIỂM SOÁT, audit đủ."
+**Nhịp B — khoản lớn: phiếu BAY sang ngân hàng:**
+- TRÁI gõ: **"Giải ngân khoản vay L007 số tiền 1 tỷ đồng."** → ~5-10s: card
+  **"⏳ Đang chờ ngân hàng phê duyệt"** — KHÔNG có nút duyệt phía khách. "Vượt ngưỡng → agent bị
+  CHẶN ở tầng tool. Khách không tự duyệt được, dụ agent cũng không mở được — luật nằm ở cái két."
+- CHỈ TAY sang cửa sổ PHẢI: **badge đỏ nổi trên nút Control Tower** (poll ≤5s) — "phiếu vừa BAY
+  từ cửa khách sang bàn ngân hàng, không ai bấm gì". Mở Tower → "Hàng chờ phê duyệt (1)".
+- PHẢI: bấm **✓ Duyệt** (mời giám khảo bấm nếu hợp không khí — "anh/chị đang là giám đốc chi
+  nhánh") → queue về 0.
+- CHỈ TAY về TRÁI: ~25-30s MAIN tự trả **"✅ Giải ngân thành công, anh..."** + biên nhận —
+  "resume tự động, đúng MỘT lần; gọi lại chỉ trả biên nhận cũ." → *"Đây là pain nghiệp vụ thật:
+  không chặn hết (chậm), không thả hết (rủi ro) — ma trận phân tầng nằm ở TẦNG TOOL, audit 100%."*
 
-### CẢNH 3 — Control Tower: GIÁM SÁT & THỐNG KÊ (deliverable #4) — ~90s
-- Bấm **🗼 Control Tower** — "đây là đài GIÁM SÁT: mọi con số về đội agent gom một chỗ."
-- **Nhật ký tool** (điểm chính): audit append-only — filter theo ca vừa chạy, thấy TỪNG tool call
-  input/output theo thời gian — "lịch sử hành vi agent, truy vết 100%, không sửa được."
-- **Thống kê**: trạng thái đội (ca chạy/chờ/xong/lỗi) + cost meter per-ca — "chi phí từng agent
-  đo được, là nền tối ưu."
-- Hàng chờ duyệt: "phiếu toàn hệ gom đây cho tiện — nhưng duyệt là quyền của MỌI người dùng
-  (nhân viên cấp cao), làm ngay trên card trong luồng như đã thấy ở Cảnh 2. Tower chỉ là chỗ nhìn."
+### CẢNH 3 — Control Tower: đài GIÁM SÁT của ngân hàng (deliverable #4) — ~90s (cửa sổ PHẢI)
+- "Khách không bao giờ thấy màn này — đây là phía ngân hàng."
+- **Nhật ký tool**: filter theo ca vừa chạy — TỪNG tool call input/output theo thời gian,
+  append-only — "truy vết 100% hành vi agent, kể cả 2 phiếu vừa nãy (1 auto-rule, 1 admin)."
+- **Thống kê**: trạng thái đội + cost meter per-ca. **Hàng chờ duyệt**: giờ trống — vì vừa xử hết.
 
-### CẢNH 4 — 1 LLM vs CẢ ĐỘI (deliverable #5) — ~90s (chạy chờ ~70s)
-- Tab **So sánh 1 vs đội** → gõ "Khách C001 vay 500 triệu được không?" → Chạy.
-- Trong lúc chờ: kể kiến trúc (1 Postgres, SDK session bền, event-wake, SSE).
-- Kết quả 2 cột: **1 LLM trần** ("không tra được hồ sơ" — 13s, 0 tool) vs **CẢ ĐỘI** (DSCR 1.501
-  + nguồn, 6 tool, 2 card). "Đây là lý do multi-agent: không phải nhanh hơn — mà TIN được."
+### CẢNH 4 — 1 LLM vs CẢ ĐỘI (deliverable #5) — ~90s (PHẢI, tab So sánh)
+- Gõ "Khách C001 vay 500 triệu được không?" → Chạy. Trong lúc chờ (~70s): kể kiến trúc
+  (1 Postgres, SDK session bền, event-wake, SSE, 2 persona 1 app).
+- 2 cột: 1 LLM trần ("không tra được hồ sơ", 0 tool) vs CẢ ĐỘI (DSCR + nguồn, 6 tool).
+  "Multi-agent không phải để nhanh hơn — để TIN được."
 
-### CẢNH 5 — Chạy trên BẤT KỲ model nào (bonus) — ~30s
-- "+ Ca mới" → picker cạnh nút gửi: chọn **zai/GLM** (hoặc wrap/GPT) → gõ 1 câu ngắn → chạy thật.
-- "Cùng bộ máy — Claude, GLM, GPT đều cắm được. Trí khôn nằm ở tool + kỷ luật hệ thống, không
-  khoá vào 1 nhà model." (Đội đủ multi-agent: dùng zai. GPT: cửa chính.)
+### CẢNH 5 — Chạy trên BẤT KỲ model nào (bonus) — ~30s (TRÁI)
+- "+ Ca mới" → picker cạnh nút gửi: chọn zai/GLM (hoặc wrap/GPT) → 1 câu ngắn → chạy thật.
+  "Cùng bộ máy — trí khôn nằm ở tool + kỷ luật hệ thống, không khoá vào 1 nhà model."
 
 ## Câu chốt
-"5 deliverable: đội song song · planner tự phân rã · hành động thật CÓ PHANH · đài giám sát
-truy vết 100% · và bằng chứng đo được vì sao multi-agent thắng. Toàn bộ chạy live — không video."
+"Khách tự đến chi nhánh số, đội chuyên gia AI phục vụ, khoản nhỏ tự quyết theo ma trận có audit,
+khoản lớn con người ngân hàng giữ chìa — 5 deliverable chạy live, không video."
 
 ## Sự cố & thoát hiểm
 | Sự cố | Thoát |
 |---|---|
-| Sub chậm >90s | kể kiến trúc tiếp; trace F1 cho thấy nó ĐANG làm (không chết) |
-| Model từ chối/lạc đề | ca mới chạy lại (seed-reset đảm bảo lặp được) |
-| Main chọn tuần-tự thay song-song (hoặc ngược) | CẢ HAI đều điểm cộng — kể theo đường nó chọn, đừng khựng |
-| Legal dừng hỏi lại (thiếu context/lệch tên) | "Agent KHÔNG đoán bừa danh tính — nó đối chiếu hồ sơ và hỏi lại. Đây là kiểm soát rủi ro." → trả lời câu nó hỏi, luồng tiếp |
-| Nút header bị che (màn hẹp/máy chiếu) | F11 fullscreen hoặc Ctrl+- zoom out |
-| Compare timeout | cột single vẫn hiện — kể điểm "single không đủ" luôn |
-| Mất mạng provider ngoài | claude-cli/zai dự phòng; đổi SHB_PROVIDER |
-| DB bẩn giữa buổi | reset_demo 1 lệnh (~5s) |
+| Badge không nổi cửa sổ PHẢI | Cửa sổ bank phải VISIBLE (poll dừng khi tab ẩn). Kéo lên foreground / bấm thẳng vào Tower — queue vẫn đúng |
+| Sub chậm >90s | kể kiến trúc; trace F1 cho thấy nó ĐANG làm |
+| Model từ chối/lạc đề | ca mới chạy lại (reset_demo đảm bảo lặp được) |
+| Main chọn tuần-tự thay song-song (hoặc ngược) | CẢ HAI đều điểm cộng — kể theo đường nó chọn |
+| Legal dừng hỏi lại | "Agent không đoán bừa — nó đối chiếu hồ sơ và hỏi. Đây là kiểm soát rủi ro." → trả lời rồi tiếp |
+| Lúng túng 2 cửa sổ | FALLBACK: đóng cửa sổ khách, làm hết trên 1 cửa sổ admin (admin thấy mọi ca + duyệt tại card — flow v4 cũ vẫn nguyên) |
+| Login lỗi/quên pass | password = username (b001/b001, admin/admin) |
+| Compare timeout | cột single vẫn hiện — kể "single không đủ" luôn |
+| Mất mạng provider | đổi SHB_PROVIDER (claude-cli/zai dự phòng) |
+| DB bẩn giữa buổi | reset_demo 1 lệnh (~5s) — users giữ nguyên |
 
-## Timing THẬT (rehearsal 18/7 — vòng nhiễu tên-sai, đo lại sau fix)
-Cảnh 1 ~2-3ph (gồm chờ sub) · Cảnh 2 ~2.5ph (2 nhịp) · Cảnh 3 ~1.5ph · Cảnh 4 ~2.5ph (chạy 70s +
-đọc) · Cảnh 5 ~2.5ph (GLM chậm — cân câu NGẮN "Khách C001 vay được 200 triệu không?"). TỔNG mục
-tiêu ≤13ph — cắt được: Cảnh 1 nhịp B kể miệng thay demo (−1.5ph) nếu ban giám khảo giục.
+## Timing mục tiêu ≤13ph
+C1 ~3ph · C2 ~3ph (2 nhịp + 2 cửa sổ) · C3 ~1.5ph · C4 ~2.5ph · C5 ~1ph (+ đệm). Bị giục →
+cắt C5, C1 rút còn 1 câu + kể miệng.
 
 ## Checklist trước giờ G
-- [ ] `reset_demo` chạy sạch · [ ] server :8000 sống + health OK · [ ] .env đủ key (zai/wrap)
-- [ ] 1 vòng rehearsal trọn <12 phút · [ ] browser zoom/màn hình chiếu OK · [ ] tab Tower + Workspace sẵn
+- [ ] `reset_demo` sạch · [ ] server :8000 `DEV_SKIP_AUTH=0` + health OK · [ ] .env đủ key
+- [ ] login thử cả b001 + admin · [ ] 2 cửa sổ xếp cạnh nhau, CẢ HAI visible
+- [ ] 1 vòng rehearsal trọn 2-cửa-sổ <13' (đo lại timing v6 — chưa đo THẬT sau D-56)
+- [ ] browser zoom/máy chiếu OK (floor 1366×768)
 
-> **Thoát hiểm bổ sung (rehearsal 18/7):** UI treo >60s không trace/message mới → F5 reload đồng
-> bộ trạng thái thật (SSE có thể chết nếu server gián đoạn; conv thật sự đã idle trong DB).
-> **Luật vận hành demo: KHÔNG restart server / đụng DB khi đang chạy ca** — restart giết task
-> đang chạy (failed "server restart") và MAIN không báo user (gap đã ghi finding).
-
-> **2 luật vận hành bổ sung (verdict rehearsal):** (a) KHÔNG chạy `pytest` full suite trên DB đang
-> dùng rehearsal/demo (test bơm approvals/conv rác vào queue Tower) — chạy khi DB rảnh rồi
-> `reset_demo`, hoặc tách DB test. (b) Trước giờ-G: 1 vòng cuối LIỀN MẠCH không xen debug, đo
-> timing sạch (kỳ vọng <13').
+> **Luật vận hành (giữ từ v4):** KHÔNG restart server / KHÔNG đụng DB / KHÔNG chạy pytest trên
+> DB demo khi đang chạy ca. UI treo >60s không trace mới → F5 (SSE watchdog tự reconnect 25s —
+> S6 — nên hiếm cần). Trước giờ-G: 1 vòng cuối LIỀN MẠCH không xen debug.
