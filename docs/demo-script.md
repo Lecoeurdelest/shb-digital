@@ -92,3 +92,8 @@ tiêu ≤13ph — cắt được: Cảnh 1 nhịp B kể miệng thay demo (−1
 ## Checklist trước giờ G
 - [ ] `reset_demo` chạy sạch · [ ] server :8000 sống + health OK · [ ] .env đủ key (zai/wrap)
 - [ ] 1 vòng rehearsal trọn <12 phút · [ ] browser zoom/màn hình chiếu OK · [ ] tab Tower + Workspace sẵn
+
+> **Thoát hiểm bổ sung (rehearsal 18/7):** UI treo >60s không trace/message mới → F5 reload đồng
+> bộ trạng thái thật (SSE có thể chết nếu server gián đoạn; conv thật sự đã idle trong DB).
+> **Luật vận hành demo: KHÔNG restart server / đụng DB khi đang chạy ca** — restart giết task
+> đang chạy (failed "server restart") và MAIN không báo user (gap đã ghi finding).
