@@ -13,7 +13,7 @@ Nẵng hết phụ CLI auth) + routing fix + card-sync. Ngoại lệ treo S4: lo
 compare (deliverable #5) + model picker 3 nhà (claude-cli/zai/wrap-GPT) + loop-bound (ngoại lệ S3 hết)
 + seed-reset. Gate tester trọn. 282 test. Sổ ngoại lệ RỖNG. **5/5 deliverable đề #132 có mặt.**
 
-**Sprint 5 — SẴN SÀNG** (chưa kickoff): Polish + demo-script + agent-bền D-50 (nếu kịp trước demo).
+**Sprint 5 — ĐANG CHẠY** (kickoff 18/7): Polish + demo-script + agent-bền D-50 (nếu kịp trước demo).
 
 **Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_3.md` (đóng) · `plan_sprint_4.md` (draft).
 

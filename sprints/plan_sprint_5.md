@@ -1,4 +1,4 @@
-# Sprint 5 — Plan (DRAFT — chưa kickoff)
+# Sprint 5 — Plan
 
 <!-- DRAFT do architect nháp cuối S4. Kickoff = đọc SPEC §16 B6 + end_sprint_4 + D-50, sửa in-place. -->
 
@@ -33,3 +33,13 @@ Chạy demo-script như giám khảo: timing + mọi bước PASS + không cần
 ## Nợ từ S4
 Xem end_sprint_4 findings: wrap sub-model (a-accepted) · F2b/D-50 (T5-2) · SSE-live queue · exec_failed
 re-mint edge (hiếm).
+
+---
+
+## Kickoff — 2026-07-18
+
+**Drift:** none (draft mới viết cùng ngày). **Ưu tiên:** demo-prep trước (T5-0 script + T5-4 rehearsal
++ T5-1 polish); **T5-2 agent-bền CHỜ user chốt lịch demo** (nếu demo sát → dời sau demo; user chưa trả
+lời lịch 17-19/7). T5-3 nợ nhỏ chỉ khi rảnh.
+
+**Final:** T5-0 architect viết script → T5-4 tester rehearse · T5-1 FE polish (song song) · T5-2/T5-3 treo chờ lịch.
