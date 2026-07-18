@@ -31,6 +31,7 @@ import psycopg2.extras
 
 from app.db.config import DATABASE_URL
 from app.orch import registry
+from app.orch.verdict import disburse_decision
 
 log = logging.getLogger("orch.gated")
 
@@ -41,21 +42,13 @@ GATED_WHITELIST = {"disburse"}
 # Field phi-nghiệp-vụ bỏ khỏi payload_hash (ts/ghi chú không đổi danh tính hành động).
 NON_BIZ_FIELDS = {"ts", "timestamp", "note", "ghi_chu", "ghi_chú", "_meta"}
 
-# T5-2' phanh PHÂN TẦNG (D-52, người ra đề): amount < ngưỡng → auto-duyệt CÓ KIỂM SOÁT (phiếu
-# approved decided_by='auto-rule' + chạy CÙNG lượt + audit đủ — KHÔNG bỏ phanh, chỉ đổi AI DUYỆT).
-# amount >= ngưỡng → chờ NGƯỜI (happy-path S3 nguyên). 500tr: decide-and-log (đảo được: đổi số).
-AUTO_APPROVE_THRESHOLD = 500_000_000  # VND
+# T5-2'→T7-3 phanh PHÂN TẦNG (D-52/D-56): điều kiện auto = verdict-aware MA TRẬN 3 TẦNG ở
+# app/orch/verdict.py (AUTO_APPROVE_THRESHOLD + disburse_decision import ở trên). gated giữ nguyên
+# cấu trúc 4-step tx + advisory lock — CHỈ đổi điều kiện auto (nhánh 4a). assessments rỗng → như cũ.
 
 
-def _auto_approve_ok(args: dict[str, Any], verdict: dict[str, Any] | None = None) -> bool:
-    """Rule phân tầng: True = dưới ngưỡng → auto-duyệt. verdict (hồ-sơ-xanh legal LAB) = CHỖ CẮM
-    tương lai — signature nhận sẵn, giờ gate CHỈ theo amount (verdict chưa wire — D-52 legal đợi LAB).
-    amount thiếu/không parse → False (an toàn: chờ người, không auto oan)."""
-    amount = args.get("amount")
-    try:
-        return float(amount) < AUTO_APPROVE_THRESHOLD
-    except (TypeError, ValueError):
-        return False
+# MA TRẬN 3 TẦNG verdict-aware (T7-3) tách sang app/orch/verdict.py (chuẩn PROD ≤400 LOC).
+# gated._gated_txn nhánh 4a gọi disburse_decision(conn, args) → ('auto', reason) | ('human', None).
 
 
 def _now() -> str:
@@ -179,12 +172,13 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
                     }
                 )
 
-            # 4a. T5-2' PHÂN TẦNG: dưới ngưỡng → AUTO-DUYỆT CÓ KIỂM SOÁT (phiếu approved decided_by=
-            # 'auto-rule' + claim + inner + receipt CÙNG tx → chạy NGAY, không vòng gọi lại). Audit ĐỦ
-            # (chỉ khác AI DUYỆT). Card THÔNG BÁO (không nút). KHÔNG set waiting_approval (không chờ).
-            # advisory-lock ở đầu tx serialize (2 auto-call đồng thời → 1 mint, con kia step-1 receipt).
-            if _auto_approve_ok(args):
-                reason = f"Tự động duyệt theo rule: số tiền dưới ngưỡng {AUTO_APPROVE_THRESHOLD:,} VND"
+            # 4a. MA TRẬN 3 TẦNG (T7-3, D-52/D-56 — verdict-aware): _disburse_decision đọc assessment
+            # mới-nhất + phân tầng → 'auto' (tầng-1 dưới ngưỡng KHÔNG verdict-xấu, HOẶC tầng-2 hồ-sơ
+            # XANH) → AUTO-DUYỆT CÓ KIỂM SOÁT (phiếu 'used' decided_by='auto-rule' + inner + receipt
+            # CÙNG tx → chạy NGAY). Audit ĐỦ (chỉ khác AI DUYỆT). Card THÔNG BÁO (không nút). KHÔNG
+            # waiting_approval. advisory-lock đầu tx serialize. assessments RỖNG → decision như T5-2' cũ.
+            decision, reason = disburse_decision(conn, args)
+            if decision == "auto":
                 cur.execute(
                     "INSERT INTO approvals (conv_id, task_id, action, payload, payload_hash, status, "
                     "decided_by, decided_at, reason) "
@@ -220,8 +214,9 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
                 conn.commit()  # phiếu-approved + inner-write + receipt + card CÙNG COMMIT
                 return _GatedResult(out, emit={"card": card_row, "conv_id": conv_id, "auto": True})
 
-            # 4b. amount >= ngưỡng → CHỜ NGƯỜI (path S3 nguyên — byte-identical, regress-guard).
-            # 4. Chưa có gì → tạo phiếu pending TRƯỚC (có approval_id) → VỎ sinh card approval (§6).
+            # 4b. decision='human' (tầng-2 không-xanh / tầng-3 trên ngưỡng / tầng-1 verdict-xấu) →
+            # CHỜ NGƯỜI (path S3 nguyên — byte-identical, regress-guard).
+            # Chưa có gì → tạo phiếu pending TRƯỚC (có approval_id) → VỎ sinh card approval (§6).
             cur.execute(
                 "INSERT INTO approvals (conv_id, task_id, action, payload, payload_hash, status) "
                 "VALUES (%s, %s, %s, %s, %s, 'pending') RETURNING id",

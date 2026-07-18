@@ -4,6 +4,17 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-59 · Verdict phanh: decision SUY TỪ LANE, không thêm cột decision vào assessments**
+  (backend phát hiện + architect duyệt, T7-3 18/7) — LAB classify chỉ INSERT `lane` (decision
+  suy runtime từ lane+amount); thêm cột = phải sửa classify = phá byte-identity T7-2/N1. Mapping
+  tương đương (đối chiếu LAB legal.py:329-332): `reject_recommended ⟺ lane=red` (amount-
+  independent) · `auto_approve_eligible ⟺ lane=green ∧ amount≤auto_max` — tầng-2 ma trận đã
+  gate amount≤max nên `lane=green` trong nhánh đó ⟺ auto_approve_eligible, recompute theo số
+  tiền DISBURSE (nhất quán known-limitation match-owner-mới-nhất). Hệ quả biên: yellow KHÔNG
+  chặn tầng-1 (chỉ red chặn). MA TRẬN 3 TẦNG: <500tr auto trừ red · 500tr-2e9 auto nếu green ·
+  >2e9 luôn người · assessments rỗng = hành vi cũ y hệt. — cách đổi: đổi ngưỡng/mapping trong
+  `app/orch/verdict.py` (1 file), user lật được.
+
 - **D-58 · Labpack diverge khỏi LAB → RE-SYNC TOÀN FILE về bản LAB hiện tại, không vá tay từng
   function** (architect, T7-1 18/7) — backend phát hiện empirical: `roles/credit/functions.py`
   md5 413a634d ≠ LAB fba6455b (`_assumptions` labpack thiếu graceful-skip value chữ → crash khi
