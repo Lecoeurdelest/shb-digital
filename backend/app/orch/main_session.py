@@ -80,8 +80,12 @@ def conversation_cwd(conv_id: str) -> Path:
     return d
 
 
-def _build_sub_options(task: Task) -> Any:
-    """Options SUB: SKILL role + toolpack role (mount_role) + common. model=haiku. KHÔNG resume."""
+def _build_sub_options(task: Task, provider_env: dict[str, str] | None = None) -> Any:
+    """Options SUB: SKILL role + toolpack role (mount_role) + common. model=haiku. KHÔNG resume.
+
+    provider_env (D-45): env {ANTHROPIC_BASE_URL/AUTH_TOKEN/API_KEY} chọn gateway SDK per-session.
+    subscription (claude-cli) → rỗng → SDK dùng CLI auth. KHÔNG đụng process env (session song song).
+    """
     from claude_agent_sdk import ClaudeAgentOptions
 
     skill, server, allowed = mount_role(task.role)
@@ -97,6 +101,7 @@ def _build_sub_options(task: Task) -> Any:
         setting_sources=[],
         max_turns=SUB_MAX_TURNS,
         cwd=str(conversation_cwd(task.conv_id)),
+        env=provider_env or {},
     )
 
 
@@ -112,8 +117,10 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
         ToolUseBlock,
     )
 
+    from app.orch.providers import server_provider_env
+
     brief = task.input or task.title
-    client = ClaudeSDKClient(options=_build_sub_options(task))
+    client = ClaudeSDKClient(options=_build_sub_options(task, server_provider_env()))
     text_parts: list[str] = []
     tool_calls: list[dict[str, Any]] = []
     try:
@@ -136,8 +143,11 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
     return {"text": "".join(text_parts), "tool_calls": tool_calls}
 
 
-def _build_main_options(conv_id: str, resume: str | None) -> Any:
-    """Options MAIN: skill điều phối + orch_* + common. model=sonnet. resume phiên bền."""
+def _build_main_options(conv_id: str, resume: str | None, provider_env: dict[str, str] | None = None) -> Any:
+    """Options MAIN: skill điều phối + orch_* + common. model=sonnet. resume phiên bền.
+
+    provider_env (D-45): xem _build_sub_options. subscription → rỗng → SDK dùng CLI auth.
+    """
     from claude_agent_sdk import ClaudeAgentOptions
 
     from app.orch.common_tools import COMMON_ALLOWED, COMMON_SERVER
@@ -154,6 +164,7 @@ def _build_main_options(conv_id: str, resume: str | None) -> Any:
         max_turns=MAIN_MAX_TURNS,
         cwd=str(conversation_cwd(conv_id)),
         resume=resume,
+        env=provider_env or {},
     )
 
 
@@ -184,16 +195,19 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
     registry.CTX_ACTOR.set("main")
     registry.CTX_TASK.set("")  # main present ngoài sub → task_id null (T2-1)
 
+    from app.orch.providers import server_provider_env
+
+    penv = server_provider_env()  # resolve MỘT lần/lượt — resume + fresh dùng CÙNG provider
     expected = await store.get_conv_session_id(conv_id)
     try:
-        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=expected))
+        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=expected, provider_env=penv))
         await client.connect()
     except ProcessError:
         if not expected:
             raise
         log.warning("resume %s chết → fresh (conv %s)", expected, conv_id)
         await store.set_conv_session_id(conv_id, None)
-        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=None))
+        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=None, provider_env=penv))
         await client.connect()
 
     registry.main_clients[conv_id] = client  # cho interrupt (§7) — pop trong finally

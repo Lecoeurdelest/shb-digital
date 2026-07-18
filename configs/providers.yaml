@@ -1,0 +1,27 @@
+# PROVIDERS cho SDK runtime SHB #132 — pattern battle (providers.yaml + ${VAR} từ .env).
+# Mọi provider nói giọng Anthropic API (SDK chỉ đổi base_url + auth token).
+# api_key: ${tên_biến} — tên biến trong .env (repo_root/.env, gitignored). KHÔNG ghi key thẳng.
+# KEY KHÔNG BAO GIỜ ra FE — API /models chỉ trả has_key true/false.
+#
+# Chọn provider mức server: env SHB_PROVIDER=<name> (bỏ trống = default bên dưới).
+# Per-conversation (chọn trên UI) = D-45b (c) — làm sau, đọc conv.provider.
+
+providers:
+  - name: claude-cli
+    kind: subscription          # KHÔNG set env — SDK dùng auth Claude CLI (bundle, không API key)
+    default: true
+    models: [haiku, sonnet, opus]
+    note: "đường chính khi máy CÓ Claude CLI login (~/.claude); standalone không login → chọn zai"
+
+  - name: zai
+    base_url: https://api.z.ai/api/anthropic
+    api_key: ${zai}
+    models: [glm-4.6, glm-4.5, glm-4.5-air, glm-4.5-flash]
+    note: "GLM z.ai — đường KEYED không phụ thuộc CLI auth (dùng cho standalone demo Đà Nẵng);
+      cost_usd SDK tính theo giá Anthropic → KHÔNG TIN với provider ngoài"
+
+  # Mẫu thêm (điền key vào .env rồi mở comment):
+  # - name: anthropic
+  #   base_url: https://api.anthropic.com   # hoặc bỏ base_url dùng mặc định SDK
+  #   api_key: ${ANTHROPIC_API_KEY}
+  #   models: [claude-sonnet-4-5, claude-haiku-4-5]
