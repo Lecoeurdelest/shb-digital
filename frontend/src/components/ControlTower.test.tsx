@@ -82,15 +82,37 @@ describe('ControlTower', () => {
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Nhật ký tool'));
     await waitFor(() => expect(screen.getByText('credit_assess')).toBeInTheDocument());
-    expect(screen.getByLabelText('Lọc conv_id')).toBeInTheDocument();
+    expect(screen.getByLabelText('Lọc theo mã ca')).toBeInTheDocument();
   });
 
   it('tab Trạng thái: đếm ca theo status', async () => {
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Trạng thái đội'));
     await waitFor(() => expect(screen.getByText(/Trạng thái đội — 2 ca/)).toBeInTheDocument());
-    // cost meter note (per-turn, không per-tool)
-    expect(screen.getByText(/Cost meter/)).toBeInTheDocument();
+    // DF-B-04: note chi phí wording người-thường (bỏ jargon Cost meter/SDK/per-tool), giữ nghĩa per-turn
+    expect(screen.getByText(/Chi phí: ước tính theo từng lượt/)).toBeInTheDocument();
+  });
+
+  // DF-B-03: "1 Lỗi" drill-down — ca status='failed' hiện danh sách (tiêu đề + mã ca) dưới số đếm.
+  it('DF-B-03: tab Trạng thái có ca lỗi → list ca lỗi (tiêu đề + mã ca)', async () => {
+    vi.spyOn(conversationApi, 'listConversations').mockResolvedValue([
+      { id: 'cok', title: 'Ca chạy', status: 'running', created_at: '' },
+      { id: 'cfailabcdef123456', title: 'Ca thẩm định C019 lỗi', status: 'failed', created_at: '' },
+    ]);
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Trạng thái đội'));
+    await waitFor(() => expect(screen.getByTestId('failed-list')).toBeInTheDocument());
+    expect(screen.getByText(/Ca đang lỗi \(1\)/)).toBeInTheDocument();
+    expect(screen.getByTestId('failed-row-cfailabcdef123456')).toBeInTheDocument();
+    expect(screen.getByText('Ca thẩm định C019 lỗi')).toBeInTheDocument();
+  });
+
+  it('DF-B-03: không có ca lỗi → KHÔNG render list lỗi', async () => {
+    // beforeEach mock: convs chỉ running/done → không failed
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Trạng thái đội'));
+    await waitFor(() => expect(screen.getByText(/Trạng thái đội — 2 ca/)).toBeInTheDocument());
+    expect(screen.queryByTestId('failed-list')).not.toBeInTheDocument();
   });
 
   it('nút ← Workspace → onBack', () => {

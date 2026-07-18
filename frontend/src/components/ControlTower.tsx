@@ -191,12 +191,12 @@ function AuditView() {
     <div className="ct__section">
       <div className="ct__section-head">
         <span className="ct__section-title">Nhật ký tool-call ({rows.length})</span>
-        <input className="ct__filter" placeholder="Lọc conv_id…" value={convId} onChange={(e) => setConvId(e.target.value)} aria-label="Lọc conv_id" />
+        <input className="ct__filter" placeholder="Lọc theo mã ca…" value={convId} onChange={(e) => setConvId(e.target.value)} aria-label="Lọc theo mã ca" />
         <input className="ct__filter" placeholder="Lọc tool…" value={tool} onChange={(e) => setTool(e.target.value)} aria-label="Lọc tool" />
       </div>
       {error && <div className="ct__error">{error}</div>}
       {rows.length === 0 ? (
-        <div className="ct__empty">Không có tool-call (thử lọc conv_id của 1 ca có hoạt động).</div>
+        <div className="ct__empty">Không có tool-call (thử lọc theo mã của một ca có hoạt động).</div>
       ) : (
         <table className="ct__audit">
           <thead><tr><th>Thời điểm</th><th>Actor</th><th>Tool</th><th>Input</th></tr></thead>
@@ -232,6 +232,10 @@ function AgentStatus() {
     acc[c.status] = (acc[c.status] ?? 0) + 1;
     return acc;
   }, {});
+  // DF-B-03: "1 Lỗi" đếm CA (conversation) status='failed' → drill-down = list chính các ca đó
+  // (tiêu đề + mã ca) ngay dưới số đếm. Cán bộ thấy lỗi → biết CA NÀO. Dùng convs đã load, KHÔNG
+  // thêm API. (Role thuộc TASK — không có list-tasks API; xem note báo cáo. Không xây route mới.)
+  const failedConvs = convs.filter((c) => c.status === 'failed');
 
   return (
     <div className="ct__section">
@@ -245,9 +249,24 @@ function AgentStatus() {
           </div>
         ))}
       </div>
+      {failedConvs.length > 0 && (
+        <div className="ct__failed" data-testid="failed-list">
+          <div className="ct__failed-title">⚠ Ca đang lỗi ({failedConvs.length})</div>
+          <ul className="ct__failed-rows">
+            {failedConvs.slice(0, 20).map((c) => (
+              <li key={c.id} className="ct__failed-row" data-testid={`failed-row-${c.id}`}>
+                <span className="ct__failed-name">{c.title || '(ca chưa đặt tên)'}</span>
+                <code className="ct__failed-id">{shortId(c.id)}</code>
+              </li>
+            ))}
+          </ul>
+          {failedConvs.length > 20 && <div className="ct__more">… và {failedConvs.length - 20} ca lỗi nữa</div>}
+        </div>
+      )}
       <div className="ct__note">
-        💰 Cost meter: chi phí tính theo LƯỢT (tasks.cost per-turn) — cost per-tool chưa có (SDK không tách, D-48).
-        Mở 1 ca ở Workspace để xem cost per-turn của lượt đó.
+        {/* DF-B-04: bỏ jargon dev (tasks.cost/SDK/D-48/per-tool). Sự thật: chi phí đo theo TỪNG LƯỢT
+            trao đổi (per-turn) — GIỮ đúng, không đổi thành "gộp toàn phiên". Wording người-thường. */}
+        💰 Chi phí: ước tính theo từng lượt trao đổi của mỗi ca. Mở một ca ở Workspace để xem chi phí của lượt đó.
       </div>
     </div>
   );

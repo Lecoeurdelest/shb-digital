@@ -46,8 +46,9 @@ describe('AssessmentsView (T13-3)', () => {
     const detail = screen.getByTestId('asmt-detail');
     expect(within(detail).getByText(/RED/)).toBeInTheDocument();
     expect(within(detail).getByText(/DSCR 0.62/)).toBeInTheDocument();
-    // Lý do AI = basis
-    expect(within(detail).getByText(/Lý do AI/)).toBeInTheDocument();
+    // DF-B-02: basis = policy snapshot (nhãn "Chính sách áp dụng") + chú thích dẫn về 3 trụ
+    expect(within(detail).getByText(/Chính sách áp dụng/)).toBeInTheDocument();
+    expect(within(detail).getByText(/Lý do riêng của hồ sơ nằm ở tiêu chí 3 trụ/)).toBeInTheDocument();
     expect(within(detail).getByText(/DSCR < 1.0/)).toBeInTheDocument();
   });
 
@@ -66,6 +67,31 @@ describe('AssessmentsView (T13-3)', () => {
     ]);
     render(<AssessmentsView />);
     await waitFor(() => expect(screen.getByText(/Không có chi tiết tiêu chí/)).toBeInTheDocument());
+  });
+
+  // DF-B-02 (gộp): criteria key tiếng Anh → nhãn Việt; DSCR/LTV (không map) pass-through; CIC giữ.
+  it('DF-B-02: criteria key EN → nhãn Việt (identity→Định danh), key lạ pass-through', async () => {
+    vi.spyOn(conversationApi, 'listAssessments').mockResolvedValue([
+      {
+        id: 'a9', owner_id: 'C009', lane: 'yellow', basis: 'x',
+        criteria: [
+          { key: 'identity', level: 'pass', detail: 'CMND khớp.' },
+          { key: 'criminal', level: 'pass', detail: 'Không tiền án.' },
+          { key: 'cic', level: 'yellow', detail: 'Nhóm 2.' },
+          { key: 'DSCR', level: 'pass', detail: '1.4.' }, // không map → giữ nguyên
+        ],
+      },
+    ]);
+    render(<AssessmentsView />);
+    await waitFor(() => expect(screen.getByTestId('asmt-detail')).toBeInTheDocument());
+    const detail = screen.getByTestId('asmt-detail');
+    expect(within(detail).getByText('Định danh')).toBeInTheDocument();
+    expect(within(detail).getByText('Án tích')).toBeInTheDocument();
+    expect(within(detail).getByText('CIC')).toBeInTheDocument(); // tên riêng giữ
+    expect(within(detail).getByText('DSCR')).toBeInTheDocument(); // pass-through
+    // nhãn EN gốc "identity"/"criminal" KHÔNG còn hiện
+    expect(within(detail).queryByText('identity')).not.toBeInTheDocument();
+    expect(within(detail).queryByText('criminal')).not.toBeInTheDocument();
   });
 
   it('rỗng list → "chưa có hồ sơ"', async () => {

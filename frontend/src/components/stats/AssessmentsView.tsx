@@ -26,6 +26,25 @@ function levelMeta(level: string) {
   return LEVEL_META[level] ?? { mark: '•', cls: 'asmt__crit--idle' };
 }
 
+// DF-B-02 (gộp): criteria key BE tiếng Anh (identity/criminal/cic…) → nhãn Việt cho cán bộ đọc.
+// Tra CASE-INSENSITIVE; key lạ/tên riêng viết hoa (DSCR/LTV) → pass-through nguyên (pattern A-06).
+const CRITERION_LABEL: Record<string, string> = {
+  identity: 'Định danh',
+  criminal: 'Án tích',
+  cic: 'CIC', // tên riêng — giữ
+  income: 'Thu nhập',
+  employment: 'Việc làm',
+  collateral: 'Tài sản đảm bảo',
+  docs: 'Hồ sơ giấy tờ',
+  documents: 'Hồ sơ giấy tờ',
+  purpose: 'Mục đích vay',
+  credit: 'Lịch sử tín dụng',
+  legal: 'Pháp lý',
+};
+function criterionLabel(key: string): string {
+  return CRITERION_LABEL[key.toLowerCase()] ?? key; // lạ → giữ nguyên
+}
+
 function fmtVnd(n?: number): string {
   if (n == null) return '—';
   if (n >= 1e9) return `${(n / 1e9).toFixed(n % 1e9 === 0 ? 0 : 1)} tỷ`;
@@ -114,7 +133,7 @@ function AssessmentDetail({ assessment: a }: { assessment: Assessment }) {
               <div key={`${c.key}-${i}`} className={`asmt__crit ${lm.cls}`}>
                 <span className="asmt__crit-mark" aria-hidden="true">{lm.mark}</span>
                 <span className="asmt__crit-body">
-                  <span className="asmt__crit-key">{c.key}</span>
+                  <span className="asmt__crit-key">{criterionLabel(c.key)}</span>
                   {c.detail && <span className="asmt__crit-detail">{c.detail}</span>}
                 </span>
               </div>
@@ -125,8 +144,11 @@ function AssessmentDetail({ assessment: a }: { assessment: Assessment }) {
 
       {a.basis && (
         <div className="asmt__basis">
-          <div className="asmt__basis-label">🤖 Lý do AI</div>
+          {/* DF-B-02: basis = policy snapshot lúc chấm (giống nhau giữa hồ sơ là by-design) — KHÔNG phải
+              lý do riêng. Lý do per-hồ-sơ thật = 3 tiêu chí phía trên. Nhãn/chú thích phản ánh đúng. */}
+          <div className="asmt__basis-label">📋 Chính sách áp dụng (snapshot lúc chấm)</div>
           <div className="asmt__basis-text">{a.basis}</div>
+          <div className="asmt__basis-note">Lý do riêng của hồ sơ nằm ở tiêu chí 3 trụ phía trên.</div>
         </div>
       )}
     </div>

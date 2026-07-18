@@ -84,3 +84,5 @@
 }
 .asmt__basis-label { color: var(--main); margin-bottom: 6px; }
 .asmt__basis-text { font-size: 12px; color: var(--dim); line-height: 1.6; }
+/* DF-B-02: chú thích nhỏ dẫn cán bộ về đúng chỗ có lý do riêng của hồ sơ (3 trụ). */
+.asmt__basis-note { margin-top: 8px; font-size: 11px; color: var(--faint); font-style: italic; line-height: 1.5; }

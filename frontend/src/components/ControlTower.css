@@ -118,6 +118,14 @@
 .ct__stat-label { font-size: 11px; color: var(--mute); margin-top: 4px; }
 .ct__note { font-size: 11px; color: var(--mute); background: var(--p1); border: 1px solid var(--bd); border-radius: 10px; padding: 12px 14px; line-height: 1.6; }
 
+/* DF-B-03: drill-down ca lỗi dưới số đếm — cán bộ thấy CA NÀO đang lỗi */
+.ct__failed { margin: 4px 0 14px; padding: 12px 14px; background: var(--tone-fail-bg); border: 1px solid var(--tone-fail-bd); border-radius: 10px; }
+.ct__failed-title { font-size: 12px; font-weight: 700; color: var(--fail); margin-bottom: 8px; }
+.ct__failed-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ct__failed-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--tx); }
+.ct__failed-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct__failed-id { font: 600 11px var(--mono); color: var(--mute); flex-shrink: 0; }
+
 /* compare 2-cột */
 .ct__cmp-input { display: flex; gap: 10px; margin: 14px 0; }
 .ct__cmp-q { flex: 1; background: var(--bg2); border: 1px solid var(--bd2); border-radius: 9px; padding: 10px 12px; color: var(--tx); font: 400 12.5px var(--font); outline: none; }
