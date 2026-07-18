@@ -15,12 +15,15 @@ trả has_key true/false — KHÔNG BAO GIỜ trả key.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+log = logging.getLogger("orch.providers")
 
 _VAR = re.compile(r"\$\{(\w+)\}")
 
@@ -105,10 +108,30 @@ class Providers:
             "ANTHROPIC_API_KEY": key,
         }
 
+    def _disabled_names(self) -> set[str]:
+        """Provider bị tắt qua env SHB_PROVIDERS_DISABLED (comma list) — FIX C: VM ẩn claude-cli
+        (container không CLI auth → nút chết). Tên lạ → ignore + log. Default không set → rỗng."""
+        raw = os.environ.get("SHB_PROVIDERS_DISABLED", "")
+        want = {n.strip() for n in raw.split(",") if n.strip()}
+        disabled, unknown = set(), set()
+        for n in want:
+            (disabled if n in self._items else unknown).add(n)
+        if unknown:
+            log.warning("SHB_PROVIDERS_DISABLED có tên lạ (ignore): %s", sorted(unknown))
+        # KHÔNG để list rỗng chết picker: nếu disable HẾT → giữ lại default (log warning).
+        if disabled and disabled >= set(self._items):
+            keep = self.default_name()
+            log.warning("SHB_PROVIDERS_DISABLED tắt HẾT provider — giữ default '%s' để picker không rỗng", keep)
+            disabled.discard(keep)
+        return disabled
+
     def public_view(self) -> list[dict[str, Any]]:
-        """Cho API /models — KHÔNG kèm key (chỉ has_key true/false)."""
+        """Cho API /models — KHÔNG kèm key (chỉ has_key true/false). FIX C: loại provider disabled."""
+        disabled = self._disabled_names()
         out = []
         for name, p in self._items.items():
+            if name in disabled:
+                continue  # ẩn khỏi picker FE + validation create_conversation (đọc public_view)
             out.append(
                 {
                     "name": name,

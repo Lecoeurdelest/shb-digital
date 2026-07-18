@@ -29,6 +29,8 @@ services:
     environment:
       DATABASE_URL: postgresql://shb:shb@db:5432/shb
       SHB_PROVIDER: zai      # container KHÔNG có CLI login máy → provider keyed (zai)
+      # FIX C: container KHÔNG có CLI auth → claude-cli = nút chết → ẩn khỏi picker (public_view lọc).
+      SHB_PROVIDERS_DISABLED: claude-cli
       APP_URL: ${APP_URL:-http://localhost:3011}   # link CTA mail (S10 → digital.tinhdev.com)
     depends_on:
       db: { condition: service_healthy }
