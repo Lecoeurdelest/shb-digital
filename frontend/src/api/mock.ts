@@ -86,6 +86,30 @@ class MockBackend {
     return conv;
   }
 
+  // S15 T15-2/3: rename (title) + per-turn switch (provider/model). Đang running → 409 (khớp BE).
+  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }): Conversation {
+    const r = this.room(id);
+    if ((patch.provider !== undefined || patch.model !== undefined) && r.conversation.status === 'running') {
+      throw new ApiErrorLike(409, 'conversation_running', 'Ca đang chạy — không đổi model giữa lượt (mock).');
+    }
+    if (patch.title !== undefined) r.conversation = { ...r.conversation, title: patch.title };
+    if (patch.provider !== undefined) r.conversation = { ...r.conversation, provider: patch.provider };
+    if (patch.model !== undefined) r.conversation = { ...r.conversation, model: patch.model };
+    return r.conversation;
+  }
+
+  // S15 T15-3: xoá ca. 409 hai loại: ca đang chạy / có phiếu approval pending chưa quyết.
+  deleteConversation(id: string): void {
+    const r = this.room(id);
+    if (r.conversation.status === 'running') {
+      throw new ApiErrorLike(409, 'conversation_running', 'Ca đang chạy — dừng ca trước khi xoá (mock).');
+    }
+    if (r.cards.some((c) => c.type === 'approval' && c.status === 'pending')) {
+      throw new ApiErrorLike(409, 'approval_pending', 'Ca còn phiếu chờ duyệt — quyết phiếu trước khi xoá (mock).');
+    }
+    this.rooms.delete(id);
+  }
+
   getFullState(convId: string): ConversationFullState {
     const r = this.room(convId);
     return {

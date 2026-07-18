@@ -19,6 +19,8 @@ export interface ConversationApi {
   getAuthProviders(): Promise<{ password: boolean; google: boolean }>;
   listConversations(): Promise<Conversation[]>;
   createConversation(title: string, provider?: string, model?: string): Promise<Conversation>;
+  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }): Promise<Conversation>;
+  deleteConversation(id: string): Promise<void>;
   getConversation(id: string): Promise<ConversationFullState>;
   sendChat(id: string, content: string): Promise<void>;
   decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown>;
@@ -66,6 +68,12 @@ const mockApi: ConversationApi = {
   },
   async createConversation(title: string, provider?: string, model?: string) {
     return mockBackend.createConversation(title, provider, model);
+  },
+  async updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }) {
+    return mockBackend.updateConversation(id, patch);
+  },
+  async deleteConversation(id: string) {
+    await mockBackend.deleteConversation(id);
   },
   async getConversation(id: string) {
     return mockBackend.getFullState(id);
@@ -141,6 +149,8 @@ const realApi: ConversationApi = {
   getAuthProviders: apiClient.getAuthProviders,
   listConversations: apiClient.listConversations,
   createConversation: apiClient.createConversation,
+  updateConversation: apiClient.updateConversation,
+  deleteConversation: apiClient.deleteConversation,
   getConversation: apiClient.getConversation,
   sendChat: apiClient.sendChat,
   decideApproval: apiClient.decideApproval,

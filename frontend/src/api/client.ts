@@ -111,6 +111,22 @@ export const apiClient = {
     });
   },
 
+  // Patch a conversation: rename (title) and/or switch LLM per-turn (provider+model). S15 T15-2/3.
+  // PATCH /api/conversations/{id}. Đổi title = rename ca; đổi provider/model = lượt CHAT sau đi model
+  // mới (per-turn switch). Ca đang running → BE trả 409 (không đổi giữa lượt). Trả conv đã cập nhật.
+  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }): Promise<Conversation> {
+    return request<Conversation>(`/api/conversations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+  },
+
+  // Delete a conversation. S15 T15-3. DELETE /api/conversations/{id}. 409 hai loại: phiếu pending
+  // chưa quyết / ca đang chạy (BE trả message hint 4-field → FE hiện). 200/204 = xoá xong.
+  deleteConversation(id: string): Promise<void> {
+    return request<void>(`/api/conversations/${id}`, { method: 'DELETE' });
+  },
+
   // Fetch full conversation state (messages, tasks, cards) — source of truth on reload.
   getConversation(id: string): Promise<ConversationFullState> {
     return request<ConversationFullState>(`/api/conversations/${id}`);

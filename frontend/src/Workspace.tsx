@@ -13,7 +13,7 @@ import { useApprovalBadge } from './hooks/useApprovalBadge';
 import { NotificationBell } from './components/NotificationBell';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ConversationSidebar } from './components/ConversationSidebar';
-import { ModelPicker } from './components/ModelPicker';
+import { ModelSelect } from './components/ModelSelect';
 import { Composer } from './components/Composer';
 import { MessageBubble, StreamingMessageBubble, type StreamingBubble } from './components/MessageBubble';
 import { TaskBadge } from './components/TaskBadge';
@@ -363,6 +363,58 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
     }
   }, [applyFullState]);
 
+  // ── S15 T15-2: per-turn model switch trong ca đang mở. Đổi → PATCH {provider,model} → lượt chat
+  // sau đi model mới. Optimistic upsert conv (label sống qua re-render). 409 (running) → revert +
+  // báo. Draft mode KHÔNG gọi đây (chỉ set pick* local, tạo ca kèm — createConversationForSend).
+  const handleModelChange = useCallback((provider: string, model: string) => {
+    const id = activeIdRef.current;
+    if (!id) { setPickProvider(provider); setPickModel(model); return; } // draft: chỉ set local
+    const prevConv = conversations.find((c) => c.id === id);
+    // optimistic: cập nhật conv ngay để label đổi tức thì
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, provider, model } : c)));
+    conversationApi
+      .updateConversation(id, { provider, model })
+      .then((conv) => setConversations((prev) => upsertById(prev, conv)))
+      .catch((err: unknown) => {
+        // revert về conv cũ (đặc biệt 409 running — BE chặn đổi giữa lượt)
+        if (prevConv) setConversations((prev) => prev.map((c) => (c.id === id ? prevConv : c)));
+        const { status, message } = readApiError(err);
+        setLoadError(status === 409 ? (message ?? 'Ca đang chạy — không đổi model giữa lượt.') : handleError(err, 'Đổi model thất bại'));
+      });
+  }, [conversations, handleError]);
+
+  // T15-3: rename ca (PATCH {title}). Optimistic + upsert kết quả. Fail → revert + báo.
+  const handleRename = useCallback((id: string, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return; // rỗng → bỏ (giữ tên cũ)
+    const prevConv = conversations.find((c) => c.id === id);
+    if (prevConv && prevConv.title === trimmed) return; // không đổi → bỏ
+    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c)));
+    conversationApi
+      .updateConversation(id, { title: trimmed })
+      .then((conv) => setConversations((prev) => upsertById(prev, conv)))
+      .catch((err: unknown) => {
+        if (prevConv) setConversations((prev) => prev.map((c) => (c.id === id ? prevConv : c)));
+        setListError(handleError(err, 'Đổi tên ca thất bại'));
+      });
+  }, [conversations, handleError]);
+
+  // T15-3: xoá ca (DELETE). 409 (phiếu pending / đang chạy) → hiện hint từ BE, KHÔNG xoá. Xoá ca
+  // đang mở → về draft (rời view ca vừa xoá). Thành công → gỡ khỏi list.
+  const handleDelete = useCallback((id: string) => {
+    conversationApi
+      .deleteConversation(id)
+      .then(() => {
+        setConversations((prev) => prev.filter((c) => c.id !== id));
+        setListError(null);
+        if (activeIdRef.current === id) startDraft(); // đang mở ca vừa xoá → về khung nháp
+      })
+      .catch((err: unknown) => {
+        const { status, message } = readApiError(err);
+        setListError(status === 409 ? (message ?? 'Không xoá được ca (đang chạy / còn phiếu chờ).') : handleError(err, 'Xoá ca thất bại'));
+      });
+  }, [handleError, startDraft]);
+
   // Đăng xuất THẬT: gọi API xoá cookie httponly TRƯỚC (reload sau = anon, không auto-vào-lại), rồi set
   // anon client-side. logout lỗi/timeout → vẫn set anon (UI về Login; cookie có thể còn nhưng /me sẽ
   // 401 khi hết hạn — best-effort, không chặn user rời màn).
@@ -416,6 +468,13 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
           onOpen={openConversation}
           onNew={startDraft}
           creating={creating}
+          onRename={handleRename}
+          onDelete={handleDelete}
+          // T15-3 ownership: listConversations scope server-side theo cookie → MỌI ca khách thấy là
+          // của họ → hiện CRUD cho khách (customer) + RM (user). Admin quản ca ở Control Tower, không
+          // ở sidebar cá nhân này. (Conversation không mang user_id ở mock — báo architect nếu BE
+          // thật cần guard chặt hơn owner-check per-row.)
+          showActions={user.role !== 'admin'}
         />
 
         {/* khung giữa: chat với Main */}
@@ -481,11 +540,16 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
                 onSend={sendChat}
                 disabled={busy || creating}
                 extras={
-                  <ModelPicker
-                    provider={pickProvider}
-                    model={pickModel}
-                    disabled={creating || hasContent}
-                    onChange={(p, m) => { setPickProvider(p); setPickModel(m); }}
+                  // T15-2: draft → giá trị pick* local (chọn trước, tạo ca kèm). open-conv → provider/model
+                  // của ca (per-turn switch qua PATCH trong handleModelChange). autoDefault CHỈ ở draft
+                  // (open-conv giữ đúng model ca đã lưu, không tự đổi). disabled CHỈ khi running (T15-2
+                  // per-turn switch: enable cả khi đã có tin nhắn — bỏ guard hasContent cũ).
+                  <ModelSelect
+                    provider={activeId ? (activeConv?.provider ?? '') : pickProvider}
+                    model={activeId ? (activeConv?.model ?? '') : pickModel}
+                    disabled={busy || creating}
+                    autoDefault={!activeId}
+                    onChange={handleModelChange}
                   />
                 }
               />
@@ -544,6 +608,21 @@ function auditToTrace(row: AuditRow): TraceItem {
     }
   }
   return { kind: 'tool', id: row.id, task_id: row.task_id, tool: row.tool, summary };
+}
+
+// Đọc {status, message} an toàn từ lỗi API — hoạt động cho CẢ ApiRequestError (real, có .body.message)
+// LẪN ApiErrorLike của mock (extends Error, có .status + .message). Dùng cho 409 CRUD (T15-3) để hiện
+// đúng hint 4-field của BE ở cả 2 chế độ.
+function readApiError(err: unknown): { status: number | null; message: string | null } {
+  if (err instanceof ApiRequestError) return { status: err.status, message: err.body?.message ?? null };
+  if (err && typeof err === 'object' && 'status' in err) {
+    const e = err as { status?: unknown; message?: unknown };
+    return {
+      status: typeof e.status === 'number' ? e.status : null,
+      message: typeof e.message === 'string' ? e.message : null,
+    };
+  }
+  return { status: null, message: null };
 }
 
 function describeError(err: unknown, fallback: string): string {
