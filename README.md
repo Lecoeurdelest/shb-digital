@@ -150,6 +150,21 @@ shb-digital/
 
 ## Cài đặt & chạy local
 
+### ⚡ Chạy thử 60 giây (chỉ cần Docker)
+
+```bash
+git clone https://github.com/tinhnguyen0110/shb-digital.git && cd shb-digital
+cp .env.example .env                       # điền key provider (zai/wrap) nếu muốn chat thật
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# → mở http://localhost:3011  (DB + migration + seed nghiệp vụ TỰ ĐỘNG — seed-if-empty)
+#   account demo: admin/admin (ngân hàng) · c019/c019, b001/b001 (khách) — hoặc Đăng ký mới
+```
+
+1 lệnh dựng trọn stack (Postgres + backend + frontend, project `shb132-prod` cô lập). Không có
+API key thì UI/DB/audit vẫn xem đủ; chat cần 1 key provider trong `.env`.
+
+### Chạy dev (hot-reload)
+
 Yêu cầu: **Docker** · **[uv](https://docs.astral.sh/uv/)** (Python package manager) · **Node.js 20+**.
 
 ```bash
