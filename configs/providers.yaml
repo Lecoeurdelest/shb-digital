@@ -25,3 +25,12 @@ providers:
   #   base_url: https://api.anthropic.com   # hoặc bỏ base_url dùng mặc định SDK
   #   api_key: ${ANTHROPIC_API_KEY}
   #   models: [claude-sonnet-4-5, claude-haiku-4-5]
+
+  - name: wrap
+    # wrapper nội bộ psa.team — router đa-provider nói CẢ 2 giọng (Anthropic + OpenAI), route
+    # theo tên model → mở đường GPT (người xác nhận 18/7 dùng được). SDK tự nối /v1/messages
+    # → base_url BỎ /v1. Key: WRAP_API_KEY trong .env (copy từ battle/.env).
+    base_url: http://cli-8.psa.team:8317
+    api_key: ${WRAP_API_KEY}
+    models: [gpt-5.5, gpt-5.6-sol, gpt-5.6-luna, gpt-5.6-terra, gpt-5.4, gpt-5.4-mini]
+    note: "GPT qua wrapper psa.team — so sánh ngoài nhà Claude; cost_usd SDK KHÔNG TIN với provider ngoài"
