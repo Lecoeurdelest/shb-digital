@@ -1,0 +1,13 @@
+# .dockerignore — giữ build context gọn (không copy artifact/state vào image).
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+backend/data/conversations
+**/.pytest_cache
+**/.ruff_cache
+frontend/dist
+.git
+.env
+*.log
+.archive

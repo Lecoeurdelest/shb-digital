@@ -1,0 +1,76 @@
+# docker-compose.prod.yml — BANK Digital deploy (S10, KHÔNG dev-hot-reload).
+# Ports HOST riêng 8011/3011 (KHÔNG 8000/5173 — tránh đụng dev/tester). Network riêng shb132.
+# Volumes SỐNG CÒN: claude_home (~/.claude SDK resume/auth) + conv_data (transcript neo resume).
+#
+# Chạy: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#   → verify: curl localhost:8011/api/health · mở localhost:3011
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: shb
+      POSTGRES_PASSWORD: shb
+      POSTGRES_DB: shb
+    volumes:
+      - shb132_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shb -d shb"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [shb132]
+
+  backend:
+    build:
+      context: .            # repo root — Dockerfile COPY cả backend/ + roles/
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://shb:shb@db:5432/shb
+      SHB_PROVIDER: zai      # container KHÔNG có CLI login máy → provider keyed (zai)
+      APP_URL: ${APP_URL:-http://localhost:3011}   # link CTA mail (S10 → digital.tinhdev.com)
+    depends_on:
+      db: { condition: service_healthy }
+    # migration LUÔN chạy (idempotent) → seed NẾU-RỖNG (D-62: restart giữa demo KHÔNG wipe khách
+    # C9xx đã đăng ký — gate S10 "session bền"). seed_users idempotent (ON CONFLICT). uvicorn 1
+    # worker no-reload (D-38). Reset chủ động = exec reset_demo trong container (deploy.md).
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run python -m app.db.seed_if_empty &&
+             uv run python -m app.db.seed_users &&
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    volumes:
+      # SỐNG CÒN (ROADMAP S10): ~/.claude SDK (auth/resume state) + transcript neo per-conv.
+      - claude_home:/home/appuser/.claude
+      - conv_data:/app/backend/data/conversations
+      # SEED: D-62 snapshot `deploy/seed/shb-132.db` ĐÃ trong image (COPY qua Dockerfile) → repo
+      # tự chứa, KHÔNG cần mount LAB sibling. seed_from_lab fallback: LAB path (không có trong
+      # container) → snapshot. Deploy VM clone-trần chạy được ngay.
+    ports:
+      - "8011:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/health || exit 1"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+    networks: [shb132]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      backend: { condition: service_healthy }
+    ports:
+      - "3011:80"
+    networks: [shb132]
+
+volumes:
+  shb132_pg_data:
+  claude_home:
+  conv_data:
+
+networks:
+  shb132:
+    driver: bridge

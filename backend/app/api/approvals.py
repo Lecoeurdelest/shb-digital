@@ -96,7 +96,7 @@ def _notify_decided(decided: dict[str, Any]) -> None:
     amount_str = f" số tiền {amount:,} VND" if amount else ""
     body = (
         f"Kính gửi anh/chị,\n\nYêu cầu '{decided.get('action')}'{amount_str} của anh/chị đã được "
-        f"{verb}.\n\nTrân trọng,\nSHB Digital."
+        f"{verb}.\n\nTrân trọng,\nBANK Digital."
     )
     d = {
         "greeting_name": owner_greeting(decided["conv_id"]),
@@ -109,7 +109,7 @@ def _notify_decided(decided: dict[str, Any]) -> None:
     }
     html_body = render_email_html(kind, d)
     icon = "✅" if approved else "✖️"
-    subject = f"{icon} Khoản vay {loan_id} đã được {verb} — SHB Digital"
+    subject = f"{icon} Khoản vay {loan_id} đã được {verb} — BANK Digital"
     notify_conv_owner(decided["conv_id"], subject, body, html_body)
 
 
