@@ -28,6 +28,8 @@ log = logging.getLogger("api.compare")
 router = APIRouter(prefix="/api/compare", tags=["compare"])
 
 _MULTI_TIMEOUT_S = 120.0
+_SINGLE_TIMEOUT_S = 60.0  # single thực đo 11-13s — 60 trần rộng. SDK treo câm → wait_for cắt (chống
+# gather khoá response vô hạn khi single kẹt, dù multi xong — demo-killer tester bắt).
 _POLL_INTERVAL_S = 2.0
 # "settled" = dừng HẲN, không phải idle-lượt-đầu (dispatch). idle ĐẦU (main giao việc, sub CHƯA chạy)
 # KHÔNG phải xong — phải chờ sub done → main tổng hợp → idle LẦN 2. Điều kiện settled:
@@ -158,7 +160,15 @@ async def compare(body: CompareBody, claims: dict = Depends(require_admin)) -> d
         raise ApiError(400, "empty_question", "Câu hỏi trống.", "Nhập câu hỏi để so sánh.", retryable=False)
 
     # gather 2 nhánh — return_exceptions: 1 nhánh nổ KHÔNG kéo cả request (partial).
-    single_r, multi_r = await asyncio.gather(_run_single(question), _run_multi(question), return_exceptions=True)
-    single = single_r if not isinstance(single_r, Exception) else {"text": f"[single lỗi: {single_r}]", "error": True}
+    # SINGLE có wait_for TRẦN: _run_single try/except CHỈ bắt lỗi RAISE; SDK connect/query TREO câm
+    # (không raise) → try/except vô dụng → gather khoá response VÔ HẠN (dù multi xong). wait_for →
+    # TimeoutError raise → return_exceptions map → single partial. (multi có poll-timeout 120s nội bộ.)
+    single_task = asyncio.wait_for(_run_single(question), timeout=_SINGLE_TIMEOUT_S)
+    single_r, multi_r = await asyncio.gather(single_task, _run_multi(question), return_exceptions=True)
+    if isinstance(single_r, Exception):
+        # timeout (SDK treo) HOẶC lỗi khác → single partial, 2 cột vẫn render (đối xứng multi-partial).
+        single = {"text": "single-agent không phản hồi (timeout)", "timeout": True, "duration_s": _SINGLE_TIMEOUT_S}
+    else:
+        single = single_r
     multi = multi_r if not isinstance(multi_r, Exception) else {"timeout": True, "error": f"{multi_r}"[:120]}
     return {"question": question, "single": single, "multi": multi}

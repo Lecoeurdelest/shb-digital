@@ -66,6 +66,31 @@ def test_compare_multi_timeout_partial(monkeypatch):
     assert body["multi"]["conv_id"] == "c2"
 
 
+def test_compare_single_timeout_partial(monkeypatch):
+    """single TREO (SDK kẹt câm > trần) → wait_for cắt → single.timeout, multi VẪN trả (không khoá
+    response vô hạn — demo-killer tester bắt). Trần hạ nhỏ để test nhanh."""
+    import asyncio
+
+    async def hang_single(q):
+        await asyncio.sleep(10)  # treo > trần (hạ 0.2 dưới) — mô phỏng SDK kẹt câm
+        return {"text": "không bao giờ tới"}
+
+    async def fake_multi(q):
+        return {"text": "multi có nguồn", "tool_calls": 5, "cards": 2, "conv_id": "c1"}
+
+    monkeypatch.setattr(compare_mod, "_SINGLE_TIMEOUT_S", 0.2)  # trần nhỏ → cắt nhanh
+    monkeypatch.setattr(compare_mod, "_run_single", hang_single)
+    monkeypatch.setattr(compare_mod, "_run_multi", fake_multi)
+
+    r = client.post("/api/compare", json={"question": "q"}, cookies=_admin_cookie())
+    assert r.status_code == 200  # KHÔNG khoá vô hạn — trả trong ~0.2s
+    body = r.json()
+    assert body["single"]["timeout"] is True  # single cắt bởi wait_for
+    assert "không phản hồi" in body["single"]["text"]
+    assert body["multi"]["tool_calls"] == 5  # multi VẪN trả (2 cột render)
+    assert body["multi"]["conv_id"] == "c1"
+
+
 def test_compare_multi_raises_still_partial(monkeypatch):
     """1 nhánh NỔ (exception) → gather return_exceptions → partial, KHÔNG 500."""
 

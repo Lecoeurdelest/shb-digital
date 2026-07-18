@@ -13,7 +13,9 @@ Nẵng hết phụ CLI auth) + routing fix + card-sync. Ngoại lệ treo S4: lo
 compare (deliverable #5) + model picker 3 nhà (claude-cli/zai/wrap-GPT) + loop-bound (ngoại lệ S3 hết)
 + seed-reset. Gate tester trọn. 282 test. Sổ ngoại lệ RỖNG. **5/5 deliverable đề #132 có mặt.**
 
-**Sprint 5 — ĐANG CHẠY** (kickoff 18/7): Polish + demo-script + agent-bền D-50 (nếu kịp trước demo).
+**Sprint 5 — ĐÓNG** (2026-07-18): Demo-prep + nghiệp vụ vỏ. Gate rehearsal PASS (Option A). Phanh phân
+tầng + MAIN tuần tự bàn giao (pain người ra đề) + D-54 + polish offline-safe + compare-fix. 288 test.
+**DEMO-READY** — script v4 + seed-reset + luật vận hành. Chờ: LAB legal 3-nguồn (port khi drop).
 
 **Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_3.md` (đóng) · `plan_sprint_4.md` (draft).
 
@@ -25,4 +27,5 @@ compare (deliverable #5) + model picker 3 nhà (claude-cli/zai/wrap-GPT) + loop-
 | 1 | e1a5633→f52b0ba, 67c274b | Spine sống: PG+mount credit+auth · orchestrator · chat+SSE gate S1 · FE API thật (DSCR 0.236). 94 test. |
 | 2 | 333d6a2, a6aaed9, a653eeb, 961ba1f | Canvas + đội đủ: present thật + 4 role (credit/legal thật) + D-33 đóng + CTX_TASK fix + FE canvas 7-card. Gate S2 PASS browser. 126 test. Waiver S1 đóng. |
 | 3 | 87d9e18, 3d3cf9d, a04df64, 44fdb4b, 2ab26a4, cd1bd24 | PHANH e2e: disburse gated + phiếu + resume + giải ngân thật. Gate 4/4 browser+PG. Race FIXED (guard A/B). Provider standalone (zai). Routing fix + card-sync + skip-auth. 160 test. Ngoại lệ: loop-edge S4. |
+| 5 | 66ffbc2, 5434874, 8dff186, 111458e, 5513813, 5d3810b + đóng | Demo-prep: script v4 + rehearsal PASS + phanh phân tầng + MAIN tuần tự + D-54 + polish. 288 test. DEMO-READY. |
 | 4 | dcf3ac3, ad4f1b1, a9e931c, be8560d, 5da3667, 13860c2 | Control Tower + trace F1 + SubAgentView/huỷ F2a + compare + picker 3 nhà model + loop-bound + seed-reset. Gate tester trọn. 282 test. Ngoại lệ RỖNG. 5/5 deliverable có mặt. |

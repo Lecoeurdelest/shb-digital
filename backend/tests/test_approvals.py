@@ -218,12 +218,22 @@ def test_api_list_bad_status_400():
     assert r.json()["code"] == "bad_status"
 
 
-def test_api_approvals_requires_admin():
+def test_api_approvals_requires_auth_no_cookie_401():
     # no cookie (flag OFF) → 401. Client RIÊNG (TestClient cookie persist giữa test — dùng client
-    # sạch để no-cookie thật, không dính cookie admin từ test khác).
+    # sạch để no-cookie thật, không dính cookie từ test khác).
     fresh = TestClient(app)
     r = fresh.get("/api/approvals")
     assert r.status_code == 401
+
+
+@requires_db
+def test_api_approvals_user_can_access_D54():
+    """D-54: user (nhân viên cấp cao) — KHÔNG cần admin — xem hàng chờ duyệt được (require_user)."""
+    r = client.post("/api/auth/login", json={"username": "user", "password": "user"})
+    if r.status_code != 200:
+        pytest.skip("seed user account chưa có")
+    r2 = client.get("/api/approvals?status=pending", cookies=r.cookies)
+    assert r2.status_code == 200  # user thường duyệt/xem được (không 403)
 
 
 @pytest.mark.asyncio

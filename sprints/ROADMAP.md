@@ -38,9 +38,13 @@
   - **F2b — user CHAT THẬT với sub** (kênh trực tiếp phụ, port `say()` interject LAB; cần sub-session đa lượt — hiện one-shot). S4 STRETCH sau F2a. Luồng bàn giao chính vẫn qua Main (§3).
 - **Gate (dự kiến):** admin thấy trace tool-call + thinking của mọi sub (F1) + duyệt phiếu từ queue + click sub → full-conv + interrupt 1 sub cụ thể không đụng sub khác (F2a) + cost meter per-agent. F2b (chat-sub) = stretch, không chặn gate nếu one-shot chưa nâng.
 
-## Sprint 5 — Polish + demo ⏳ PLANNED
-- **Theme:** UI theo mock (lobby 3D nếu kịp — D-24) + demo-script + seed-reset + compare endpoint (single vs multi-agent) nếu kịp.
-- **Gate (dự kiến):** demo-script ca "DN X vay 5 tỷ" chạy mượt end-to-end trước giám khảo + seed-reset 1 lệnh.
+## Sprint 5 — Demo-prep + nghiệp vụ vỏ ✅ ĐÓNG (66ffbc2→đóng)
+- **Gate:** ✅ rehearsal Vòng-1-trọn PASS + mọi cảnh pass riêng (Option A). Script v4 5-cảnh (tên khớp seed,
+  thoát hiểm 8 dòng). Phanh PHÂN TẦNG (<500tr auto-rule / ≥ chờ người) + MAIN tuần tự BÀN GIAO (D-52 pain
+  người ra đề, phần vỏ) + D-54 user-nào-cũng-duyệt + font self-host + constellation + responsive máy chiếu
+  + compare-treo fixed + restart-server.sh. 288 test.
+- **Nợ → S6/sau demo:** UX-treo SSE-đứt (phân tầng + fix) · smoke e2e liền mạch · LAB legal 3-nguồn port ·
+  agent-bền D-50 · race nhấp-nháy-status (ngoại lệ có soát).
 
 ---
 
