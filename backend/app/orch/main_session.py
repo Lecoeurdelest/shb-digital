@@ -46,9 +46,7 @@ def conversation_cwd(conv_id: str) -> Path:
     return d
 
 
-def _build_sub_options(
-    task: Task, provider_env: dict[str, str] | None = None, model: str | None = None
-) -> Any:
+def _build_sub_options(task: Task, provider_env: dict[str, str] | None = None, model: str | None = None) -> Any:
     """Options SUB: SKILL role + toolpack role (mount_role) + common. model=haiku. KHÔNG resume.
 
     provider_env (D-45): env {ANTHROPIC_BASE_URL/AUTH_TOKEN/API_KEY} chọn gateway SDK per-session.
