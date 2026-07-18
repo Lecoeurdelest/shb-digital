@@ -84,9 +84,11 @@ khoản lớn con người ngân hàng giữ chìa — 5 deliverable chạy live
 | Mất mạng provider | đổi SHB_PROVIDER (claude-cli/zai dự phòng) |
 | DB bẩn giữa buổi | reset_demo 1 lệnh (~5s) — users giữ nguyên |
 
-## Timing mục tiêu ≤13ph
-C1 ~3ph · C2 ~3ph (2 nhịp + 2 cửa sổ) · C3 ~1.5ph · C4 ~2.5ph · C5 ~1ph (+ đệm). Bị giục →
-cắt C5, C1 rút còn 1 câu + kể miệng.
+## Timing (C1/C2 đo THẬT rehearsal 18/7 · C3-C5 kế thừa v4) — mục tiêu ≤13ph
+C1 **2'10" đo thật** · C2 nhịp A **43" đo thật** (model latency — đừng hứa "15 giây" trên sân
+khấu, nói "chưa tới 1 phút") + nhịp B **~3' đo thật** (gồm đổi vai thủ công 1-browser; 2 cửa sổ
+song song thật sẽ nhanh hơn) · C3 ~1.5ph · C4 ~2.5ph · C5 ~1ph (+ đệm). Bị giục → cắt C5,
+C1 rút còn 1 câu + kể miệng.
 
 ## Checklist trước giờ G
 - [ ] `reset_demo` sạch · [ ] server :8000 `DEV_SKIP_AUTH=0` + health OK · [ ] .env đủ key

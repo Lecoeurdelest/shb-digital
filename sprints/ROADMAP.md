@@ -57,12 +57,15 @@
 - **Nợ → S7:** LAB legal port (CERTIFIED 18/7 — phong bì sẵn) · settled-helper chung ·
   agent-bền D-50 (sau demo).
 
-## Sprint 8 — 2 persona: cửa khách + bàn duyệt ngân hàng 🔄 ĐANG CHẠY (D-56 — làm TRƯỚC S7)
-- **Theme (user chốt 18/7 — đảo D-54):** app = cửa KHÁCH (customer khoanh: ca mình, không duyệt,
-  MAIN inject danh tính) vs NGÂN HÀNG (bank: mọi ca + Tower + duyệt). Khoản lớn bắn về bank —
-  demo 2 cửa sổ phiếu-bay real-time. Engine giữ 100%; seam sẵn (user_id S1, require_admin).
-- **Gate:** live 2 cửa sổ khách-vay-lớn → badge bank → duyệt → khách nhận receipt · customer
-  decide 403 + không thấy ca người khác · suite ≥302 + authz matrix · script v6 rehearsal.
+## Sprint 8 — 2 persona: cửa khách + bàn duyệt ngân hàng ✅ ĐÓNG (82883bb·06585e4·09c55c7·ac966b4+đóng)
+- **Theme (user chốt 18/7 — đảo D-54):** app = cửa KHÁCH (customer khoanh: ca mình 404-hide,
+  không duyệt, MAIN inject danh tính "anh/chị") vs NGÂN HÀNG (admin: mọi ca + Tower + duyệt +
+  badge phiếu-bay poll). Engine giữ 100% — seam sẵn từ S1/S4.
+- **Gate:** ✅ tester matrix 7/7 + e2e 2-phía (decide 403 · 404-hide · phiếu-bay → duyệt →
+  receipt về khách · inject sống không lộ thuật ngữ) + rehearsal delta C1 2'10" (câu
+  không-khai-mã PASS) · 331 test (241 BE + 90 FE). Waiver §6b: 2-cửa-sổ-cùng-lúc (giới hạn
+  tool verify — bù HTTP-isolation; người verify tay trước giờ G).
+- **Nợ → sau:** tool-level scoping chặt (known-limitation) · deviation inject query-per-turn.
 
 ## Sprint 7 — LAB legal 3-nguồn + verdict-xanh ⏸ HOÃN nối sau S8 (draft + kickoff `plan_sprint_7.md`)
 - **Theme:** port legal CERTIFIED (migration police/employment/assessments + 6 assumptions +
