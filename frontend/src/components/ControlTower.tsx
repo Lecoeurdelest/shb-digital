@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { conversationApi } from '../api';
 import { ApiRequestError } from '../api/client';
 import { useApprovalBadge } from '../hooks/useApprovalBadge';
+import { ThemeToggle } from './ThemeToggle';
 import { roleLabel } from '../roles';
 import type { ApprovalRow, AuditRow, CompareResult, CompareSide, Conversation } from '../types';
 import './ControlTower.css';
@@ -22,6 +23,7 @@ export function ControlTower({ onBack }: { onBack: () => void }) {
         <button type="button" className="ct__back" onClick={onBack}>← Workspace</button>
         <span className="ct__title">🗼 Control Tower</span>
         <span className="ct__sub">Giám sát · phê duyệt · nhật ký — quản lý</span>
+        <ThemeToggle />
         <div className="ct__tabs">
           {(['queue', 'audit', 'agents', 'compare'] as Tab[]).map((t) => (
             <button

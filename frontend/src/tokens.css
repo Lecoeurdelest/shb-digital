@@ -5,25 +5,46 @@
  * tx, dim, mute, faint, acc, accBg, run/pass/fail/warn/main, font, mono).
  */
 
-:root {
-  /* nền */
+/*
+ * THEME (T11-6, user chốt default LIGHT): màu nền/viền/chữ đổi theo :root[data-theme].
+ * GIỮ TÊN biến (component CSS dùng var(--bg)... tự theme — KHÔNG sửa component CSS).
+ * dark = tông hiện tại (byte-verbatim); light = bảng sáng ấm, contrast đọc được.
+ * accent (acc/run/pass/fail/warn/main) + tone-* GIỮ chung :root (brand color OK cả 2 mode).
+ */
+
+/* dark = tông app hiện tại (nâu-ấm tối) */
+:root[data-theme='dark'] {
   --bg: #1a1917;
   --bg2: #161514;
   --p1: #211f1d;
   --p2: #2a2825;
   --p3: #332f2b;
-
-  /* viền */
   --bd: #37332f;
   --bd2: #48423b;
-
-  /* chữ */
   --tx: #f2efe8;
   --dim: #b0a99d;
   --mute: #7d766a;
   --faint: #544e45;
+}
 
-  /* accent + tone */
+/* light = bảng sáng ấm (default). bg trắng-ngà, chữ nâu-đậm; contrast card/chip/badge/table đọc được. */
+:root,
+:root[data-theme='light'] {
+  --bg: #faf8f4;
+  --bg2: #f2efe8;
+  --p1: #ffffff;
+  --p2: #f6f3ec;
+  --p3: #ece7dd;
+  --bd: #e2ddd2;
+  --bd2: #cfc8ba;
+  --tx: #2a2723;
+  --dim: #5c574e;
+  --mute: #857e72;
+  --faint: #a89f90;
+}
+
+:root {
+  /* accent + tone — GIỮ chung (brand color không đổi theo theme) */
   --acc: #d97757;
   --acc-bg: rgba(217, 119, 87, 0.16);
   --run: #5fb2c9;

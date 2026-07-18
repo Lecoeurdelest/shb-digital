@@ -11,6 +11,7 @@ import { ApiRequestError } from './api/client';
 import { useConversationSSE, type ConversationSSEHandlers } from './hooks/useConversationSSE';
 import { useApprovalBadge } from './hooks/useApprovalBadge';
 import { NotificationBell } from './components/NotificationBell';
+import { ThemeToggle } from './components/ThemeToggle';
 import { ConversationSidebar } from './components/ConversationSidebar';
 import { ModelPicker } from './components/ModelPicker';
 import { Composer } from './components/Composer';
@@ -367,6 +368,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
         <div className="ws__spacer" />
         {USE_MOCK_API && <span className="ws__mockflag" title="VITE_USE_MOCK_API != false — dữ liệu mock, chưa nối backend thật">● MOCK API</span>}
         <span className="ws__user">{user.username} · {ROLE_LABEL_USER[user.role]}</span>
+        <ThemeToggle />
         <NotificationBell enabled={user.role === 'customer'} onOpenConv={openConversation} />
         {onOpenTower && (
           <button className="ws__logout ws__tower-btn" onClick={onOpenTower} type="button" data-testid="open-tower">

@@ -1,14 +1,22 @@
-/* Landing.css — mặt tiền (design/Landing Page.dc.html). Palette tối-ấm của design:
-   bg #1a1917 · accent #d97757 · text #f2efe8 — độc lập theme app (landing đứng riêng). */
+/* Landing.css — mặt tiền (design/Landing Page.dc.html). Palette --l* đổi theo theme (T11-6):
+   GIỮ tên --l* (mọi .lp-* tự theme); default LIGHT, dark = tông design gốc. */
 .landing {
-  --lbg: #1a1917; --lbg2: #161514; --lp1: #211f1d; --lbd: #37332f; --lbd2: #48423b;
-  --ltx: #f2efe8; --ldim: #b0a99d; --lmute: #7d766a; --lfaint: #544e45; --lacc: #d97757;
+  /* light (default) — sáng ấm, contrast đọc được */
+  --lbg: #faf8f4; --lbg2: #f2efe8; --lp1: #ffffff; --lbd: #e2ddd2; --lbd2: #cfc8ba;
+  --ltx: #2a2723; --ldim: #5c574e; --lmute: #857e72; --lfaint: #a89f90; --lacc: #d97757;
+  --lp2: #f6f3ec; /* nền hover nhẹ (thay #1f1d1b/#2a2825 hardcode) */
   background: var(--lbg);
   color: var(--ltx);
   font-family: 'Be Vietnam Pro', system-ui, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   scroll-behavior: smooth;
+}
+/* dark = palette design gốc (tối-ấm) */
+:root[data-theme='dark'] .landing {
+  --lbg: #1a1917; --lbg2: #161514; --lp1: #211f1d; --lbd: #37332f; --lbd2: #48423b;
+  --ltx: #f2efe8; --ldim: #b0a99d; --lmute: #7d766a; --lfaint: #544e45;
+  --lp2: #1f1d1b;
 }
 .landing a { color: var(--lacc); text-decoration: none; }
 
@@ -109,8 +117,8 @@
 
 /* agents rows */
 .lp-agents { display: flex; flex-direction: column; }
-.lp-agent { display: flex; align-items: center; gap: 22px; padding: 22px 18px; border-top: 1px solid #2a2825; border-radius: 12px; transition: background 0.2s; }
-.lp-agent:hover { background: #1f1d1b; }
+.lp-agent { display: flex; align-items: center; gap: 22px; padding: 22px 18px; border-top: 1px solid var(--lbd); border-radius: 12px; transition: background 0.2s; }
+.lp-agent:hover { background: var(--lp2); }
 .lp-agent__n { font: 800 13px ui-monospace, monospace; color: var(--lfaint); width: 28px; flex: none; }
 .lp-agent__icon { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; font-size: 21px; background: var(--lp1); border: 1px solid var(--lbd); flex: none; }
 .lp-agent__body { flex: 1; min-width: 0; display: block; }

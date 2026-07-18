@@ -1,9 +1,20 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- THEME FOUC-prevent (T11-6): set data-theme TRƯỚC khi stylesheet apply (blocking inline script,
+         KHÔNG đợi main.tsx module deferred → tránh flash-sai-theme). Baseline html[data-theme=light]
+         (default LIGHT — user chốt); localStorage 'theme' override nếu có. Fail → giữ light baseline. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+        } catch (e) { /* private mode → giữ baseline light */ }
+      })();
+    </script>
     <!-- Be Vietnam Pro SELF-HOST (D-53): woff2 tại public/fonts + @font-face ở src/fonts.css
          (import trong main.tsx). BỎ Google Fonts CDN → demo offline-safe, không phụ mạng venue. -->
     <title>Digital Expert Guild</title>

@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { Login } from '../Login';
 import { Lobby3D, type LobbyStatus } from '../Lobby3D';
+import { ThemeToggle } from '../ThemeToggle';
 import { conversationApi } from '../../api';
 import type { AuthUser } from '../../types';
 import './Landing.css';
@@ -69,6 +70,7 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
         <a className="lp-nav__link" href="#agents">Đội chuyên gia</a>
         <a className="lp-nav__link" href="#how">Cách vận hành</a>
         <a className="lp-nav__link" href="#control">Kiểm soát</a>
+        <ThemeToggle />
         <button type="button" className="lp-btn lp-btn--ghost" data-testid="landing-login" onClick={() => setAuthOpen(true)}>Đăng nhập</button>
         <button type="button" className="lp-btn lp-btn--primary" data-testid="landing-signup" onClick={() => setAuthOpen(true)}>Dùng thử</button>
       </nav>
