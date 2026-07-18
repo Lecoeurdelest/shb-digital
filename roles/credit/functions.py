@@ -8,6 +8,9 @@ Bỏ legal (mount ở sprint sau).
 RANH GIỚI N1/D-27: đây là TRÍ KHÔN của LAB — VỎ KHÔNG sửa. `conn` do vỏ cấp là
 PGConnAdapter (D-27) giả lập sqlite3.Connection (`.execute()` + `?`→`%s` + row 3-mode),
 nên logic dưới KHÔNG đổi 1 ký tự so với bản LAB. Không import SDK/MCP.
+
+_assumptions re-sync LAB 18/7 — D-58 (labpack đã drift bản crash string-key; khôi phục
+graceful-skip đúng LAB để nạp được assumption value CHỮ như blocked_record_types).
 """
 from __future__ import annotations
 
@@ -36,11 +39,17 @@ def _annuity(principal: float, annual_rate: float, term_months: int) -> float:
 
 
 def _assumptions(conn: sqlite3.Connection) -> dict[str, float]:
+    # assumptions chứa cả value chuỗi (blocked_record_types...) — chỉ lấy dòng ép số được
+    out: dict[str, float] = {}
     try:
-        rows = conn.execute("SELECT key, value FROM assumptions").fetchall()
-        return {r[0]: float(r[1]) for r in rows}
+        for k, v in conn.execute("SELECT key, value FROM assumptions").fetchall():
+            try:
+                out[k] = float(v)
+            except (TypeError, ValueError):
+                continue
     except sqlite3.Error:
-        return {}
+        pass
+    return out
 
 
 def _one(conn: sqlite3.Connection, sql: str, args: tuple) -> dict | None:

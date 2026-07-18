@@ -3,7 +3,8 @@
 Chạy: `uv run python -m app.db.reset_demo`
 
 XOÁ sạch VẬN HÀNH (BE ghi lúc chạy — tích tụ qua demo: phiếu pending, ca cũ, trace):
-  conversations · messages · tasks · cards · approvals · tool_calls
+  conversations · messages · tasks · cards · approvals · tool_calls · assessments
+  (assessments = sổ GHI của legal_classify_profile — runtime ledger như approvals, wipe khi reset)
 GIỮ + RE-SEED NGHIỆP VỤ gốc (customers/loans/legal như đầu) qua load_seed() — loans.status về seed
 (active) nên demo giải ngân lại được. GIỮ users (không xoá account demo).
 
@@ -20,7 +21,7 @@ from app.db.seed_from_lab import load_seed
 
 # Bảng VẬN HÀNH — xoá sạch (tích tụ qua demo). Thứ tự không quan trọng (conv_id text mềm, không FK cứng
 # D-31) nhưng để rõ: con trước cha. TRUNCATE CASCADE gọn + reset nhanh.
-_RUNTIME_TABLES = ["tool_calls", "cards", "approvals", "tasks", "messages", "conversations"]
+_RUNTIME_TABLES = ["assessments", "tool_calls", "cards", "approvals", "tasks", "messages", "conversations"]
 
 
 def reset_demo(database_url: str = DATABASE_URL) -> dict[str, int]:

@@ -20,8 +20,9 @@ LAB_SEED_DB = REPO_ROOT.parent / "shb-digital-experts" / "missions" / "shb-132" 
 
 # (table, columns) — cột KHỚP SQLite LAB, giữ đúng thứ tự cho INSERT positional (task T1-1 §A)
 TABLES: list[tuple[str, list[str]]] = [
-    ("customers", ["id", "full_name", "age", "occupation", "monthly_income", "region"]),
-    ("businesses", ["id", "name", "sector", "annual_revenue", "equity", "years_operating"]),
+    # T7-1: +id_number/address (khách) + tax_code/address (DN) — trụ ①công an đối chiếu nhân thân
+    ("customers", ["id", "full_name", "age", "occupation", "monthly_income", "region", "id_number", "address"]),
+    ("businesses", ["id", "name", "sector", "annual_revenue", "equity", "years_operating", "tax_code", "address"]),
     ("loans", ["loan_id", "owner_id", "principal", "outstanding", "monthly_payment", "status"]),
     ("collaterals", ["id", "owner_id", "type", "appraised_value", "docs_status"]),
     ("cic_records", ["owner_id", "cic_group", "history_note"]),
@@ -31,6 +32,11 @@ TABLES: list[tuple[str, list[str]]] = [
     ("owner_documents", ["owner_id", "doc_code", "status"]),
     ("collateral_legal", ["collateral_id", "dispute_status", "zoning_status", "note"]),
     ("restricted_purposes", ["purpose_code", "purpose_name", "restriction", "legal_basis"]),
+    # Legal 3-trụ tables (T7-1 — mount legal đầy đủ; assessments = sổ GHI runtime → KHÔNG seed)
+    ("police_records", ["owner_id", "id_number", "full_name", "address", "criminal_status",
+                        "record_type", "record_year", "notes"]),
+    ("employment_records", ["owner_id", "employer", "position", "tenure_months",
+                            "verified_income_vnd", "status", "verified_at"]),
 ]
 
 
@@ -43,18 +49,25 @@ def _is_numeric(value: object) -> bool:
         return False
 
 
-def _filter_rows(table: str, cols: list[str], rows: list) -> list:
-    """Lọc rows ngoài scope credit S1 (D-28).
+# assumption key CHỮ mà legal-pack (T7-1) cần nạp — sau D-58 credit._assumptions graceful-skip
+# string nên nạp AN TOÀN. Chỉ 2 key legal.py đọc (blocked_record_types qua _assumption_str +
+# lane_policy_version qua _assumption_str). 4 key chữ còn lại (products/ops-pack) về khi mount
+# pack đó — giữ scope T7-1 gọn (dispatch: "bỏ filter 2 key legal").
+_LEGAL_STRING_KEYS = frozenset({"blocked_record_types", "lane_policy_version"})
 
-    `assumptions` trong seed LAB gộp cả assumption của role LEGAL — dòng
-    `legal_docs_source='gia-thuyet-lab'` có `value` là CHỮ, không phải số. S1 chỉ mount
-    credit; credit.py::_assumptions làm `float(r[1])` trên MỌI dòng (chỉ except sqlite3.Error,
-    KHÔNG bắt ValueError) → dòng chữ làm credit_assess CRASH. Nạp chỉ dòng `value` numeric
-    = N1-sạch (KHÔNG sửa credit.py — giữ D-27). Dòng legal về khi mount legal (sprint sau).
+
+def _filter_rows(table: str, cols: list[str], rows: list) -> list:
+    """Lọc rows ngoài scope pack đã mount (D-28).
+
+    `assumptions` trong seed LAB gộp value CHỮ (blocked_record_types, lane_policy_version,
+    products_source...). Nạp dòng numeric + 2 key legal T7-1 cần; bỏ key chữ của pack chưa
+    mount (products/ops) để giữ scope gọn. Sau D-58 (credit._assumptions re-sync LAB
+    graceful-skip), string key KHÔNG còn làm credit_assess crash — nạp legal key an toàn.
     """
     if table == "assumptions":
-        vi = cols.index("value")
-        return [r for r in rows if _is_numeric(r[cols[vi]])]
+        vcol = cols[cols.index("value")]
+        kcol = cols[cols.index("key")]
+        return [r for r in rows if _is_numeric(r[vcol]) or r[kcol] in _LEGAL_STRING_KEYS]
     return rows
 
 
