@@ -4,6 +4,30 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-65 · S12 port LAB drop — 4 chốt của USER (19/7, bàn-plan-trước)** — (a) phần VỎ đã có
+  (legal/credit SKILL, main_skill) = MERGE-COMPARE có cân nhắc, không port đè: legal v3 VỎ giữ
+  brand D-61 ⊕ đoạn SÁCH-TRA-CỨU LAB; **deviation ghi nhận: LAB bơm retrieval vào legal SKILL
+  SAU certify không bump version (commit LAB 09fa983 > 4218b5d) — user chấp nhận nguyên trạng,
+  không đòi v4**; (b) seed prod = THAY snapshot world 8bf6b4 (khớp hash certify Products/Ops),
+  GIỮ bảng users — vì prod chưa dùng thật; (c) planner v0 = cherry vào main_skill, KHÔNG đổi
+  kiến trúc MAIN (câu neo: hệ = Claude-Code-clone); (d) GO ngay song song S15, test kỹ, prod
+  làm bãi test. Kèm: **SPEC §14 "không vector" LẬT HẸP có chủ đích** — vector CHỈ cho
+  `interaction_notes` (bkai bi-encoder local CPU, BLOB+numpy trong tool, KHÔNG pgvector/API
+  ngoài) — user đã chốt từ trước, nay thi hành. — cách đổi: từng mục đảo được bằng 1 commit;
+  seed đảo bằng snapshot cũ 8b3597cd còn trong git history.
+
+- **D-66 · PR#5 Ollama local: merge để CÓ TRONG REPO, prod không setup** (user chốt 19/7) —
+  provider `local` (qwen3:8b, sub_model per-provider) là năng-lực-đã-chứng-minh của kiến trúc,
+  không phải đường demo. Prod: thêm `local` vào SHB_PROVIDERS_DISABLED ở deploy kế (giấu khỏi
+  picker — container không có Ollama). — cách đổi: bỏ khỏi disabled + cài Ollama trên VM.
+
+- **D-65 · DELETE ca (T15-3): xoá cả `messages` cùng cards/tasks — audit (tool_calls + approvals
+  đã-quyết) GIỮ** (backend decide-and-log ② 19/7) — dispatch liệt kê "conv row + cards + tasks"
+  không nhắc messages; nhưng hard-delete để lại messages = row mồ côi mâu thuẫn ý "xoá ca". Phân
+  loại: NỘI DUNG ca (cards/tasks/messages) → xoá; DẤU VẾT KIỂM TOÁN (tool_calls, approvals đã
+  quyết) → append-only GIỮ. Cả cascade + check-pending trong 1 TX (không nửa-xoá). — cách đổi:
+  muốn giữ messages làm lịch sử → bỏ 1 dòng DELETE messages.
+
 - **D-64 · Credential demo trên bề mặt PUBLIC — ✅ ÁP DỤNG phương án (2): che admin/user-RM**
   (lead decide-and-log §7 19/7 sau 1 nhịp treo: đổi-wording đảo được, để admin lộ trên prod
   public trong lúc chờ = giữ rủi ro không cần thiết; user đã được báo, override được bằng 1
