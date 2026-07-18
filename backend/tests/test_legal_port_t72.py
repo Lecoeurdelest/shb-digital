@@ -24,7 +24,7 @@ from app.mount.pg_adapter import (
     release,
 )
 
-from .conftest import requires_db
+from .conftest import requires_db, requires_test_db
 
 # ── 1. Adapter WRITE whitelist (unit — không cần DB) ─────────────────────────
 
@@ -95,7 +95,7 @@ def test_adapter_raises_on_illegal_write_real_conn():
         release(conn)
 
 
-@requires_db
+@requires_test_db  # GHI assessments → chỉ test-db (siết architect)
 def test_adapter_insert_assessments_lastrowid():
     """INSERT-assessments qua adapter → cursor.lastrowid = id vừa sinh (emulate sqlite RETURNING id)."""
     conn = acquire()
@@ -157,7 +157,7 @@ def _assessment_row(assessment_id: int) -> tuple | None:
         conn.close()
 
 
-@requires_db
+@requires_test_db  # GHI assessments → chỉ test-db (siết architect)
 def test_classify_green_clean_customer():
     """Khách sạch + CIC1 + khoản nhỏ → lane green + auto_approve_eligible + GHI row."""
     r = _classify("C002", 300_000_000)
@@ -168,7 +168,7 @@ def test_classify_green_clean_customer():
     assert row is not None and row[1] == "C002" and row[2] == "green", "row assessments phải ghi đúng"
 
 
-@requires_db
+@requires_test_db  # GHI assessments → chỉ test-db (siết architect)
 def test_classify_c013_identity_mismatch_yellow():
     """C013 (CRM 'Lòng' vs Công an 'Long') → identity mismatch → lane yellow."""
     r = _classify("C013", 300_000_000)
@@ -179,7 +179,7 @@ def test_classify_c013_identity_mismatch_yellow():
     assert identity is not None and identity["level"] == "yellow"
 
 
-@requires_db
+@requires_test_db  # GHI assessments → chỉ test-db (siết architect)
 def test_classify_criminal_blocked_red():
     """C018 (financial_fraud ∈ blocked_record_types) → tiền án chặn cứng → lane red."""
     r = _classify("C018", 300_000_000)
@@ -188,7 +188,7 @@ def test_classify_criminal_blocked_red():
     assert it["decision"] == "reject_recommended"
 
 
-@requires_db
+@requires_test_db  # GHI assessments → chỉ test-db (siết architect)
 def test_classify_business_asymmetry_yellow():
     """DN B001 → không auto (chưa có xác minh BCTC — ÁN-L-F2) → lane yellow, employment yellow."""
     r = _classify("B001", 300_000_000)
@@ -198,7 +198,7 @@ def test_classify_business_asymmetry_yellow():
     assert emp is not None and emp["level"] == "yellow"
 
 
-@requires_db
+@requires_test_db  # GHI assessments → chỉ test-db (siết architect)
 def test_classify_writes_incrementing_ids():
     """Mỗi call classify GHI 1 row mới (ledger append-only) — id tăng, không ghi đè."""
     r1 = _classify("C002", 100_000_000)

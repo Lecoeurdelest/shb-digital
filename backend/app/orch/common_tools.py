@@ -163,5 +163,63 @@ async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-COMMON_SERVER = create_sdk_mcp_server(name="common", version="1.0.0", tools=[calc_tool, present_tool])
-COMMON_ALLOWED = ["mcp__common__calc", "mcp__common__present"]
+# ── present_form (T9-1 D-57) — form intake hồ sơ khách MỚI ───────────────────
+# Fields ĐỊNH NGHĨA SERVER-SIDE (N5/§15 — model KHÔNG tự chế fields, chỉ GỌI tool). MAIN gọi khi
+# ca customer owner_id=NULL (chưa hồ sơ). Card type 'form' → FE render panel phải WIDE (T9-3).
+# 6 field theo dispatch T9-1 (KHÁC plan sprint_9 — dispatch thắng, ghi note báo architect).
+FORM_FIELDS = [
+    {"name": "full_name", "label": "Họ và tên", "type": "text", "required": True},
+    {"name": "id_number", "label": "Số CMND/CCCD", "type": "text", "required": True},
+    {"name": "address", "label": "Địa chỉ thường trú", "type": "text", "required": True},
+    {"name": "occupation", "label": "Nghề nghiệp", "type": "text", "required": True},
+    {"name": "monthly_income", "label": "Thu nhập hàng tháng (VND)", "type": "number", "required": True},
+    {"name": "loan_purpose", "label": "Mục đích vay", "type": "text", "required": True},
+]
+FORM_REQUIRED = [f["name"] for f in FORM_FIELDS if f["required"]]
+
+
+@tool(
+    name="present_form",
+    description=(
+        "Hiện FORM thu thập hồ sơ khách MỚI (chưa có hồ sơ) lên canvas — dùng khi được báo khách "
+        "CHƯA có hồ sơ. Fields do server định sẵn (họ tên, CMND, địa chỉ, nghề, thu nhập, mục đích "
+        "vay) — KHÔNG tự hỏi từng câu trong chat. Khách điền form → hệ thống tạo hồ sơ + gọi lại bạn."
+    ),
+    input_schema={"type": "object", "properties": {}},  # không nhận field từ model (server-side)
+)
+async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
+    """present_form THẬT: persist card type 'form' (fields server-side + status='pending') → SSE.
+    id/conv/task VỎ-inject (§15). Model KHÔNG bơm fields — chống model tự chế shape hồ sơ."""
+    from app.orch import registry, store
+    from app.sse.emit import emit
+
+    conv_id = registry.CTX_CONV.get()
+    task_id = registry.CTX_TASK.get() or None
+    card_data = {
+        "type": "form",
+        "title": "Hồ sơ vay — thông tin khách hàng",
+        "fields": FORM_FIELDS,
+        "status": "pending",
+    }
+    try:
+        card_row = await store.insert_card(conv_id, task_id, "form", card_data)
+    except Exception as e:  # noqa: BLE001
+        return _text(
+            {"code": "card_persist_error", "message": str(e)[:200], "hint": "Thử lại 1 lần.", "retryable": True}
+        )
+    try:
+        emit(conv_id, "card", {"card": card_row})
+    except Exception:  # noqa: BLE001
+        pass
+    return _text(
+        {
+            "rendered": True,
+            "hint": "Form hồ sơ đã lên canvas. KẾT THÚC LƯỢT — khách điền xong hệ thống tự gọi lại bạn.",
+        }
+    )
+
+
+COMMON_SERVER = create_sdk_mcp_server(
+    name="common", version="1.0.0", tools=[calc_tool, present_tool, present_form_tool]
+)
+COMMON_ALLOWED = ["mcp__common__calc", "mcp__common__present", "mcp__common__present_form"]
