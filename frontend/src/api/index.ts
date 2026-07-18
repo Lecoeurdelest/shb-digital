@@ -5,7 +5,7 @@
 
 import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem } from '../types';
+import type { ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse } from '../types';
 
 // True when the app talks to the in-memory mock backend instead of the real REST API.
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
@@ -30,6 +30,9 @@ export interface ConversationApi {
   auditFiltered(filters?: Record<string, string>): Promise<AuditRow[]>;
   getModels(): Promise<ModelsResponse>;
   runCompare(question: string): Promise<CompareResult>;
+  // Admin stats + assessments (S13)
+  getStats(window?: 'today' | '7d'): Promise<StatsResponse>;
+  listAssessments(owner?: string, limit?: number): Promise<Assessment[]>;
   // Form intake + bell (T9-3)
   submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult>;
   getNotifications(): Promise<NotificationItem[]>;
@@ -94,6 +97,12 @@ const mockApi: ConversationApi = {
   async runCompare(question: string) {
     return mockBackend.runCompare(question);
   },
+  async getStats(window: 'today' | '7d' = 'today') {
+    return mockBackend.getStats(window);
+  },
+  async listAssessments(owner?: string, limit?: number) {
+    return mockBackend.listAssessments(owner, limit);
+  },
   async submitForm(convId: string, cardId: string, values: Record<string, string>) {
     return mockBackend.submitForm(convId, cardId, values);
   },
@@ -142,6 +151,8 @@ const realApi: ConversationApi = {
   auditFiltered: apiClient.auditFiltered,
   getModels: apiClient.getModels,
   runCompare: apiClient.runCompare,
+  getStats: apiClient.getStats,
+  listAssessments: apiClient.listAssessments,
   submitForm: apiClient.submitForm,
   getNotifications: apiClient.getNotifications,
   openEventSource: browserEventSource,

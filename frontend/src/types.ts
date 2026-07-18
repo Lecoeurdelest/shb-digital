@@ -243,3 +243,28 @@ export interface NotificationItem {
   ts: string;
   conv_id: string;
 }
+
+// ── Stats + assessments (S13 T13-1 · GET /api/stats, /api/assessments — admin) ──
+export interface StatsResponse {
+  window: string;
+  approvals: { approved: number; rejected: number; pending: number; auto: number };
+  assessments: { green: number; yellow: number; red: number };
+  conversations: { total: number; active: number };
+  delta: { approvals_total: number; assessments_total: number };
+}
+export type AssessmentLevel = 'pass' | 'green' | 'yellow' | 'red' | string; // criteria level (defensive: chấp string lạ)
+export interface AssessmentCriterion {
+  key: string;
+  level: AssessmentLevel;
+  detail?: string;
+}
+export interface Assessment {
+  id: string | number;
+  owner_id: string;
+  loan_type?: string;
+  loan_amount_vnd?: number;
+  lane: 'green' | 'yellow' | 'red' | string; // defensive: lane lạ → default branch
+  criteria: AssessmentCriterion[];
+  basis?: string;
+  created_at?: string;
+}

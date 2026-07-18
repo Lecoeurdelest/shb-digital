@@ -12,12 +12,14 @@ import type {
   CompareResult,
   Conversation,
   ConversationFullState,
+  Assessment,
   FormSubmitResult,
   Message,
   ModelsResponse,
   NotificationItem,
   OrchTask,
   SSEEnvelope,
+  StatsResponse,
 } from '../types';
 
 const MOCK_LATENCY_MS = 220;
@@ -164,6 +166,58 @@ class MockBackend {
       { type: 'approval_decided', title: 'Khoản vay L001 đã được ngân hàng duyệt', ts: nowIso(), conv_id: anyConv },
       { type: 'disbursed', title: 'Giải ngân 500 triệu vào tài khoản của bạn', ts: nowIso(), conv_id: anyConv },
     ];
+  }
+
+  // ── Stats + assessments (S13 T13-2/T13-3) ──
+  async getStats(window: 'today' | '7d' = 'today'): Promise<StatsResponse> {
+    await delay(MOCK_LATENCY_MS);
+    // số phân bố gần thực; 7d lớn hơn today (delta dương). Không series (spark optional theo dispatch).
+    const mul = window === '7d' ? 6 : 1;
+    return {
+      window,
+      approvals: { approved: 12 * mul, rejected: 3 * mul, pending: 5, auto: 7 * mul },
+      assessments: { green: 9 * mul, yellow: 6 * mul, red: 2 * mul },
+      conversations: { total: 20 * mul, active: 3 },
+      delta: { approvals_total: window === '7d' ? 14 : 4, assessments_total: window === '7d' ? -3 : 2 },
+    };
+  }
+
+  async listAssessments(owner?: string, limit = 50): Promise<Assessment[]> {
+    await delay(MOCK_LATENCY_MS);
+    const all: Assessment[] = [
+      {
+        id: 'as_001', owner_id: 'C001', loan_type: 'Thế chấp', loan_amount_vnd: 5_000_000_000, lane: 'green',
+        basis: 'lane_policy: green — DSCR ≥ 1.2, LTV ≤ 70%, CIC nhóm 1.',
+        created_at: '2026-07-19T09:12:00',
+        criteria: [
+          { key: 'DSCR', level: 'pass', detail: 'DSCR 1.501 ≥ ngưỡng 1.2 (credit_assess).' },
+          { key: 'LTV', level: 'pass', detail: 'LTV 62% ≤ 70% (tài sản định giá 8 tỷ).' },
+          { key: 'CIC', level: 'pass', detail: 'Nhóm 1 — lịch sử tín dụng tốt (credit_cic_get).' },
+        ],
+      },
+      {
+        id: 'as_002', owner_id: 'C029', loan_type: 'Tín chấp', loan_amount_vnd: 800_000_000, lane: 'yellow',
+        basis: 'lane_policy: yellow — DSCR biên, cần bổ sung tài sản đảm bảo.',
+        created_at: '2026-07-19T08:40:00',
+        criteria: [
+          { key: 'DSCR', level: 'yellow', detail: 'DSCR 1.05 — dưới ngưỡng an toàn 1.2, sát rủi ro.' },
+          { key: 'LTV', level: 'pass', detail: 'LTV 45% ≤ 70%.' },
+          { key: 'CIC', level: 'pass', detail: 'Nhóm 1.' },
+        ],
+      },
+      {
+        id: 'as_003', owner_id: 'DN2024001', loan_type: 'Thế chấp DN', loan_amount_vnd: 12_000_000_000, lane: 'red',
+        basis: 'lane_policy: red — DSCR < 1.0, giấy tờ pháp lý thiếu (pháp chế chặn).',
+        created_at: '2026-07-19T07:55:00',
+        criteria: [
+          { key: 'DSCR', level: 'red', detail: 'DSCR 0.62 < 1.0 — không đủ dòng tiền trả nợ.' },
+          { key: 'Pháp lý', level: 'red', detail: 'Thiếu giấy chứng nhận quyền sử dụng đất (check_documents).' },
+          { key: 'CIC', level: 'yellow', detail: 'Nhóm 2 — có nợ quá hạn nhẹ.' },
+        ],
+      },
+    ];
+    const filtered = owner ? all.filter((a) => a.owner_id === owner) : all;
+    return filtered.slice(0, limit);
   }
 
   async runCompare(question: string): Promise<CompareResult> {

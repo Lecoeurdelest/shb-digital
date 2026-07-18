@@ -21,11 +21,19 @@ beforeEach(() => {
   vi.spyOn(conversationApi, 'listApprovals').mockResolvedValue(appr);
   vi.spyOn(conversationApi, 'auditFiltered').mockResolvedValue(audit);
   vi.spyOn(conversationApi, 'listConversations').mockResolvedValue(convs);
+  // T13: tab Tổng quan là default → mock stats/assessments (tránh poll thật lỗi trong test)
+  vi.spyOn(conversationApi, 'getStats').mockResolvedValue({
+    window: 'today', approvals: { approved: 12, rejected: 3, pending: 5, auto: 7 },
+    assessments: { green: 9, yellow: 6, red: 2 }, conversations: { total: 20, active: 3 },
+    delta: { approvals_total: 4, assessments_total: 2 },
+  });
+  vi.spyOn(conversationApi, 'listAssessments').mockResolvedValue([]);
 });
 
 describe('ControlTower', () => {
   it('tab Hàng chờ: list phiếu pending + nút Duyệt/Từ chối', async () => {
     render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Hàng chờ duyệt')); // default giờ là Tổng quan (T13-2)
     await waitFor(() => expect(screen.getByText(/disburse/)).toBeInTheDocument());
     expect(screen.getByTestId('queue-row-a1')).toBeInTheDocument();
     expect(screen.getByText(/Hàng chờ phê duyệt \(1\)/)).toBeInTheDocument();
@@ -34,6 +42,7 @@ describe('ControlTower', () => {
   it('duyệt từ queue → decideApproval + rời hàng chờ', async () => {
     const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue({});
     render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Hàng chờ duyệt'));
     await waitFor(() => expect(screen.getByTestId('queue-row-a1')).toBeInTheDocument());
     fireEvent.click(screen.getAllByText(/✓ Duyệt/)[0]);
     expect(spy).toHaveBeenCalledWith('a1', 'approved', '');

@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem } from '../types';
+import type { ApiError, ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -143,6 +143,22 @@ export const apiClient = {
   // model/provider list (dropdown D-45b).
   getModels(): Promise<ModelsResponse> {
     return request<ModelsResponse>('/api/models');
+  },
+
+  // Dashboard counters for the admin overview tab (window=today|7d).
+  // stats tab Tổng quan (S13 T13-2, admin): approvals/assessments/conversations + delta so kỳ trước.
+  getStats(window: 'today' | '7d' = 'today'): Promise<StatsResponse> {
+    return request<StatsResponse>(`/api/stats?window=${encodeURIComponent(window)}`);
+  },
+
+  // List credit assessments (newest-first, cap 100) for the AI-reasoning panel.
+  // hồ sơ thẩm định (S13 T13-3, admin): row + criteria 3 trụ + basis (lý do AI). owner/limit optional.
+  listAssessments(owner?: string, limit?: number): Promise<Assessment[]> {
+    const qs = new URLSearchParams();
+    if (owner) qs.set('owner', owner);
+    if (limit) qs.set('limit', String(limit));
+    const s = qs.toString();
+    return request<Assessment[]>(`/api/assessments${s ? `?${s}` : ''}`);
   },
 
   // Submit a customer intake form; creates the customer profile on success.

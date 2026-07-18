@@ -7,14 +7,26 @@ import { conversationApi } from '../api';
 import { ApiRequestError } from '../api/client';
 import { useApprovalBadge } from '../hooks/useApprovalBadge';
 import { ThemeToggle } from './ThemeToggle';
+import { StatsOverview } from './stats/StatsOverview';
+import { AssessmentsView } from './stats/AssessmentsView';
 import { roleLabel } from '../roles';
 import type { ApprovalRow, AuditRow, CompareResult, CompareSide, Conversation } from '../types';
 import './ControlTower.css';
 
-type Tab = 'queue' | 'audit' | 'agents' | 'compare';
+type Tab = 'overview' | 'queue' | 'assessments' | 'audit' | 'agents' | 'compare';
+
+const TAB_LABEL: Record<Tab, string> = {
+  overview: 'Tổng quan',
+  queue: 'Hàng chờ duyệt',
+  assessments: 'Hồ sơ + lý do AI',
+  audit: 'Nhật ký tool',
+  agents: 'Trạng thái đội',
+  compare: 'So sánh 1 vs đội',
+};
+const TAB_ORDER: Tab[] = ['overview', 'queue', 'assessments', 'audit', 'agents', 'compare'];
 
 export function ControlTower({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<Tab>('queue');
+  const [tab, setTab] = useState<Tab>('overview'); // T13-2: Tổng quan là tab ĐẦU, default
   // ControlTower chỉ render cho admin (App gate) → poll badge phiếu-bay luôn bật. Số nổi trên tab queue.
   const pending = useApprovalBadge(true);
   return (
@@ -25,14 +37,14 @@ export function ControlTower({ onBack }: { onBack: () => void }) {
         <span className="ct__sub">Giám sát · phê duyệt · nhật ký — quản lý</span>
         <ThemeToggle />
         <div className="ct__tabs">
-          {(['queue', 'audit', 'agents', 'compare'] as Tab[]).map((t) => (
+          {TAB_ORDER.map((t) => (
             <button
               key={t}
               type="button"
               className={`ct__tab${tab === t ? ' ct__tab--active' : ''}`}
               onClick={() => setTab(t)}
             >
-              {t === 'queue' ? 'Hàng chờ duyệt' : t === 'audit' ? 'Nhật ký tool' : t === 'agents' ? 'Trạng thái đội' : 'So sánh 1 vs đội'}
+              {TAB_LABEL[t]}
               {t === 'queue' && pending > 0 && (
                 <span className="ct__tab-badge" data-testid="ct-queue-badge">{pending}</span>
               )}
@@ -42,7 +54,9 @@ export function ControlTower({ onBack }: { onBack: () => void }) {
       </header>
 
       <div className="ct__body" data-scroll>
+        {tab === 'overview' && <StatsOverview />}
         {tab === 'queue' && <ApprovalQueue />}
+        {tab === 'assessments' && <AssessmentsView />}
         {tab === 'audit' && <AuditView />}
         {tab === 'agents' && <AgentStatus />}
         {tab === 'compare' && <CompareView />}
