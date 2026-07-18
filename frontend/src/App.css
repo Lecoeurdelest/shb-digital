@@ -20,6 +20,17 @@
   flex: none;
   border-bottom: 1px solid var(--bd);
   background: var(--p1);
+  overflow: hidden; /* chặn tràn ngang ở viewport hẹp (máy chiếu 1366) — phần tử phụ co/ẩn thay vì đẩy nút ra rìa */
+}
+/* nút Control Tower / Đăng xuất luôn thấy — không cho co mất */
+.ws__topbar .ws__logout { flex: none; }
+/* subtitle "Workspace · SHB #132" là phụ — ẩn khi hẹp để nhường nút bấm */
+@media (max-width: 1440px) {
+  .ws__subtitle { display: none; }
+}
+@media (max-width: 1180px) {
+  .ws__user { display: none; } /* tên user phụ — ẩn tiếp ở rất hẹp, giữ 2 nút bấm */
+  .ws__topbar { gap: 8px; }
 }
 .ws__logo {
   width: 26px;

@@ -27,9 +27,17 @@
   font-size: 12px;
 }
 .ct__back:hover { color: var(--tx); border-color: var(--dim); }
-.ct__title { font-size: 15px; font-weight: 700; color: var(--tx); }
+.ct__title { font-size: 15px; font-weight: 700; color: var(--tx); flex: none; }
 .ct__sub { font-size: 11px; color: var(--mute); }
-.ct__tabs { margin-left: auto; display: flex; gap: 4px; }
+.ct__tabs { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
+/* viewport hẹp (máy chiếu 1366): ẩn subtitle + tabs xuống dòng gọn, mọi tab vẫn bấm được */
+@media (max-width: 1440px) {
+  .ct__sub { display: none; }
+}
+@media (max-width: 1180px) {
+  .ct__tabs { margin-left: 0; width: 100%; } /* tabs xuống hàng riêng, dàn đủ — không tràn rìa */
+  .ct__tab { font-size: 11.5px; padding: 6px 11px; }
+}
 .ct__tab {
   padding: 7px 14px;
   border-radius: 8px;
