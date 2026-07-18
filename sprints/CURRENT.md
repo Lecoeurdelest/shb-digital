@@ -47,7 +47,14 @@ gap=0 + dark/light default-LIGHT + logout-thoát-thật + kịch bản nghiệp 
 delta + AUTO-đếm-riêng + poll) + Hồ sơ-lý-do-AI (criteria 3 trụ + basis). Tester 8/8 luồng
 (scenarios doc = checklist giờ G). 497 test (367+130). False-alarm 8a root-caused (cleanup ≠ bug).
 
-**Hàng đợi:** S12 retrieval (⏸ D-63 chờ LAB drop) · rehearsal 2-cửa-sổ tay trước giờ G.
+**Sprint 14 — ĐÓNG** (2026-07-19): LOOP DOGFOOD 2 persona (user chốt full-auto). 16 finding —
+14 fixed re-verified PROD (7🔴: credential-lộ D-64, form-mất-data, +Ca-mới race, phiếu-vô-danh,
+badge first-tick, từ-chối-không-lý-do đứt-mạch-BE, bell-dropdown-clip) + cache-stale nginx +
+runbook §4b. 514 test (352+162). Prod dọn về baseline demo nguyên văn (biên lai theo số).
+B-05 deferred (gu user).
+
+**Hàng đợi:** S12 retrieval (⏸ D-63 chờ LAB drop) · rehearsal 2-cửa-sổ tay trước giờ G
+(+ hard-refresh §4b + liếc badge 10s) · B-05 chờ gu user.
 
 **Golden path:** `sprints/ROADMAP.md`. **Plan:** (chờ sprint kế — S12 khi LAB drop).
 
@@ -67,3 +74,4 @@ delta + AUTO-đếm-riêng + poll) + Hồ sơ-lý-do-AI (criteria 3 trụ + basi
 | 9+10 | 5059e1a→6ec86bc + merges + đóng | Khách mới vòng đời trọn (form/mail/bell) + DEPLOY digital.tinhdev.com + 6 fix prod (read-scope leak E) + landing/google + brand D-61. Tester 6/6 PROD. 465 test. |
 | 11 | f7e9332→32d88af + đóng | CI badge + refactor gated 0-đổi + METHODOLOGY/README + google LIVE + flaky gap=0 + dark/light LIGHT + logout thật + scenarios 7/7 prod + script v9. 477 test. |
 | 13 | 39e7deb, 9ea0335, fb8cec2 + đóng | Admin thống kê: /api/stats+assessments + Tower tab Tổng quan (7 KPI) + Hồ sơ-lý-do-AI. Tester 8/8. 497 test. |
+| 14 | 58d3774→2940295 + đóng | LOOP DOGFOOD 2 persona: 16 finding, 14 fixed CHỐT PROD (7🔴) + cache-fix §4b + D-64. Double-evidence B-01/07, race A-07 thật. 514 test. Prod về baseline sạch. |
