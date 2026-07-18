@@ -1,11 +1,13 @@
-"""[TESTER — T3-4] Gate S3 authz boundary (D-19): decide approval CHỈ admin. DEV_SKIP_AUTH OFF
-(default, an toàn) — RM (role=user) KHÔNG duyệt được. Chạy MẶC ĐỊNH (không cần RUN_LIVE_SDK,
-không cần seed data phức tạp — chỉ cần seed users + 1 approval row giả lập để test authz thuần,
-tách khỏi luồng resume thật ở test_gate_s3_e2e_tester.py).
+"""[TESTER — T3-4, cập nhật S8/T8-1] Gate S3 authz boundary — decide approval CHỈ admin (NGÂN
+HÀNG). Lịch sử semantics: D-19 (admin-only) → D-54 (mọi user) → D-56 (ĐẢO LẠI admin-only, 2
+PERSONA: app = cửa khách, duyệt = việc ngân hàng). File này khớp D-56 HIỆN HÀNH. DEV_SKIP_AUTH
+OFF (default, an toàn) — RM (role='user', tài khoản NGÂN HÀNG nhưng KHÔNG phải admin) KHÔNG duyệt
+được. Chạy MẶC ĐỊNH (không cần RUN_LIVE_SDK, không cần seed data phức tạp — chỉ cần seed users +
+1 approval row giả lập để test authz thuần, tách khỏi luồng resume thật ở
+test_gate_s3_e2e_tester.py).
 
 Viết ĐỘC LẬP với test backend (author≠checker) — backend test_approvals.py cover unit decide
-logic; đây cover ranh QUYỀN cụ thể theo D-19 mà brief #14 yêu cầu tường minh: "authz decide-flag-
-OFF (RM không duyệt được)"."""
+logic; đây cover ranh QUYỀN cụ thể theo D-56 mà brief #14 yêu cầu tường minh."""
 
 from __future__ import annotations
 
@@ -98,15 +100,15 @@ def test_decide_flag_off_no_cookie_401():
 
 
 @requires_db
-def test_decide_flag_off_rm_user_can_decide():
-    """[SỬA theo D-54, 18/7 — tester] D-19 gốc giả định decide độc quyền admin ("két cần chìa
-    giám đốc"). D-54 đổi semantics: approvals (list+decide) dùng require_user thay require_admin
-    — "user app = nhân viên cấp cao", NHẤT QUÁN D-39 (không độc quyền admin, MỌI người dùng đã
-    login đều duyệt được). Đọc app/api/approvals.py xác nhận cả GET và POST decide dùng
-    require_user (dòng 20/35/45) — không phải suy đoán/tin lời khai backend.
+def test_decide_flag_off_rm_user_denied_d56():
+    """[SỬA theo D-56, 18/7 — tester, ĐẢO LẠI D-54] D-56 đảo D-54: 2 PERSONA — app là cửa KHÁCH,
+    duyệt là việc NGÂN HÀNG. Đọc app/api/approvals.py dòng 21/36/46 xác nhận POST decide (và GET
+    list) đã quay lại `require_admin` (không phải suy đoán/tin lời khai backend) — "Duyệt phiếu
+    = việc NGÂN HÀNG → require_admin" (comment code dòng 4).
 
-    RM (role='user') ĐÃ login → 200, decide được bình thường. Test giữ tên biến `rm_user` để
-    truy vết lịch sử đổi semantics (D-19→D-54), không phải bug sót lại."""
+    RM (role='user') ĐÃ login nhưng KHÔNG PHẢI admin → 403 forbidden 4-field. Tên test giữ hậu tố
+    `_d56` để truy vết lịch sử đổi semantics 2 lần (D-19 admin-only → D-54 mọi user → D-56 quay
+    lại admin-only), không phải bug sót lại."""
     assert deps.DEV_SKIP_AUTH is False
     if not _users_seeded():
         pytest.skip("users chưa seed")
@@ -117,17 +119,19 @@ def test_decide_flag_off_rm_user_can_decide():
         assert r_login.json()["user"]["role"] == "user", "setup: phải login đúng RM (role=user)"
 
         r = client.post(f"/api/approvals/{approval_id}/decide", json={"decision": "approved"})
-        assert r.status_code == 200, (
-            f"D-54: RM (role=user) được duyệt (require_user, không còn require_admin) — "
-            f"kỳ vọng 200, thấy {r.status_code}: {r.text}"
+        assert r.status_code == 403, (
+            f"D-56: RM (role=user) KHÔNG được duyệt — chỉ admin (require_admin) — "
+            f"kỳ vọng 403, thấy {r.status_code}: {r.text}"
         )
-        assert r.json()["status"] == "approved"
+        body = r.json()
+        assert set(body) == {"code", "message", "hint", "retryable"}
+        assert body["code"] == "forbidden"
 
         conn = psycopg2.connect(DATABASE_URL)
         try:
             cur = conn.cursor()
             cur.execute("SELECT status FROM approvals WHERE id=%s", (approval_id,))
-            assert cur.fetchone()[0] == "approved", "RM decide thành công — phiếu PHẢI đổi trạng thái"
+            assert cur.fetchone()[0] == "pending", "RM bị chặn — phiếu KHÔNG được đổi trạng thái"
         finally:
             conn.close()
     finally:
@@ -155,19 +159,20 @@ def test_decide_flag_off_admin_can_decide():
 
 
 @requires_db
-def test_decide_flag_off_rm_can_read_pending_list():
-    """[SỬA theo D-54, 18/7 — tester] Đọc app/api/approvals.py dòng 20+35 xác nhận GET
-    /api/approvals giờ dùng require_user (không phải require_admin cũ) — nhất quán với POST
-    decide (D-54: mọi user đã login đều xem+duyệt được, Tower chỉ là nơi giám sát/thống kê,
-    không độc quyền admin). RM (role='user') → 200, xem được hàng chờ."""
+def test_decide_flag_off_rm_denied_pending_list_d56():
+    """[SỬA theo D-56, 18/7 — tester, ĐẢO LẠI D-54] Đọc app/api/approvals.py dòng 21+36 xác nhận
+    GET /api/approvals đã quay lại `require_admin` — nhất quán với POST decide (D-56: Tower là
+    màn NGÂN HÀNG, khách không xem được hàng chờ duyệt của ngân hàng). RM (role='user') → 403
+    forbidden 4-field."""
     if not _users_seeded():
         pytest.skip("users chưa seed")
     r_login = client.post("/api/auth/login", json={"username": "user", "password": "user"})
     assert r_login.status_code == 200
 
     r = client.get("/api/approvals?status=pending")
-    assert r.status_code == 200, (
-        f"D-54: GET /api/approvals dùng require_user (đọc code xác nhận) — RM PHẢI xem được: "
-        f"{r.status_code} {r.text}"
+    assert r.status_code == 403, (
+        f"D-56: GET /api/approvals dùng require_admin (đọc code xác nhận) — RM PHẢI bị chặn: {r.status_code} {r.text}"
     )
-    assert isinstance(r.json(), list)
+    body = r.json()
+    assert set(body) == {"code", "message", "hint", "retryable"}
+    assert body["code"] == "forbidden"

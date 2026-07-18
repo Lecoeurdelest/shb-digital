@@ -196,8 +196,7 @@ def _cleanup_orphans_sync(boot_time: datetime | None = None) -> int:
                 )
             else:
                 cur.execute(
-                    "UPDATE tasks SET status='failed', result=%s, ended_at=now() "
-                    "WHERE status IN ('queued','running')",
+                    "UPDATE tasks SET status='failed', result=%s, ended_at=now() WHERE status IN ('queued','running')",
                     (json.dumps({"reason": "server restart"}),),
                 )
             n = cur.rowcount
@@ -269,6 +268,20 @@ def _list_conversations_sync(user_id: str) -> list[dict[str, Any]]:
                 "SELECT id, user_id, title, status, sdk_session_id, provider, model, created_at "
                 "FROM conversations WHERE user_id=%s ORDER BY created_at DESC",
                 (user_id,),
+            )
+            return [_conv_to_dict(dict(r)) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def _list_all_conversations_sync() -> list[dict[str, Any]]:
+    """D-56: admin (ngân hàng) → MỌI ca (không filter user_id). Giám sát toàn cửa khách."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id, user_id, title, status, sdk_session_id, provider, model, created_at "
+                "FROM conversations ORDER BY created_at DESC"
             )
             return [_conv_to_dict(dict(r)) for r in cur.fetchall()]
     finally:
@@ -403,6 +416,11 @@ async def get_conversation(conv_id: str) -> dict[str, Any] | None:
 
 async def list_conversations(user_id: str) -> list[dict[str, Any]]:
     return await asyncio.to_thread(_list_conversations_sync, user_id)
+
+
+async def list_all_conversations() -> list[dict[str, Any]]:
+    """D-56 admin: mọi ca (không scope user_id)."""
+    return await asyncio.to_thread(_list_all_conversations_sync)
 
 
 async def set_conv_status(conv_id: str, status: str) -> None:

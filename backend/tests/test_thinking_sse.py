@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from app.orch.main_session import _emit_thinking
+from app.orch.audit_emit import _emit_thinking
 from app.sse import bus
 
 

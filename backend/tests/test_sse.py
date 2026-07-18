@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from uuid import uuid4
-
 import pytest
 
 from app.sse import bus, emit
 from app.sse.redact import redact_deep
+
+from .conftest import requires_db
 
 
 @pytest.fixture(autouse=True)
@@ -121,23 +121,36 @@ def test_sse_heartbeat_interval_15s():
     assert _HEARTBEAT == 15.0
 
 
+@requires_db
 @pytest.mark.asyncio
 async def test_sse_stream_emits_ping_event_when_idle(monkeypatch):
     """S6: queue RỖNG > _HEARTBEAT → stream yield EVENT ping (data:) KHÔNG comment (: ...) — native
     EventSource nuốt comment → FE onmessage không thấy. type='ping' cùng shape envelope → FE reset
-    watchdog. Hạ _HEARTBEAT nhỏ để test nhanh."""
+    watchdog. Hạ _HEARTBEAT nhỏ để test nhanh. (D-56: cần conv row + claims admin cho scoping.)"""
     import json as _json
 
+    import psycopg2
+
     import app.api.sse as sse_mod
+    from app.db.config import DATABASE_URL
 
     monkeypatch.setattr(sse_mod, "_HEARTBEAT", 0.05)  # nhanh
-    conv = f"hb-{uuid4()}"
+    # D-56 scoping: sse check conv tồn tại + accessible → cần conv ROW thật. claims admin → mọi ca.
+    cn = psycopg2.connect(DATABASE_URL)
+    cn.autocommit = True
+    with cn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO conversations (user_id, title, status, created_at) VALUES "
+            "('admin','t','running',now()) RETURNING id::text"
+        )
+        conv = cur.fetchone()[0]
+    cn.close()
 
     class _FakeReq:
         async def is_disconnected(self):
             return False
 
-    resp = await sse_mod.sse(conv, _FakeReq(), _claims={"username": "u"})
+    resp = await sse_mod.sse(conv, _FakeReq(), claims={"role": "admin", "username": "admin"})
     frames = []
     it = resp.body_iterator
     for _ in range(3):  # connected + ≥1 ping (queue rỗng → timeout → ping event)

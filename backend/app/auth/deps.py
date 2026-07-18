@@ -83,3 +83,10 @@ def require_admin(request: Request) -> dict[str, Any]:
             retryable=False,
         )
     return claims
+
+
+def can_access_conv(conv: dict[str, Any], claims: dict[str, Any]) -> bool:
+    """D-56 scoping: admin (ngân hàng) → mọi ca; khác → CHỈ ca của mình (conv.user_id == username).
+    Ca không thuộc mình → caller trả 404 (hide existence, KHÔNG 403 — không lộ ca người khác tồn tại).
+    Dùng chung: conversations (get/chat) · SSE · interrupt."""
+    return claims.get("role") == "admin" or conv.get("user_id") == claims.get("username")

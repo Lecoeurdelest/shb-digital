@@ -19,6 +19,7 @@ from app.api.conversations import router as conversations_router
 from app.api.interrupt import router as interrupt_router
 from app.api.models import router as models_router
 from app.api.sse import router as sse_router
+from app.auth.router import me_router
 from app.auth.router import router as auth_router
 from app.errors import register_error_handler
 
@@ -55,6 +56,7 @@ app = FastAPI(title="SHB Digital Expert Guild", lifespan=lifespan)
 
 register_error_handler(app)  # ApiError + validation → body 4-field trần (CONTRACT §0)
 app.include_router(auth_router)
+app.include_router(me_router)  # /api/me (D-56 persona — Export FE T8-2)
 app.include_router(conversations_router)  # conversations + chat (T1-3)
 app.include_router(sse_router)  # SSE stream (T1-3)
 app.include_router(approvals_router)  # approvals decide + list (T3-2)

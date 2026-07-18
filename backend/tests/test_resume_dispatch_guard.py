@@ -215,7 +215,7 @@ async def test_T40_exec_attempts_at_max_stops_and_marks_failed(monkeypatch):
 def test_prompt_exec_failed_deterministic():
     """_build_event_prompt task_done + exec_failed → prompt RÕ 'thất bại bền, cần người' (không
     phụ suy luận model đọc result_summary). Không cần DB/async."""
-    from app.orch.main_session import _build_event_prompt
+    from app.orch.main_prompts import _build_event_prompt
 
     p = _build_event_prompt(
         "task_done",
@@ -232,7 +232,7 @@ def test_prompt_exec_failed_deterministic():
 def test_prompt_disburse_done_dan_khong_present_lai():
     """T4-5: task_done ops+done+disbursed → dặn MAIN KHÔNG present lại (Ops đã trình biên nhận) →
     chống 2-card-trùng. Predicate HẸP: chỉ path này."""
-    from app.orch.main_session import _build_event_prompt
+    from app.orch.main_prompts import _build_event_prompt
 
     p = _build_event_prompt(
         "task_done",
@@ -250,7 +250,7 @@ def test_prompt_disburse_done_dan_khong_present_lai():
 def test_prompt_non_disburse_task_done_normal():
     """T4-5 predicate KHÔNG fire cho task khác (credit done / ops không disbursed) → prompt generic
     (GIỮ #1 main summary + present bình thường)."""
-    from app.orch.main_session import _build_event_prompt
+    from app.orch.main_prompts import _build_event_prompt
 
     # credit done → generic (không dặn không-present)
     p_credit = _build_event_prompt(

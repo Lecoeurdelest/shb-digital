@@ -31,7 +31,14 @@ _SSE_HEADERS = {
 
 
 @router.get("/{conv_id}/sse")
-async def sse(conv_id: str, request: Request, _claims: dict = Depends(require_user)) -> StreamingResponse:
+async def sse(conv_id: str, request: Request, claims: dict = Depends(require_user)) -> StreamingResponse:
+    # D-56 scoping: customer subscribe ca người khác → 404 (hide), KHÔNG stream. admin → mọi ca.
+    from app.auth.deps import can_access_conv
+    from app.orch import store
+
+    conv = await store.get_conversation(conv_id)
+    if conv is None or not can_access_conv(conv, claims):
+        raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
     if bus.conn_count(conv_id) >= bus.MAX_CONN_PER_CONV:
         raise ApiError(429, "too_many_connections", "Quá số kết nối SSE cho ca này.", "Đóng bớt tab.", retryable=True)
     q = bus.subscribe(conv_id)

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from app.auth.deps import require_user
+from app.auth.deps import can_access_conv, require_user
 from app.errors import ApiError
 from app.orch import room, store
 
@@ -51,15 +51,17 @@ async def create_conversation(body: CreateConvBody, claims: dict = Depends(requi
 
 @router.get("")
 async def list_conversations(claims: dict = Depends(require_user)) -> list[dict[str, Any]]:
-    """List ca của user (200) — resource trần."""
+    """List ca (200). D-56 scoping: admin (ngân hàng) → TẤT CẢ ca; customer/user → CHỈ ca mình."""
+    if claims.get("role") == "admin":
+        return await store.list_all_conversations()
     return await store.list_conversations(claims["username"])
 
 
 @router.get("/{conv_id}")
 async def get_conversation(conv_id: str, claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """Full state: {conversation, messages[], tasks[]} (CONTRACT §3 ConversationFullState)."""
+    """Full state (CONTRACT §3). D-56: ca người khác → 404 (hide existence, KHÔNG 403)."""
     conv = await store.get_conversation(conv_id)
-    if conv is None:
+    if conv is None or not can_access_conv(conv, claims):
         raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
     messages = await store.list_messages(conv_id)
     tasks = await store.list_tasks(conv_id)
@@ -74,7 +76,8 @@ async def chat(conv_id: str, body: ChatBody, request: Request, claims: dict = De
     Main bận → handle_room_event tự xếp queue (T1-2). Lưu message user TRƯỚC, rồi spawn lượt.
     """
     conv = await store.get_conversation(conv_id)
-    if conv is None:
+    if conv is None or not can_access_conv(conv, claims):
+        # D-56: ca người khác → 404 (hide) — không cho chat vào ca khách khác.
         raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Tạo ca trước khi chat.", retryable=False)
 
     await store.add_message(conv_id, "user", body.content)  # persist TRƯỚC (§5)

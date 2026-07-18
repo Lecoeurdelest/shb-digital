@@ -15,6 +15,8 @@ from app.config import AUTH_COOKIE, JWT_TTL_SECONDS
 from app.errors import ApiError
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+# D-56: /api/me (Export FE T8-2) — router riêng prefix /api (không /api/auth). /api/auth/me GIỮ (FE cũ).
+me_router = APIRouter(prefix="/api", tags=["me"])
 
 
 class LoginBody(BaseModel):
@@ -46,8 +48,42 @@ def login(body: LoginBody, response: Response) -> dict:
     return result
 
 
+def _me_payload(claims: dict) -> dict:
+    """D-56: {username, role, owner_id} phẳng (Export FE T8-2) + `user` wrap (FE boot-check cũ, không
+    phá). owner_id của REQUESTER (JOIN users by claims.sub). DEV_SKIP_AUTH → admin owner_id=None."""
+    owner_id = _owner_id_of(claims.get("sub"))
+    username, role = claims.get("username"), claims.get("role")
+    return {"username": username, "role": role, "owner_id": owner_id, "user": {"username": username, "role": role}}
+
+
 @router.get("/me")
+def me_auth(claims: dict = Depends(require_user)) -> dict:
+    """/api/auth/me — FE boot-check cũ. Giữ backward + thêm owner_id (D-56)."""
+    return _me_payload(claims)
+
+
+@me_router.get("/me")
 def me(claims: dict = Depends(require_user)) -> dict:
-    """FE boot-check (D-39): claims hiện tại → {username, role}. 401 nếu chưa login (flag OFF).
-    Flag DEV_SKIP_AUTH ON → require_user trả admin thẳng (không cần cookie) → FE skip Login."""
-    return {"user": {"username": claims.get("username"), "role": claims.get("role")}}
+    """/api/me (D-56 Export FE T8-2) — {username, role, owner_id}. Cùng payload /api/auth/me."""
+    return _me_payload(claims)
+
+
+def _owner_id_of(user_id: str | None) -> str | None:
+    """owner_id của account (JOIN users by id). None = account ngân hàng (admin/user) hoặc không tồn tại."""
+    if not user_id:
+        return None
+    import psycopg2
+
+    from app.db.config import DATABASE_URL
+
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT owner_id FROM users WHERE id::text=%s", (user_id,))
+                row = cur.fetchone()
+                return row[0] if row else None
+        finally:
+            conn.close()
+    except psycopg2.Error:
+        return None

@@ -32,6 +32,13 @@ async def interrupt(conv_id: str, body: InterruptBody, claims: dict = Depends(re
 
     404 task không tồn tại / không thuộc conv · 409 đã xong hoặc không còn chạy (double-cancel).
     """
+    # D-56 scoping: customer huỷ task ca người khác → 404 (hide). admin → mọi ca.
+    from app.auth.deps import can_access_conv
+
+    conv = await store.get_conversation(conv_id)
+    if conv is None or not can_access_conv(conv, claims):
+        raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
+
     target = body.target
     if target == "main":
         # target:"main" NGOÀI scope T4-3 (deviation ghi ở docstring + DECISIONS). Chỉ huỷ task sub.

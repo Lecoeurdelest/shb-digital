@@ -1,10 +1,11 @@
-"""Approvals router (T3-2) — user decide + list. CONTRACT: success=resource trần, error 4-field.
+"""Approvals router (T3-2) — ADMIN (ngân hàng) decide + list. CONTRACT: success=resource trần, error 4-field.
 
-D-54 (người chốt): user app = nhân viên CẤP CAO, ai cũng duyệt được (nhất quán D-39). Control
-Tower = giám sát/thống kê, không độc quyền duyệt. require_user (không admin).
+D-56 (người chốt, ĐẢO D-54): app = CỬA KHÁCH HÀNG — khách tự chat, agent auto-duyệt khoản nhỏ
+(phanh phân tầng T5-2'); khoản LỚN bắn về NGÂN HÀNG duyệt. Duyệt phiếu = việc NGÂN HÀNG → require_admin.
+Customer gọi decide → 403 forbidden 4-field.
 
-GET /api/approvals?status=pending (user) — hàng chờ duyệt.
-POST /api/approvals/{id}/decide (user, {decision, reason?}) — atomic → SSE approval.decided →
+GET /api/approvals?status=pending (admin) — hàng chờ duyệt (bank).
+POST /api/approvals/{id}/decide (admin, {decision, reason?}) — atomic → SSE approval.decided →
 ĐÁNH THỨC main qua handle_room_event (CÙNG đường sub-báo-xong §4.4 — KHÔNG chế cơ chế mới).
 """
 
@@ -17,7 +18,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
-from app.auth.deps import require_user
+from app.auth.deps import require_admin
 from app.errors import ApiError
 from app.orch import store_approvals
 
@@ -32,7 +33,7 @@ class DecideBody(BaseModel):
 
 
 @router.get("")
-async def list_approvals(status: str = Query("pending"), claims: dict = Depends(require_user)) -> list[dict[str, Any]]:
+async def list_approvals(status: str = Query("pending"), claims: dict = Depends(require_admin)) -> list[dict[str, Any]]:
     """Hàng chờ duyệt (admin). S3 chỉ status=pending (khác → 400)."""
     if status != "pending":
         raise ApiError(
@@ -42,8 +43,8 @@ async def list_approvals(status: str = Query("pending"), claims: dict = Depends(
 
 
 @router.post("/{approval_id}/decide")
-async def decide(approval_id: str, body: DecideBody, claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """User (nhân viên cấp cao) duyệt/từ chối phiếu → atomic → SSE + đánh thức main.
+async def decide(approval_id: str, body: DecideBody, claims: dict = Depends(require_admin)) -> dict[str, Any]:
+    """ADMIN (ngân hàng — D-56) duyệt/từ chối phiếu → atomic → SSE + đánh thức main.
 
     decide atomic (UPDATE…WHERE status='pending') → None = 409 (đã quyết) hoặc 404 (không tồn tại).
     """

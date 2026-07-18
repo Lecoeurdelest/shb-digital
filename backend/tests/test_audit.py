@@ -171,7 +171,7 @@ def test_api_audit_limit_cap():
 
 def test_emit_toolcall_shape():
     """SSE toolcall payload = {task_id, tool, summary, cost} (SPEC §9). subscribe → emit → nhận đúng."""
-    from app.orch.main_session import _emit_toolcall
+    from app.orch.audit_emit import _emit_toolcall
     from app.sse import bus
 
     conv = f"toolcall-sse-{uuid4()}"
@@ -198,7 +198,7 @@ def test_emit_toolcall_shape():
 
 def test_emit_toolcall_null_input_empty_summary():
     """input null → summary rỗng (không crash)."""
-    from app.orch.main_session import _emit_toolcall
+    from app.orch.audit_emit import _emit_toolcall
     from app.sse import bus
 
     conv = f"toolcall-null-{uuid4()}"

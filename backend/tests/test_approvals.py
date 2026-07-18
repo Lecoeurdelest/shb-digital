@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from app.db.config import DATABASE_URL
 from app.main import app
 from app.orch import gated, registry, room, store_approvals
-from app.orch.main_session import _build_event_prompt
+from app.orch.main_prompts import _build_event_prompt
 from app.sse import bus
 
 from .conftest import requires_db
@@ -227,13 +227,16 @@ def test_api_approvals_requires_auth_no_cookie_401():
 
 
 @requires_db
-def test_api_approvals_user_can_access_D54():
-    """D-54: user (nhân viên cấp cao) — KHÔNG cần admin — xem hàng chờ duyệt được (require_user)."""
-    r = client.post("/api/auth/login", json={"username": "user", "password": "user"})
+@requires_db
+def test_api_approvals_customer_forbidden_D56():
+    """D-56 (ĐẢO D-54): duyệt = việc NGÂN HÀNG (admin). Customer/user gọi → 403 forbidden 4-field.
+    App = cửa khách: khách chat, agent auto-duyệt nhỏ, lớn bắn NGÂN HÀNG duyệt."""
+    r = client.post("/api/auth/login", json={"username": "c001", "password": "c001"})
     if r.status_code != 200:
-        pytest.skip("seed user account chưa có")
+        pytest.skip("seed customer account chưa có")
     r2 = client.get("/api/approvals?status=pending", cookies=r.cookies)
-    assert r2.status_code == 200  # user thường duyệt/xem được (không 403)
+    assert r2.status_code == 403  # customer KHÔNG duyệt được (D-56 — việc ngân hàng)
+    assert r2.json()["code"] == "forbidden"
 
 
 @pytest.mark.asyncio

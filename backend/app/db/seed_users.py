@@ -1,8 +1,9 @@
-"""Seed 2 account demo (D-19 · SPEC §11): user (RM) · admin (quản lý/compliance).
+"""Seed account demo (D-19 · SPEC §11 · D-56 persona khách): user/admin (NGÂN HÀNG) + c001/b001 (KHÁCH).
 
 Chạy sau migration: `uv run python -m app.db.seed_users`.
 Idempotent: ON CONFLICT (username) DO NOTHING — chạy lại không đổi pass đã có.
-Password demo = username (user/user, admin/admin) — on-premise demo; PROD đổi qua env sau.
+Password demo = username — on-premise demo; PROD đổi qua env sau.
+D-56: account NGÂN HÀNG (admin/user) owner_id=NULL; account KHÁCH (customer) owner_id map → customers/businesses.
 """
 
 from __future__ import annotations
@@ -14,24 +15,26 @@ import psycopg2
 from app.auth.security import hash_password
 from app.db.config import DATABASE_URL
 
-# (username, password, role). Password demo = username; override qua env cho PROD.
+# (username, password, role, owner_id). Password demo = username; owner_id: bank=None, khách=mã owner.
 SEED_ACCOUNTS = [
-    ("user", os.environ.get("SEED_USER_PASSWORD", "user"), "user"),
-    ("admin", os.environ.get("SEED_ADMIN_PASSWORD", "admin"), "admin"),
+    ("user", os.environ.get("SEED_USER_PASSWORD", "user"), "user", None),  # NGÂN HÀNG (RM)
+    ("admin", os.environ.get("SEED_ADMIN_PASSWORD", "admin"), "admin", None),  # NGÂN HÀNG (quản lý)
+    ("c001", os.environ.get("SEED_C001_PASSWORD", "c001"), "customer", "C001"),  # KHÁCH cá nhân → C001
+    ("b001", os.environ.get("SEED_B001_PASSWORD", "b001"), "customer", "B001"),  # KHÁCH DN → B001
 ]
 
 
 def seed_users(database_url: str = DATABASE_URL) -> dict[str, str]:
-    """Insert 2 account (idempotent). Trả {username: role} đã đảm bảo tồn tại."""
+    """Insert account (idempotent). Trả {username: role} đã đảm bảo tồn tại. owner_id set cho khách."""
     conn = psycopg2.connect(database_url)
     out: dict[str, str] = {}
     try:
         with conn.cursor() as cur:
-            for username, password, role in SEED_ACCOUNTS:
+            for username, password, role, owner_id in SEED_ACCOUNTS:
                 cur.execute(
-                    "INSERT INTO users (username, pass_hash, role) VALUES (%s, %s, %s) "
+                    "INSERT INTO users (username, pass_hash, role, owner_id) VALUES (%s, %s, %s, %s) "
                     "ON CONFLICT (username) DO NOTHING",
-                    (username, hash_password(password), role),
+                    (username, hash_password(password), role, owner_id),
                 )
                 out[username] = role
         conn.commit()

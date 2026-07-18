@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 
-from app.auth.deps import require_user
+from app.auth.deps import require_admin
 from app.errors import ApiError
 from app.orch import store_audit
 
@@ -24,10 +24,10 @@ async def list_audit(
     tool: str | None = Query(None),
     actor: str | None = Query(None),
     limit: int = Query(200, ge=1, le=1000),
-    claims: dict = Depends(require_user),
+    claims: dict = Depends(require_admin),
 ) -> list[dict[str, Any]]:
-    """tool_calls theo filter (user — D-54). Mới nhất trước. Ít nhất 1 filter khuyến nghị nhưng không bắt
-    (audit toàn cục cũng hợp lệ cho Control Tower). limit cap 1000."""
+    """tool_calls theo filter (admin — D-56 ngân hàng giám sát). Mới nhất trước. Ít nhất 1 filter
+    khuyến nghị nhưng không bắt (audit toàn cục cũng hợp lệ cho Control Tower). limit cap 1000."""
     filters = {"task_id": task_id, "conv_id": conv_id, "tool": tool, "actor": actor}
     # bỏ None → chỉ filter cột được truyền
     active = {k: v for k, v in filters.items() if v}

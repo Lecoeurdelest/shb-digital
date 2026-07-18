@@ -24,6 +24,27 @@ def _user_cookie():
     return r.cookies
 
 
+def _mk_conv(user_id: str = "admin") -> str:
+    """D-56: interrupt giờ scoping check conv tồn tại + accessible TRƯỚC → test cần conv ROW thật.
+    Trả conv_id (string) — task.conv_id dùng CÙNG id này (khớp scoping + task-thuộc-conv)."""
+    import psycopg2
+
+    from app.db.config import DATABASE_URL
+
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO conversations (user_id, title, status, created_at) "
+                "VALUES (%s, 't', 'running', now()) RETURNING id::text",
+                (user_id,),
+            )
+            return cur.fetchone()[0]
+    finally:
+        conn.close()
+
+
 @pytest.fixture(autouse=True)
 def _clean():
     registry.reset_all()
@@ -37,7 +58,7 @@ def _clean():
 @requires_db
 @pytest.mark.asyncio
 async def test_cancel_one_sub_not_the_other():
-    conv = "interrupt-two-subs"
+    conv = _mk_conv()
     # 2 sub THẬT (DB row) chạy lâu (giữ running để huỷ)
     cancelled = {"a": False, "b": False}
 
@@ -90,7 +111,7 @@ async def test_cancel_one_sub_not_the_other():
 
 @requires_db
 def test_interrupt_task_not_found_404():
-    conv = "interrupt-404"
+    conv = _mk_conv()
     cookies = _user_cookie()
     r = client.post(
         f"/api/conversations/{conv}/interrupt",
@@ -105,7 +126,7 @@ def test_interrupt_task_not_found_404():
 def test_interrupt_malformed_uuid_404_not_500():
     """target KHÔNG phải UUID hợp lệ (input user rác) → 404 (KHÔNG 500). tester T4-3 bắt:
     _get_task_sync raise InvalidTextRepresentation lọt ra 500 thô → giờ catch → None → 404."""
-    conv = "interrupt-malformed"
+    conv = _mk_conv()
     cookies = _user_cookie()
     r = client.post(
         f"/api/conversations/{conv}/interrupt",
@@ -119,7 +140,7 @@ def test_interrupt_malformed_uuid_404_not_500():
 @requires_db
 @pytest.mark.asyncio
 async def test_interrupt_done_task_409():
-    conv = "interrupt-done"
+    conv = _mk_conv()
     task = await store.create_task(conv, "credit", "done task", "brief")
     await store.finish_task(task.id, "done", {"ok": True})  # đã xong
     cookies = _user_cookie()
@@ -133,7 +154,7 @@ async def test_interrupt_done_task_409():
 @pytest.mark.asyncio
 async def test_interrupt_running_db_but_no_registry_409():
     """DB running nhưng registry không còn (đã _report / double-cancel) → 409."""
-    conv = "interrupt-noreg"
+    conv = _mk_conv()
     task = await store.create_task(conv, "credit", "t", "brief")
     await store.mark_running(task.id)  # DB running
     # KHÔNG spawn_sub → registry.sub_tasks không có
@@ -147,22 +168,29 @@ async def test_interrupt_running_db_but_no_registry_409():
 @requires_db
 @pytest.mark.asyncio
 async def test_interrupt_wrong_conv_404():
-    """task tồn tại nhưng thuộc ca KHÁC → 404 (không cho huỷ task ca khác)."""
-    task = await store.create_task("conv-owner", "credit", "t", "brief")
+    """task tồn tại nhưng thuộc ca KHÁC → 404 task_not_found (task.conv_id != conv_id). Cả 2 conv ROW
+    tồn tại (admin accessible) → reach task-thuộc-conv check (không dừng ở scoping conv-not-found)."""
+    conv_owner = _mk_conv()
+    conv_other = _mk_conv()
+    task = await store.create_task(conv_owner, "credit", "t", "brief")
     await store.mark_running(task.id)
     cookies = _user_cookie()
-    r = client.post("/api/conversations/conv-OTHER/interrupt", json={"target": task.id}, cookies=cookies)
+    r = client.post(f"/api/conversations/{conv_other}/interrupt", json={"target": task.id}, cookies=cookies)
     assert r.status_code == 404
-    assert r.json()["code"] == "task_not_found"
-    _cleanup("conv-owner")
+    assert r.json()["code"] == "task_not_found"  # task thuộc conv_owner, không conv_other
+    _cleanup(conv_owner)
+    _cleanup(conv_other)
 
 
+@requires_db
 def test_interrupt_target_main_400():
-    """target='main' ngoài scope T4-3 → 400 (deviation ghi rõ)."""
+    """target='main' ngoài scope T4-3 → 400. conv ROW tồn tại (admin) → qua scoping → reach 400."""
+    conv = _mk_conv()
     cookies = _user_cookie()
-    r = client.post("/api/conversations/c/interrupt", json={"target": "main"}, cookies=cookies)
+    r = client.post(f"/api/conversations/{conv}/interrupt", json={"target": "main"}, cookies=cookies)
     assert r.status_code == 400
     assert r.json()["code"] == "target_not_supported"
+    _cleanup(conv)
 
 
 def test_interrupt_requires_auth():
@@ -187,4 +215,5 @@ def _cleanup(conv: str):
     c.autocommit = True
     with c.cursor() as cur:
         cur.execute("DELETE FROM tasks WHERE conv_id=%s", (conv,))
+        cur.execute("DELETE FROM conversations WHERE id::text=%s", (conv,))
     c.close()

@@ -46,9 +46,7 @@ def test_store_audit_is_append_only_by_code():
 
     source = inspect.getsource(store_audit)
     # tách theo dòng, bỏ comment/docstring chứa chữ UPDATE/DELETE dạng mô tả (không phải SQL thật)
-    sql_lines = [
-        line for line in source.splitlines() if "cur.execute(" in line or line.strip().startswith(('"', "'"))
-    ]
+    sql_lines = [line for line in source.splitlines() if "cur.execute(" in line or line.strip().startswith(('"', "'"))]
     combined = " ".join(sql_lines).upper()
     assert "UPDATE TOOL_CALLS" not in combined, "store_audit VI PHẠM append-only — có UPDATE trên tool_calls"
     assert "DELETE FROM TOOL_CALLS" not in combined, "store_audit VI PHẠM append-only — có DELETE trên tool_calls"
@@ -61,7 +59,6 @@ async def _login_and_create_conv(client: AsyncClient, title: str) -> str:
     r2 = await client.post("/api/conversations", json={"title": title})
     assert r2.status_code == 201, f"tạo ca thất bại: {r2.status_code} {r2.text}"
     return r2.json()["id"]
-
 
 
 def _restore_state(conv_id: str) -> None:
