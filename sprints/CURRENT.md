@@ -1,17 +1,18 @@
 # Sprint hiện hành
 
-**Sprint 1 — ĐÓNG** (2026-07-18). Lát cắt dọc sống: RM chat → Main → Credit thật (PG) → event →
-tổng hợp có nguồn → SSE → FE (API thật). DSCR thật render qua UI.
+**Sprint 2 — ĐÓNG** (2026-07-18). Canvas + đội đủ 4 chuyên gia: present-tool thật + 7 card +
+credit/legal THẬT + products/ops stub song song + canvas render. Gate S2 PASS (browser evidence
+conv 17fe336a). 126 test.
 
-**Sprint 2 — SẴN SÀNG** (chưa kickoff): plan draft `sprints/plan_sprint_2.md` — canvas + present-tool
-+ 7 card + 4 sub song song (role chưa nuôi = stub). Kickoff khi user ra lệnh chạy.
+**Sprint 3 — SẴN SÀNG** (chưa kickoff): PHANH end-to-end (phần KHÓ NHẤT — D-29). Plan draft
+`plan_sprint_3.md`. Kèm task đầu: dev skip-auth (D-39). Kickoff khi tự chuỗi từ S2.
 
-**Plan:** `sprints/plan_sprint_1.md` (đóng) · `sprints/plan_sprint_2.md` (draft).
+**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_2.md` (đóng) · `plan_sprint_3.md` (draft).
 
 **Lịch sử:**
 
 | Sprint | Commit | Kết quả |
 |---|---|---|
-| — | b105bbe | scaffold kit #132 (spec v2.0 + patterns + design) |
-| — | 705ab94 | chore: kit S1 (D-21..D-27) |
-| 1 | e1a5633→f52b0ba | Spine sống: PG+adapter+mount credit+auth · orchestrator spine · chat+SSE gate S1 · FE API thật (DSCR 0.236 qua UI). 94 test (69 BE+25 FE). 1 waiver (2 UI-interaction Chrome-flaky). |
+| — | b105bbe, 705ab94 | scaffold kit + kit S1 |
+| 1 | e1a5633→f52b0ba, 67c274b | Spine sống: PG+mount credit+auth · orchestrator · chat+SSE gate S1 · FE API thật (DSCR 0.236). 94 test. |
+| 2 | 333d6a2, a6aaed9, a653eeb, 961ba1f | Canvas + đội đủ: present thật + 4 role (credit/legal thật) + D-33 đóng + CTX_TASK fix + FE canvas 7-card. Gate S2 PASS browser. 126 test. Waiver S1 đóng. |

@@ -48,6 +48,41 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-39 · DEV skip-auth (`DEV_SKIP_AUTH`) → vào thẳng vai ADMIN full quyền; flag OFF = auth như
+  cũ** (NGƯỜI yêu cầu — architect design; dispatch SAU verdict gate S2) — dev/demo nội bộ tiện:
+  bỏ login, mọi request = admin seed. **Thiết kế (1 chỗ, an toàn):**
+  - **BE:** env `DEV_SKIP_AUTH` (bool). Deps `require_user`/`require_admin` (app/auth/deps.py) —
+    đầu hàm: flag ON → trả THẲNG claims admin seed (`{username:'admin', role:'admin'}`), bỏ qua
+    cookie/JWT. Flag OFF → auth JWT như cũ. Skip CHỈ ở deps layer (1 chỗ, không rải). Default env
+    trong docker-compose dev = ON (lệnh user "hiện tại tất cả vào admin"); code default OFF (an toàn
+    — flag phải bật tường minh).
+  - **AN TOÀN (architect thêm):** boot log CẢNH BÁO khi ON — "⚠️ DEV_SKIP_AUTH ON — mọi request =
+    admin, KHÔNG dùng prod/demo thật". Tránh lọt prod im lặng. Prod/demo = env OFF.
+  - **FE:** boot check `GET /api/auth/me` (hoặc /config) → BE trả admin không cần cookie → FE skip
+    màn login, vào Workspace vai admin. Flag OFF (BE 401) → login flow như cũ (T1-4++ GIỮ, không vứt).
+  - **Test:** auth test cũ giữ (flag OFF); thêm test flag ON → require_* trả admin.
+  - **Sequencing:** dispatch code SAU verdict gate S2 (:8000 --reload, sửa code = reload = phá gate).
+    Nhét commit đóng S2 nếu gọn, hoặc task đầu S3. — Đổi: người siết bỏ skip-auth (chỉ login thật).
+- **D-38 · DEV SERVER: 1 canonical `:8000` chạy `uvicorn --reload`, chủ = backend, CẤM mọc port**
+  (NGƯỜI chốt — thay/mạnh hơn D-37) — root cause 3-server-lạc (8000/8002/8004): server không
+  auto-reload → fix xong server stale → agent né restart (sợ giẫm phiên + sandbox không pkill) →
+  mọc port mới → suýt gate trên code cũ + 2 chỉ-dẫn-port đâm nhau. **Luật:** (1) MỘT server
+  `:8000` `--reload` (code fix tự nạp, hết stale, hết lý do mọc port); (2) chủ = **backend** (dựng
+  detached + health-check); restart cứng (đổi env/migration) → báo 1 câu trước; (3) **CẤM agent tự
+  mở port mới** cho verify — mọi e2e/browser đánh :8000; unit/integration dùng in-process
+  (TestClient/ASGI), không cần port; (4) server cũ lạc → backend dọn (có quyền kill), giữ :8000.
+  **Lưu ý --reload:** reload wipe in-process state (registry/room) — chấp nhận dev (boot-cleanup xử
+  cờ mồ côi §8); gate-run cần state nguyên → chạy xong đừng sửa file giữa chừng. — Đổi: người cho
+  nhiều server song song (thì scope _cleanup_orphans theo instance-id). *(D-37 gộp vào đây.)*
+- **D-37 · DEV: 1 SERVER CANONICAL cho live-SDK test (không multi-server-cùng-DB)** (architect
+  phân xử T2-4 — tester phát hiện) — `_cleanup_orphans` (§8 boot-cleanup) UPDATE tasks running
+  toàn DB ở MỌI boot() = ĐÚNG thiết kế 1-worker prod (registry sống trống sau restart → task
+  running DB là cờ giả). NHƯNG multi-server-dev-cùng-1-Postgres → mỗi boot bắn tasks running của
+  server khác ("server restart" oan). **KHÔNG sửa code** (prod 1-worker đúng — §1/§8). **Quy ước
+  dev: 1 server canonical DUY NHẤT sống cho live-SDK/gate test** — port 8000 (CLAUDE.md §1), khởi
+  từ commit HEAD mới nhất, FE + tester cùng trỏ. Kill server cũ trước khi khởi mới (tránh code cũ
+  + stomp). — Đổi: nếu cần nhiều server dev song song → scope `_cleanup_orphans` theo instance-id
+  (thêm cột/env), nhưng KHÔNG cần cho demo 1-worker.
 - **D-33 ĐÓNG (T2-2 concurrency test GREEN) · inline-await giữ, KHÔNG cần §6-spawn** (backend
   T2-2 — advisor: green đóng note, chỉ red mới license convert) — test STAGGERED 3× (`tests/
   test_concurrency_d33.py`): main-turn CHẬM giữ slot in-flight → 2 sub delay khác nhau báo
@@ -112,6 +147,12 @@
   hiện S2 (khi §9 main-retry + concurrency thật → main turn cần task riêng + retry riêng). Backend
   đã đánh dấu 2-line switch — đúng lúc-sửa là S2. Comment tại site `await _event_sink` để S2 builder
   không giả định §6 spawn. — Đổi: S2 khi thêm §9/concurrency → chuyển spawn.
+  - **HỆ QUẢ inline-await (T2-4 tester bắt CTX_TASK leak):** inline path (sub done → _report →
+    run_main_turn TRONG task sub, KHÔNG spawn) → contextvar KHÔNG auto-reset → `run_main_turn` phải
+    reset TAY **ĐỦ 3 contextvar (CONV/ACTOR/TASK)**. T1-2 fix CTX_ACTOR nhưng SÓT CTX_TASK (anh em
+    cùng họ) → MAIN present(document) stamp task_id sub thay null (vi phạm N5). Fix T2: reset cả 3.
+    **Luật S3+:** thêm contextvar mới (vd CTX_APPROVAL) → PHẢI thêm reset ở run_main_turn (mirror).
+    Architect nhận sót: discriminator #5 khi accept D-33 chỉ nói CTX_ACTOR, không liệt kê đủ.
 - **D-34 · `store` per-call `psycopg2.connect` (bypass T1-1 pool) — note S1, revisit S2** (backend
   nêu T1-3) — store tạo conn mỗi call thay vì get_pool()/acquire()/release() của T1-1 → 2 connection
   strategy. Ổn dưới 1-worker S1 (bounded to_thread cap). S2 khi tải cao → thống nhất về pool. — Đổi:
