@@ -6,16 +6,48 @@ Thiếu/hỏng token → 401 envelope 4-field. Sai role → 403.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import Request
 
 from app.auth.security import decode_token
-from app.config import AUTH_COOKIE
+from app.config import AUTH_COOKIE, DEV_ADMIN_CLAIMS, DEV_SKIP_AUTH
 from app.errors import ApiError
+
+log = logging.getLogger("auth")
+
+# cache admin sub uuid (query DB 1 lần khi DEV_SKIP_AUTH ON — không query mỗi request)
+_dev_admin_sub: str | None = None
+
+
+def _dev_admin_claims() -> dict[str, Any]:
+    """Claims admin cho DEV_SKIP_AUTH (D-39). Lazy-load sub uuid từ DB 1 lần."""
+    global _dev_admin_sub
+    if _dev_admin_sub is None:
+        try:
+            import psycopg2
+
+            from app.db.config import DATABASE_URL
+
+            conn = psycopg2.connect(DATABASE_URL)
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT id FROM users WHERE username='admin' LIMIT 1")
+                    row = cur.fetchone()
+                    _dev_admin_sub = str(row[0]) if row else "dev-admin"
+            finally:
+                conn.close()
+        except Exception:  # noqa: BLE001 — DB chưa sẵn lúc dev boot không được chặn skip-auth
+            _dev_admin_sub = "dev-admin"
+    return {**DEV_ADMIN_CLAIMS, "sub": _dev_admin_sub}
 
 
 def _claims_from_request(request: Request) -> dict[str, Any]:
+    # DEV_SKIP_AUTH (D-39): flag ON → admin THẲNG, bỏ cookie/JWT. Skip thắng cả khi có cookie thật
+    # (dev tiện — defensive case). 1 CHỖ duy nhất (không rải if-flag khắp routes).
+    if DEV_SKIP_AUTH:
+        return _dev_admin_claims()
     token = request.cookies.get(AUTH_COOKIE)
     # fallback: Bearer header (REST client/test tiện) — EventSource vẫn dùng cookie
     if not token:

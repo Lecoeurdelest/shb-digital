@@ -3,14 +3,15 @@
 // VITE_USE_MOCK_API=false trong .env (hoặc export trước khi `npm run dev`) để ráp API thật.
 // Mọi report/log PHẢI khai trạng thái cờ này (CLAUDE.md nghề FE — mock sau CỜ ENV tắt-được).
 
-import { apiClient } from './client';
+import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { Conversation, ConversationFullState, LoginResult } from '../types';
+import type { AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 
 export interface ConversationApi {
   login(username: string, password: string): Promise<LoginResult>;
+  me(): Promise<{ user: AuthUser }>;
   listConversations(): Promise<Conversation[]>;
   createConversation(title: string): Promise<Conversation>;
   getConversation(id: string): Promise<ConversationFullState>;
@@ -22,6 +23,11 @@ const mockApi: ConversationApi = {
   async login(username: string) {
     // mock không auth — chấp nhận mọi credential, trả role theo username (admin→admin, còn lại user).
     return { token: 'mock-token', user: { username, role: username === 'admin' ? 'admin' as const : 'user' as const } };
+  },
+  async me() {
+    // mock: luôn "chưa login" → App hiện Login (mock mode dùng để test luồng Login). Mock không
+    // có DEV_SKIP_AUTH. Ném 401-shape để App bắt như /me thật khi flag OFF.
+    throw new ApiRequestError(401, { code: 'unauthorized', message: 'mock: chưa đăng nhập', hint: 'đăng nhập', retryable: false }, 'unauthorized');
   },
   async listConversations() {
     return mockBackend.listConversations();
@@ -57,6 +63,7 @@ function browserEventSource(convId: string): MinimalEventSource {
 
 const realApi: ConversationApi = {
   login: apiClient.login,
+  me: apiClient.me,
   listConversations: apiClient.listConversations,
   createConversation: apiClient.createConversation,
   getConversation: apiClient.getConversation,

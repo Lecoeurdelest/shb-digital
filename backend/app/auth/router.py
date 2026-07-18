@@ -6,9 +6,10 @@ KHÔNG chứa business (service lo) — router chỉ dịch HTTP↔service.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
+from app.auth.deps import require_user
 from app.auth.service import authenticate
 from app.config import AUTH_COOKIE, JWT_TTL_SECONDS
 from app.errors import ApiError
@@ -43,3 +44,10 @@ def login(body: LoginBody, response: Response) -> dict:
     )
     # Success = resource trần (CONTRACT §0) — trả token (FE dùng nếu cần) + user
     return result
+
+
+@router.get("/me")
+def me(claims: dict = Depends(require_user)) -> dict:
+    """FE boot-check (D-39): claims hiện tại → {username, role}. 401 nếu chưa login (flag OFF).
+    Flag DEV_SKIP_AUTH ON → require_user trả admin thẳng (không cần cookie) → FE skip Login."""
+    return {"user": {"username": claims.get("username"), "role": claims.get("role")}}

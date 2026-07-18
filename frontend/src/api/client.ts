@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, Conversation, ConversationFullState, LoginResult } from '../types';
+import type { ApiError, AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -52,6 +52,12 @@ export const apiClient = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     });
+  },
+
+  // boot-check (D-39/T3-0): 200 {user} nếu đã login HOẶC DEV_SKIP_AUTH ON → skip Login;
+  // 401 (ApiRequestError) nếu chưa login + flag OFF → App bắt lỗi → hiện Login.
+  me(): Promise<{ user: AuthUser }> {
+    return request<{ user: AuthUser }>('/api/auth/me');
   },
 
   listConversations(): Promise<Conversation[]> {

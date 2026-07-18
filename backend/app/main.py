@@ -23,7 +23,12 @@ log = logging.getLogger("app")
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # boot-cleanup (§7): task DB queued/running mồ côi từ đời trước → failed('server restart')
+    # DEV_SKIP_AUTH cảnh báo (D-39): flag ON → mọi request = admin, không được dùng prod/demo thật
+    from app.config import DEV_SKIP_AUTH
     from app.orch import main_session, registry, store
+
+    if DEV_SKIP_AUTH:
+        log.warning("⚠️  DEV_SKIP_AUTH ON — mọi request = admin, BỎ auth. KHÔNG dùng prod/demo thật.")
 
     registry.reset_all()
     try:

@@ -15,3 +15,19 @@ JWT_TTL_SECONDS = int(os.environ.get("JWT_TTL_SECONDS", str(12 * 3600)))  # 12h 
 
 # Cookie mang JWT (EventSource không set header — CONTRACT §1 · streaming-sse §4)
 AUTH_COOKIE = "shb_token"
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    """Parse env bool: '1'/'true'/'yes'/'on' (case-insensitive) = True."""
+    v = os.environ.get(name)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "on")
+
+
+# DEV_SKIP_AUTH (D-39): ON → mọi request = admin (bỏ login, dev/demo nội bộ tiện). Default OFF
+# (an toàn — phải bật tường minh qua env). PROD/demo thật KHÔNG set. Boot log cảnh báo khi ON.
+DEV_SKIP_AUTH = _env_bool("DEV_SKIP_AUTH", default=False)
+
+# Claims admin seed trả thẳng khi DEV_SKIP_AUTH ON (không cần cookie/JWT). sub uuid lấy DB lúc dùng.
+DEV_ADMIN_CLAIMS = {"username": "admin", "role": "admin"}
