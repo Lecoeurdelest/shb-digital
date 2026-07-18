@@ -51,4 +51,19 @@ describe('Login — đăng ký khách mới (D-57)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Đăng ký & vào/ }));
     await waitFor(() => expect(spy).toHaveBeenCalledWith('newcust', 'pass1234', 'a@b.com'));
   });
+
+  // T11-4: google ẩn TRỌN khi providers.google=false (finding tester #6 — không sót text/nút Google)
+  it('providers.google=false → KHÔNG có nút/chuỗi "Google" nào trong DOM login', async () => {
+    vi.spyOn(conversationApi, 'getAuthProviders').mockResolvedValue({ password: true, google: false });
+    const { container } = render(<Login onSuccess={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Đăng nhập$/ })).toBeInTheDocument());
+    expect(screen.queryByTestId('login-google')).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Google/i);
+  });
+
+  it('providers.google=true → nút Google hiện', async () => {
+    vi.spyOn(conversationApi, 'getAuthProviders').mockResolvedValue({ password: true, google: true });
+    render(<Login onSuccess={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId('login-google')).toBeInTheDocument());
+  });
 });

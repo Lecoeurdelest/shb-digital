@@ -172,8 +172,3 @@
 .lp-modal__close:hover { color: var(--ltx); }
 /* Login render .login full-height grid — trong modal thu về card gọn */
 .lp-modal__card .login { height: auto; padding: 0; background: none; display: block; }
-.lp-modal__signup-hint {
-  margin-top: 10px; text-align: center; font-size: 11px; color: var(--lmute);
-  background: var(--lp1); border: 1px solid var(--lbd); border-radius: 10px; padding: 9px 12px;
-}
-.lp-modal__signup-hint b { color: var(--ldim); }

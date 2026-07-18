@@ -7,8 +7,10 @@ import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
 import type { ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem } from '../types';
 
+// True when the app talks to the in-memory mock backend instead of the real REST API.
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 
+// Backend surface the app depends on — one implementation for mock, one for real REST.
 export interface ConversationApi {
   login(username: string, password: string): Promise<LoginResult>;
   register(username: string, password: string, email?: string): Promise<LoginResult>;
@@ -33,6 +35,7 @@ export interface ConversationApi {
   openEventSource(convId: string): MinimalEventSource;
 }
 
+// In-memory mock implementation of the backend surface (used when USE_MOCK_API is true).
 const mockApi: ConversationApi = {
   async login(username: string) {
     // mock không auth — chấp nhận mọi credential, trả role theo username (admin→admin, còn lại user).
@@ -98,6 +101,7 @@ const mockApi: ConversationApi = {
   },
 };
 
+// Open the real SSE stream and adapt DOM EventSource to the MinimalEventSource shape.
 // wrap DOM EventSource → MinimalEventSource (bỏ event-arg, chỉ chuyển .data + tín hiệu open/error).
 function browserEventSource(convId: string): MinimalEventSource {
   const src = new EventSource(`/api/conversations/${convId}/sse`, { withCredentials: true });
@@ -115,6 +119,7 @@ function browserEventSource(convId: string): MinimalEventSource {
   return es;
 }
 
+// Real REST implementation — delegates to apiClient plus the browser SSE adapter.
 const realApi: ConversationApi = {
   login: apiClient.login,
   register: apiClient.register,
@@ -137,4 +142,5 @@ const realApi: ConversationApi = {
   openEventSource: browserEventSource,
 };
 
+// The single backend gateway the app imports — mock or real depending on the env flag.
 export const conversationApi: ConversationApi = USE_MOCK_API ? mockApi : realApi;

@@ -45,6 +45,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const apiClient = {
+  // Authenticate with username/password; server sets httponly JWT cookie on success.
   // login: cookie httponly shb_token do server set (credentials:'include' → browser tự lưu +
   // gửi lại mọi call sau, gồm EventSource withCredentials). CONTRACT §1.
   login(username: string, password: string): Promise<LoginResult> {
@@ -54,6 +55,7 @@ export const apiClient = {
     });
   },
 
+  // Register a new customer account; returns auth result and sets cookie (auto-login).
   // đăng ký khách mới (D-57 T9-3): {username, password, email?} → 201 {token, user} + cookie auto-login.
   // Lỗi 4-field: 400 bad_username/bad_password/bad_email · 409 username_taken.
   register(username: string, password: string, email?: string): Promise<LoginResult> {
@@ -65,6 +67,7 @@ export const apiClient = {
     });
   },
 
+  // Fetch the current session user (boot-check); normalizes flat/wrapped payload shapes.
   // boot-check (D-39/T3-0 · D-56): GET /api/me → {username, role, owner_id, user:{...}}.
   // 200 nếu đã login HOẶC DEV_SKIP_AUTH ON → skip Login; 401 → App hiện Login.
   // Map từ TOP-LEVEL (có owner_id — role customer/admin/user); fallback `user` wrap nếu server cũ
@@ -77,15 +80,18 @@ export const apiClient = {
     return { user: { username, role, owner_id } };
   },
 
+  // List enabled auth providers so the UI shows only available login buttons.
   // providers (public): FE render đúng nút login. Google bật = server đủ env (bool-only).
   getAuthProviders(): Promise<{ password: boolean; google: boolean }> {
     return request<{ password: boolean; google: boolean }>('/api/auth/providers');
   },
 
+  // List conversations visible to the current user (server-scoped by role).
   listConversations(): Promise<Conversation[]> {
     return request<Conversation[]>('/api/conversations');
   },
 
+  // Create a conversation; optional provider/model pin the LLM for every turn in it.
   // Tạo ca. provider/model optional (D-45b c) — bỏ trống = server-default; provider = tên trong
   // GET /api/models, model = 1 string trong models[] của provider đó. Conv lưu → mọi lượt chạy đúng.
   createConversation(title: string, provider?: string, model?: string): Promise<Conversation> {
@@ -98,10 +104,12 @@ export const apiClient = {
     });
   },
 
+  // Fetch full conversation state (messages, tasks, cards) — source of truth on reload.
   getConversation(id: string): Promise<ConversationFullState> {
     return request<ConversationFullState>(`/api/conversations/${id}`);
   },
 
+  // Admin decision on an approval ticket (approve/reject) by approval_id.
   // admin quyết phiếu (T3-2 · CONTRACT §11). id = card.approval_id (phiếu vỏ-inject).
   // decision CHỐT "approved"|"rejected" (backend T3-2). Response 200 approval row trần; 409 already_decided.
   decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown> {
@@ -111,22 +119,26 @@ export const apiClient = {
     });
   },
 
+  // List approval tickets by status (admin approval queue).
   // list phiếu (approval queue Control Tower — admin). CONTRACT §11.
   listApprovals(status = 'pending'): Promise<ApprovalRow[]> {
     return request<ApprovalRow[]>(`/api/approvals?status=${encodeURIComponent(status)}`);
   },
 
+  // Query the system-wide tool-call audit log with optional filters.
   // audit toàn hệ + filter (Control Tower audit view). filters: conv_id/task_id/tool/actor.
   auditFiltered(filters: Record<string, string> = {}): Promise<AuditRow[]> {
     const qs = new URLSearchParams(filters).toString();
     return request<AuditRow[]>(`/api/audit${qs ? `?${qs}` : ''}`);
   },
 
+  // List providers and their models for the model picker.
   // model/provider list (dropdown D-45b).
   getModels(): Promise<ModelsResponse> {
     return request<ModelsResponse>('/api/models');
   },
 
+  // Submit a customer intake form; creates the customer profile on success.
   // khách nộp hồ sơ form (D-57 T9-3) → 200 {owner_id, customer_created}. 400 missing_fields/bad_income
   // · 409 form_already_submitted · 404 (đều 4-field).
   submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult> {
@@ -136,11 +148,13 @@ export const apiClient = {
     });
   },
 
+  // Fetch customer notifications for the bell (404 while the endpoint is not yet deployed).
   // bell thông báo khách (D-57 T9-3 · T9-2). Server T9-2 chưa lên → 404 (bell ẩn im, hook lo).
   getNotifications(): Promise<NotificationItem[]> {
     return request<NotificationItem[]>('/api/notifications');
   },
 
+  // Run the single-agent vs multi-agent comparison (long-running ~90s).
   // compare single vs multi-agent (deliverable #5). Chạy DÀI ~90s → FE loading rõ. body {question}.
   runCompare(question: string): Promise<CompareResult> {
     return request<CompareResult>('/api/compare', {
@@ -149,16 +163,19 @@ export const apiClient = {
     });
   },
 
+  // Fetch persisted tool-call trace for a whole conversation (rehydrate on reload).
   // trace history toàn ca (TraceBlock reload T4-2): GET /api/audit?conv_id → tool_calls persist.
   auditByConv(convId: string): Promise<AuditRow[]> {
     return request<AuditRow[]>(`/api/audit?conv_id=${encodeURIComponent(convId)}`);
   },
 
+  // Fetch persisted tool-call trace for a single sub-agent task (newest-first).
   // trace history 1 sub (SubAgentView T4-3): GET /api/audit?task_id → tool_calls persist newest-first.
   auditByTask(taskId: string): Promise<AuditRow[]> {
     return request<AuditRow[]>(`/api/audit?task_id=${encodeURIComponent(taskId)}`);
   },
 
+  // Cancel a running sub-agent task by task_id.
   // huỷ 1 sub đang chạy (T4-3 · POST interrupt — BE chốt shape). target=task_id. 200 {cancelled} · 404/409.
   interruptTask(convId: string, taskId: string): Promise<unknown> {
     return request<unknown>(`/api/conversations/${convId}/interrupt`, {
@@ -167,6 +184,7 @@ export const apiClient = {
     });
   },
 
+  // Send a user message into a conversation (202; streamed reply arrives via SSE).
   sendChat(id: string, content: string): Promise<void> {
     return request<void>(`/api/conversations/${id}/chat`, {
       method: 'POST',

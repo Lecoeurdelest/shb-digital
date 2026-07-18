@@ -186,14 +186,15 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
         <span className="lp-footer__note">Workspace · Control Tower</span>
       </footer>
 
-      {/* AUTH MODAL — Login THẬT (user/pass + Google). Khách mới: nút Google tự tạo tài khoản. */}
+      {/* AUTH MODAL — Login THẬT (user/pass + tab Đăng ký khách mới + nút Google khi server bật). */}
       {authOpen && (
         <div className="lp-modal" data-testid="landing-authmodal">
           <div className="lp-modal__overlay" onClick={() => setAuthOpen(false)} />
           <div className="lp-modal__card">
             <button type="button" className="lp-modal__close" aria-label="Đóng" onClick={() => setAuthOpen(false)}>✕</button>
+            {/* Login tự lo mọi đường vào: user/pass · tab Đăng ký khách mới (T9-3) · nút Google (ẩn khi
+               server tắt — gỡ signup-hint google cứng ở đây để khối Google ẩn TRỌN khi providers.google=false). */}
             <Login onSuccess={onSuccess} />
-            <div className="lp-modal__signup-hint">Khách mới? Bấm <b>Đăng nhập với Google</b> — tài khoản khách tạo tự động.</div>
           </div>
         </div>
       )}
