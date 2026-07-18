@@ -17,6 +17,14 @@ from app.db.config import DATABASE_URL
 # repo root = 2 cấp lên từ backend/app/db/ ; LAB nằm cạnh repo (D-08)
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LAB_SEED_DB = REPO_ROOT.parent / "shb-digital-experts" / "missions" / "shb-132" / "seed" / "shb-132.db"
+# SNAPSHOT deploy (D-62): bản chụp trong repo — repo tự chứa seed khi VM clone-trần KHÔNG có LAB
+# sibling. FALLBACK CHAIN: LAB path (dev — hành vi cũ) → snapshot (deploy tự rơi vào). 0 config.
+SNAPSHOT_SEED_DB = REPO_ROOT / "deploy" / "seed" / "shb-132.db"
+
+
+def _resolve_seed_db() -> Path:
+    """LAB sibling path nếu tồn tại (dev — nguồn sự thật); else snapshot repo (deploy). D-62."""
+    return LAB_SEED_DB if LAB_SEED_DB.exists() else SNAPSHOT_SEED_DB
 
 # (table, columns) — cột KHỚP SQLite LAB, giữ đúng thứ tự cho INSERT positional (task T1-1 §A)
 TABLES: list[tuple[str, list[str]]] = [
@@ -83,8 +91,13 @@ def _open_sqlite(path: Path) -> sqlite3.Connection:
     return conn
 
 
-def load_seed(sqlite_path: Path = LAB_SEED_DB, database_url: str = DATABASE_URL) -> dict[str, int]:
-    """Đọc `sqlite_path`, ghi vào PG tại `database_url`. Trả {table: row_count} đã nạp."""
+def load_seed(sqlite_path: Path | None = None, database_url: str = DATABASE_URL) -> dict[str, int]:
+    """Đọc `sqlite_path`, ghi vào PG tại `database_url`. Trả {table: row_count} đã nạp.
+
+    sqlite_path=None (mặc định) → resolve fallback chain D-62: LAB sibling → snapshot repo. Caller
+    truyền path cụ thể vẫn tôn trọng (test/tool). Dev có LAB → hành vi cũ y nguyên."""
+    if sqlite_path is None:
+        sqlite_path = _resolve_seed_db()
     sconn = _open_sqlite(sqlite_path)
     pconn = psycopg2.connect(database_url)
     counts: dict[str, int] = {}

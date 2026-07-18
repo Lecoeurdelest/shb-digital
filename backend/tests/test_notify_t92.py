@@ -87,7 +87,7 @@ def test_send_email_error_swallowed(monkeypatch):
 
 
 def test_render_email_html_3_kinds():
-    """render_email_html 3 kind: brand SHB + amount VN + table-based + KHÔNG remote img."""
+    """render_email_html 3 kind: brand BANK Digital (D-61) + amount VN + table-based + KHÔNG remote img."""
     from app.notify.email import render_email_html
 
     d = {
@@ -102,7 +102,7 @@ def test_render_email_html_3_kinds():
     }
     for kind in ("approved", "rejected", "disbursed"):
         h = render_email_html(kind, d)
-        assert "SHB" in h and "<table" in h  # brand + table-based
+        assert "BANK" in h and "<table" in h  # brand (D-61) + table-based
         assert "594.000.000 ₫" in h  # amount VN chấm-phân-cách
         assert "Hệ thống — tự động" in h  # auto-rule → text phân cấp
         assert "#42" in h  # assessment ref (kể ma trận)

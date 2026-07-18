@@ -322,7 +322,7 @@ def _notify_disbursed(conv_id: str, receipt: dict[str, Any]) -> None:
     amount_str = f" số tiền {amount:,} VND" if amount else ""
     body = (
         f"Kính gửi anh/chị,\n\nKhoản vay {loan}{amount_str} của anh/chị đã được GIẢI NGÂN thành "
-        f"công.\n\nTrân trọng,\nSHB Digital."
+        f"công.\n\nTrân trọng,\nBANK Digital."
     )
     d = {
         "greeting_name": owner_greeting(conv_id),
@@ -334,7 +334,7 @@ def _notify_disbursed(conv_id: str, receipt: dict[str, Any]) -> None:
     }
     html_body = render_email_html("disbursed", d)
     amount_disp = f"{amount:,}".replace(",", ".")
-    subject = f"💸 Giải ngân thành công {amount_disp} ₫ — SHB Digital"
+    subject = f"💸 Giải ngân thành công {amount_disp} ₫ — BANK Digital"
     notify_conv_owner(conv_id, subject, body, html_body)
 
 

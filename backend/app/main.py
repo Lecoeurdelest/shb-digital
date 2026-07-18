@@ -54,7 +54,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="SHB Digital Expert Guild", lifespan=lifespan)
+app = FastAPI(title="BANK Digital Expert Guild", lifespan=lifespan)
 
 register_error_handler(app)  # ApiError + validation → body 4-field trần (CONTRACT §0)
 app.include_router(auth_router)

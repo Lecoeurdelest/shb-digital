@@ -4,7 +4,7 @@ send_email = best-effort: thiếu SMTP env → log.info + return False (KHÔNG r
 sai/mạng chết) → log.warning + return False. KHÔNG retry (demo-grade). Timeout 10s. Flow duyệt/
 resume KHÔNG BAO GIỜ chặn/vỡ vì mail (§12 — như audit best-effort).
 
-Env: SMTP_USER (Gmail), SMTP_APP_PASSWORD (16-ký-tự App Password), NOTIFY_FROM_NAME (default 'SHB Digital').
+Env: SMTP_USER (Gmail), SMTP_APP_PASSWORD (16-ký-tự App Password), NOTIFY_FROM_NAME (default 'BANK Digital').
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ def _info_rows(d: dict[str, Any]) -> str:
 
 
 def render_email_html(kind: str, d: dict[str, Any]) -> str:
-    """Mail HTML brand SHB (kind: approved|rejected|disbursed). Table-based + inline CSS + 600px.
+    """Mail HTML brand BANK Digital (kind: approved|rejected|disbursed). Table-based + inline CSS + 600px.
 
     d: {greeting_name, loan_id, amount_vnd(int), decided_by, decided_at, ref, assessment_id?, app_url}."""
     accent = _ACCENT[kind]
@@ -79,7 +79,7 @@ def render_email_html(kind: str, d: dict[str, Any]) -> str:
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:94%;background:#ffffff;border-radius:12px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.08);">
   <tr><td style="background:#f37021;padding:20px 32px;">
-    <span style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:.5px;">SHB <span style="font-weight:normal;">| Digital</span></span>
+    <span style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:.5px;">BANK <span style="font-weight:normal;">| Digital</span></span>
     <span style="color:#ffd9c2;font-size:12px;float:right;padding-top:6px;">Chi nhánh ngân hàng số</span>
   </td></tr>
   <tr><td align="center" style="padding:32px 32px 8px;">
@@ -97,7 +97,7 @@ def render_email_html(kind: str, d: dict[str, Any]) -> str:
     <a href="{app_url}" style="display:inline-block;background:#f37021;color:#ffffff;font-size:14px;font-weight:bold;text-decoration:none;padding:12px 32px;border-radius:24px;">Xem chi tiết trong ứng dụng →</a>
   </td></tr>
   <tr><td style="background:#faf9f8;padding:16px 32px;border-top:1px solid #eeeae6;">
-    <div style="font-size:11px;color:#999999;line-height:1.5;">Email tự động từ <b>SHB Digital Expert Guild</b> — hệ thống demo VAIC 2026. Mọi giao dịch được ghi sổ kiểm toán đầy đủ. Vui lòng không trả lời email này.</div>
+    <div style="font-size:11px;color:#999999;line-height:1.5;">Email tự động từ <b>BANK Digital Expert Guild</b> — hệ thống demo VAIC 2026. Mọi giao dịch được ghi sổ kiểm toán đầy đủ. Vui lòng không trả lời email này.</div>
   </td></tr>
 </table>
 </td></tr></table></div>"""
@@ -109,7 +109,7 @@ def _smtp_env() -> tuple[str, str, str] | None:
     password = os.environ.get("SMTP_APP_PASSWORD")
     if not user or not password:
         return None
-    from_name = os.environ.get("NOTIFY_FROM_NAME", "SHB Digital")
+    from_name = os.environ.get("NOTIFY_FROM_NAME", "BANK Digital")
     return user, password, from_name
 
 
