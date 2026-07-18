@@ -48,6 +48,30 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-51 · Model picker Ở COMPOSER cạnh nút gửi (NGƯỜI chốt 18/7) + "+Ca mới" = DRAFT, ca tạo
+  LAZY lúc gửi câu đầu** — người chốt vị trí picker; hệ quả kỹ thuật: BE lưu provider/model per-conv
+  lúc TẠO → picker-chọn-sau-khi-bấm-Ca-mới (eager cũ) = model không áp (FE round-trip đầu verify SAI
+  thứ tự, architect nghi dây đứt, FE đính chính + fix). **Lazy-create:** "+Ca mới" mở draft (không
+  POST) → picker+composer hiện → gõ câu đầu → createConversation(title, provider, model) → picker
+  LOCK sau lượt đầu (model chốt per-conv). Backend confirm pattern, không cần PATCH endpoint. Verify
+  đúng thứ tự user thật: draft → chọn zai/glm → câu đầu → conv provider="zai" ✓. — Đổi: BE cho đổi
+  model per-turn → bỏ lock + eager lại được.
+- **D-50 · ĐỔI MÔ HÌNH (NGƯỜI chốt 18/7): chuyên gia = AGENT RIÊNG BIỆT bền (không phải subagent
+  dùng-1-lần); MAIN chỉ là ĐIỀU PHỐI VIÊN + cửa nói chuyện với user — LẬT anti-pattern #15
+  claude-sdk.md** — người: "agent ở đây là 1 agent riêng biệt chứ không hẳn là 1 subagent; main
+  chỉ là người điều phối hoặc nói chuyện trực tiếp với user." Như chi nhánh thật: chuyên gia =
+  nhân viên THẬT có danh tính + ký ức việc mình làm, không phải thời vụ gọi-1-lần.
+  - **Hệ quả giải cùng lúc:** (a) Hướng-2 "A nhận biên bản" hết nghịch lý — agent Ops của ca là
+    MỘT con bền, duyệt xong RESUME đúng nó (nhớ mình xin phiếu), không còn "B lạ". (b) F2b chat-
+    với-sub thành tự nhiên (agent bền chat được). (c) Kỹ thuật = port cơ chế MAIN-resume có sẵn
+    (S1, landmine đã xử): session lưu theo **(conv, role)** — dispatch role lần 2 cùng ca =
+    RESUME session role đó thay spawn mới.
+  - **Phạm vi đề xuất (architect, chờ người xác nhận):** bền theo CA trước (mỗi hồ sơ 1 đội, không
+    rò thông tin giữa khách — khớp compliance); toàn-cục sau nếu cần.
+  - **Docs sửa chủ đích khi build:** claude-sdk.md #15 → "sub disposable là MẶC ĐỊNH cho task
+    độc lập; sub-resume per-(conv,role) cho agent bền (D-50)". §3 MAIN-bền/SUB-tươi → cập nhật.
+  - **Timing:** S4 đóng bình thường; build ở S5/sau demo ("pass hết task hiện tại trước" — người
+    chốt cùng ngày). — Đổi: người thu hẹp lại (chỉ 2 ca resume-sau-duyệt + chat) / mở toàn-cục.
 - **D-49 · Đợt T4-2/3/4 — các quyết nhỏ (architect signoff 18/7):** (a) interrupt `target=main`
   SKIP → 400 target_not_supported (SPEC §11 body target mở rộng sau — chỉ huỷ sub trước). (b) compare
   poll "SETTLED" (idle/done VÀ không task queued/running, HOẶC waiting_approval/failed) — break ở idle-

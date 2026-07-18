@@ -23,7 +23,14 @@
 - **Ngoài kế hoạch (làm thêm):** routing fix (D-46 MAIN route giải ngân) · **provider registry standalone** (D-45/45b — demo Đà Nẵng không phụ CLI auth, verify qua zai) · skip-auth (D-39) · card-sync atomic.
 - **Ngoại lệ treo S4:** loop-edge guard B (ops#2 fail bền → re-dispatch loop; money-safe, bound cần migration attempt-state). **Nợ:** provider (c) per-conv + model dropdown UI · queue Control Tower · 2-card-trùng dọn · immediate-stop mạnh hơn.
 
-## Sprint 4 — Control Tower + trace + tương tác sub ⏳ PLANNED
+## Sprint 4 — Control Tower + trace + tương tác sub ✅ ĐÓNG (dcf3ac3→13860c2, 7 commit)
+- **Gate:** ✅ tester verdict — Control Tower duyệt-tại-chỗ e2e + trace thinking/toolcall live+reload +
+  SubAgentView + huỷ-từng-con §4.3 + compare 2-cột (single-chay vs multi-6-tool-DSCR-có-nguồn) + model
+  picker 3 nhà (ca GPT chạy thật). 282 test (208 BE + 74 FE). Sổ ngoại lệ RỖNG (loop-edge S3 bound).
+- **Ngoài plan:** provider (c) per-conv + seed-reset 1 lệnh + wrap GPT + D-50 chốt mô hình agent-riêng-biệt.
+- **Nợ → S5:** F2b/sub-bền (D-50, lật #15 khi build) · sub_model per-provider (wrap multi) · SSE-live queue.
+
+## Sprint 4 (kế hoạch gốc — đã thay bằng trên) ⏳
 - **Theme:** màn Control Tower (admin): approval queue + live map traces + audit view (tool_calls) + cost meter + interrupt per-agent + trạng thái đầy đủ (empty/streaming/waiting/error/abstain).
 - **User thêm 18/7 (D-43 lật D-23; team-lead route — MUST):**
   - **F1 — thinking + tool trace trên UI user** (tracing dễ, tạm): BE emit SSE `thinking` (SDK ThinkingBlock — LAB session.py pattern) + `toolcall` live per sub/main (§9 CONTRACT sẵn) · FE khối trace collapsible trong chat. ~½ ngày. S3 xong sớm → nhét cuối S3; không thì mở màn S4.
