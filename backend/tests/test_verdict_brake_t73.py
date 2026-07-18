@@ -19,7 +19,7 @@ import psycopg2
 from app.db.config import DATABASE_URL
 from app.orch.verdict import AUTO_APPROVE_THRESHOLD, disburse_decision, latest_verdict
 
-from .conftest import requires_db
+from .conftest import requires_db, requires_test_db
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -245,7 +245,7 @@ def test_disburse_decision_db_error_tier1_still_auto(monkeypatch):
 # ── 4. Rider — reset_demo wipe conversation dirs ─────────────────────────────
 
 
-@requires_db
+@requires_test_db  # PHÁ HOẠI: reset_demo wipe runtime + folder → CHỈ test-db riêng (T7-4 rider sự cố)
 def test_reset_demo_wipes_conversation_dirs():
     """reset_demo xoá dir con trong CONV_ROOT, GIỮ CONV_ROOT (folder neo mồ côi khỏi tích tụ)."""
     from app.orch.main_session import CONV_ROOT
