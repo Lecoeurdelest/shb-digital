@@ -34,3 +34,14 @@ providers:
     api_key: ${WRAP_API_KEY}
     models: [gpt-5.5, gpt-5.6-sol, gpt-5.6-luna, gpt-5.6-terra, gpt-5.4, gpt-5.4-mini]
     note: "GPT qua wrapper psa.team — so sánh ngoài nhà Claude; cost_usd SDK KHÔNG TIN với provider ngoài"
+
+  - name: local
+    # Ollama chạy NGAY TRÊN MÁY (endpoint giọng Anthropic có sẵn từ Ollama ≥0.12 — verify 18/7
+    # bản 0.32.1 trả đúng error-envelope Anthropic). Demo chủ quyền dữ liệu: model on-prem,
+    # dữ liệu không rời hạ tầng. Tool-call model 8B yếu hơn Claude/GLM — demo phụ, không phải
+    # đường chính (D-45 note). Cần: `ollama serve` + `ollama pull qwen3:8b` + LOCAL_KEY bất kỳ
+    # trong .env (Ollama không kiểm key — registry đòi biến tồn tại).
+    base_url: http://localhost:11434
+    api_key: ${LOCAL_KEY}
+    models: [qwen3:8b]
+    note: "model local qua Ollama — on-prem/chủ quyền dữ liệu; cost_usd KHÔNG TIN"
