@@ -17,7 +17,15 @@ compare (deliverable #5) + model picker 3 nhà (claude-cli/zai/wrap-GPT) + loop-
 tầng + MAIN tuần tự bàn giao (pain người ra đề) + D-54 + polish offline-safe + compare-fix. 288 test.
 **DEMO-READY** — script v4 + seed-reset + luật vận hành. Chờ: LAB legal 3-nguồn (port khi drop).
 
-**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_3.md` (đóng) · `plan_sprint_4.md` (draft).
+**Sprint 6 — ĐÓNG** (2026-07-18): Demo-safety cluster. UX-treo SSE-đứt FIXED (heartbeat ping
+data-frame + FE watchdog 25s + time-scope cleanup + conv-idle + guard-B — ngoại lệ race S5 ĐÓNG,
+tester kill-mid-flight: hệ TỰ LÀNH) + tách DB test (shb_test, hết rác demo) + restart-sạch pkill
++ smoke e2e 5-deliverable liền mạch PASS 4'25" (regression demo vĩnh viễn). 302 test (224+78).
+
+**Sprint 7 — KẾ** (draft `plan_sprint_7.md`): LAB legal 3-nguồn CERTIFIED 18/7 → port (migration
+3 bảng + 5 tool + SKILL v3) + wire verdict-xanh vào phanh phân tầng (D-52).
+
+**Golden path:** `sprints/ROADMAP.md`. **Plan:** `plan_sprint_7.md` (draft).
 
 **Lịch sử:**
 

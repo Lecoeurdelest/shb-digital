@@ -46,6 +46,21 @@
 - **Nợ → S6/sau demo:** UX-treo SSE-đứt (phân tầng + fix) · smoke e2e liền mạch · LAB legal 3-nguồn port ·
   agent-bền D-50 · race nhấp-nháy-status (ngoại lệ có soát).
 
+## Sprint 6 — Demo-safety cluster ✅ ĐÓNG (bb17cd8 · ca59f5b · 750ccf8 · {{đóng}})
+- **Theme (user chốt "fix UX-treo trước đi"):** UX-treo SSE-đứt (heartbeat ping data-frame §4 +
+  FE watchdog 25s + time-scope boot-cleanup + conv-idle + guard-B write-war) + tách DB test
+  (TEST_DATABASE_URL → shb_test, luật-hoá không-pytest-trên-DB-demo) + restart-sạch pkill
+  (parent+child, nghi gốc 2-process) + smoke e2e 5-deliverable liền mạch (regression demo vĩnh viễn).
+- **Gate:** ✅ tester kill-mid-flight → hệ TỰ LÀNH (reconnect+refetch thật) + smoke live PASS 4'25"
+  + 302 test (224 BE shb_test + 78 FE). Ngoại lệ race-status S5 ĐÓNG. Sổ ngoại lệ: 1 (confirm
+  2-process lần restart kế — guard-B đã vô hiệu hậu quả).
+- **Nợ → S7:** LAB legal port (CERTIFIED 18/7 — phong bì sẵn) · settled-helper chung ·
+  agent-bền D-50 (sau demo).
+
+## Sprint 7 — LAB legal 3-nguồn + verdict-xanh ⏳ (draft `plan_sprint_7.md`)
+- **Theme:** port legal CERTIFIED (migration police/employment/assessments + 6 assumptions +
+  5 tool + SKILL v3) + wire verdict-xanh vào `_auto_approve_ok` (D-52) + script v5.
+
 ---
 
 ## Map 5 deliverable đề #132 → sprint trả
