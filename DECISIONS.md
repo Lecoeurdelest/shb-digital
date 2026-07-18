@@ -4,8 +4,12 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
-- **D-64 · Credential demo trên bề mặt PUBLIC: chỉ lộ account KHÁCH, giấu admin/user-RM**
-  (architect tự-quyết ② 19/7, từ dogfood DF-A-01) — prod public mà modal login + API 401 hint
+- **D-64 · Credential demo trên bề mặt PUBLIC — ⏸ TREO CHỜ USER (lead giữ lại 19/7: đây là GU
+  DEMO, không thuộc quyền tự-quyết architect).** 3 hướng trên bàn: (1) giữ nguyên cho tiện demo ·
+  (2) che admin/user-RM, giữ gợi ý c001 (phương án architect + lead nghiêng) · (3) gate env-flag.
+  Đội CHUẨN BỊ sẵn cả 3 (đã định vị chỗ sửa: modal FE dòng "Demo:", API login hint), KHÔNG commit
+  đổi hành vi tới khi user chốt. Đề xuất gốc của architect giữ bên dưới làm phương án (2):
+  (architect đề xuất 19/7, từ dogfood DF-A-01) — prod public mà modal login + API 401 hint
   liệt kê cả `admin/admin` = ai có link đều vào được Tower duyệt phiếu. Quyết: (a) modal login
   chỉ hiện gợi ý account khách `c001/c001` (giám khảo vai khách gõ nhanh vẫn được; vận hành viên
   demo biết admin từ script — không cần in lên UI public); (b) API 401 hint đổi generic "Kiểm
