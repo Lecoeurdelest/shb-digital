@@ -271,6 +271,21 @@ def _build_event_prompt(event: str, data: dict) -> str:
             f"Sự kiện: chuyên gia {data['role']} kết thúc [{data['outcome']}]. "
             f"Kết quả: {data['result_summary']}\nBảng việc hiện tại: {json.dumps(data['board'], ensure_ascii=False)}"
         )
+    if event == "approval_decided":
+        # T3-2 resume (§4.4/§8): mặt model nói THEO HÀNH ĐỘNG + tham số, KHÔNG phiếu-id (§15).
+        # main giao lại Ops đúng payload để wrapper bước 2 claim. approved → thực thi; rejected → báo user.
+        action = data["action"]
+        payload_summary = ", ".join(f"{k}={v}" for k, v in (data.get("payload") or {}).items())
+        if data["decision"] == "approved":
+            return (
+                f"Sự kiện: hành động '{action}' ({payload_summary}) đã được NGƯỜI DUYỆT chấp thuận. "
+                f"Hãy giao lại cho chuyên gia Vận hành (operations) gọi lại '{action}' ĐÚNG tham số "
+                f"({payload_summary}) để thực thi. Xong thì báo người dùng kết quả."
+            )
+        return (
+            f"Sự kiện: hành động '{action}' ({payload_summary}) đã bị NGƯỜI DUYỆT TỪ CHỐI. "
+            f"KHÔNG thực thi. Báo người dùng đã bị từ chối và lý do (nếu có)."
+        )
     return json.dumps(data, ensure_ascii=False)
 
 
