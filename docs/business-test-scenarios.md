@@ -415,20 +415,29 @@ Chạy so sánh", không lỗi) — không tab nào vỡ do thêm 2 tab mới.
 `GET /api/stats?window=today` tự gọi lại ≥2 lần, cả 2 đều status 200; `read_console_messages`
 (onlyErrors) = rỗng — không error-loop, không exception JS.
 
-**Kết luận Luồng 8**: 5/6 case con PASS, đúng 1 finding thật (8a — badge approvals sai) đã báo
-FAIL đúng người kèm evidence + nghi vấn cụ thể. KHÔNG chặn cứng (dashboard không crash, chỉ số
-liệu approvals sai) — nhưng KHÔNG tính PASS phần đó cho tới khi backend fix + tester re-verify.
+**Kết luận Luồng 8**: 6/6 case con PASS. 8a trải qua 2 vòng — vòng 1 nghi FAIL (điều tra kỹ,
+báo đúng người, KHÔNG đoán), vòng 2 re-verify bằng data tươi xác nhận đây là false alarm do
+ground-truth (bảng `approvals`) bị dọn giữa 2 lần tester chạy, không phải bug logic. Quy trình
+điều tra vẫn có giá trị: chứng minh code đúng trên giấy + chốt đúng root cause thật bằng 1 vòng
+re-verify rẻ (login → disburse → so API/UI trước-sau), đúng tinh thần CLAUDE.md §6b "nghi môi
+trường/ground-truth trước khi nghi code, mỗi nghi án kết bằng 1 hành động kiểm rẻ".
 
 ---
 
-## Trạng thái DB prod sau khi chạy hết 7 luồng (19/7) — cho người sau đọc trước khi tự chạy lại
+## Trạng thái DB prod sau khi chạy hết 8 luồng (19/7) — cho người sau đọc trước khi tự chạy lại
+
+**Lưu ý quan trọng cho người sau**: giữa lúc tester chạy 7 luồng đầu và lúc chạy Luồng 8
+(T13-4), architect ĐÃ dọn 1 lần: restore 3 loan (L001/L007/L108) về `active` + `DELETE FROM
+approvals` cho cả 3 — đây chính là lý do 8a từng nghi FAIL rồi xác nhận false alarm (xem chi
+tiết ở mục Luồng 8 phía trên). Bảng dưới phản ánh trạng thái SAU CÙNG (sau cả dọn lẫn re-verify
+Luồng 8), không phải chồng lịch sử tất cả lần chạy.
 
 | Loan | Trạng thái cuối cùng | Do luồng nào | Cần dọn trước khi tái sử dụng? |
 |---|---|---|---|
-| L001 (C001, 340tr) | Đã disbursed (auto-rule, dưới ngưỡng) | 3a | Có — muốn chạy lại 3a cần restore active |
-| L007 (B001, 3 tỷ) | Đã disbursed (admin duyệt, 17:43:19 UTC) | 3d | Có — muốn chạy lại 3d cần restore active |
-| L108 (C019, 594tr) | Đã disbursed LẦN 2 (auto-rule assessment #5, lane green, 18:00:39 UTC) — ĐÃ restore 1 lần giữa phiên bởi architect | 3b (+ dư ảnh từ hôm qua) | Có — đây là loan bị dùng nhiều lần nhất trong toàn bộ suite test, cân nhắc thêm 1 loan dự phòng khác cho tier-2-green nếu còn test thêm |
-| B001 assessment (594tr, DN, YELLOW) | 1 assessment "lệch" tồn tại do lỗi cookie-flip (Luồng 3b nháp đầu) — vô hại, chỉ là 1 row assessment thừa | Sự cố thao tác, không phải luồng chính thức | Không bắt buộc dọn — không ảnh hưởng logic, nhưng có thể gây nhiễu nếu ai đó query "assessment mới nhất của B001" mong đợi thấy đúng 1 cái |
+| L001 (C001, 340tr) | Đã restore active bởi architect SAU đóng S13 (disburse lần 2 của re-verify 8a đã được dọn — biên lai: 3/3 loans active, 1 approval auto giữ làm mồi dashboard) | 3a + re-verify 8a (đã restore) | Không — đang active sẵn, sạch để dùng |
+| L007 (B001, 3 tỷ) | Đã restore active bởi architect (approvals đã xoá), CHƯA disburse lại từ đó | 3d (đã restore) | Không — đang active sẵn, sạch để dùng |
+| L108 (C019, 594tr) | Đã restore active bởi architect (approvals đã xoá), CHƯA disburse lại từ đó | 3b (đã restore) | Không — đang active sẵn, sạch để dùng |
+| B001 assessment (594tr, DN, YELLOW) | 1 assessment "lệch" tồn tại do lỗi cookie-flip (Luồng 3b nháp đầu) — vô hại, chỉ là 1 row assessment thừa. Bảng `assessments` KHÔNG bị dọn nên vẫn còn | Sự cố thao tác, không phải luồng chính thức | Không bắt buộc dọn — không ảnh hưởng logic, nhưng có thể gây nhiễu nếu ai đó query "assessment mới nhất của B001" mong đợi thấy đúng 1 cái |
 
 **Account test tạo mới trong các phiên trước (18-19/7), CHƯA được architect xác nhận dọn:**
 t9prod1, t9go1 (từ phiên 18/7) — không tự ý xoá, chờ quyết định.
