@@ -1,4 +1,4 @@
-# DEMO SCRIPT v7 — SYSTEM #132 "Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ + PHÁP LÝ 3 TRỤ (D-56/D-52)
+# DEMO SCRIPT v8 — SYSTEM #132 "BANK Digital — Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ + 3 TRỤ + KHÁCH MỚI (D-56/D-52/D-57/D-61)
 
 > Kể 5 deliverable đề #132 trong 1 mạch chuyện ~10-13 phút, THEO HƯỚNG D-56: app là CỬA KHÁCH
 > HÀNG — khách tự chat với đội chuyên gia số, khoản nhỏ agent TỰ DUYỆT theo ma trận, khoản lớn
@@ -66,6 +66,26 @@ pain người ra đề):**
   vừa nãy) vẫn qua người. Không chặn hết, không thả hết — đúng pain ngân hàng thật."*
 - *Tương phản kể miệng: khách C001 tra công an CHƯA CÓ bản ghi → hệ nói "chưa xác minh được",
   KHÔNG đoán sạch/bẩn → bắt buộc người xem. Agent trung thực với dữ liệu thiếu.*
+
+### CẢNH 2B — KHÁCH MỚI từ số 0 + MAIL VỀ ĐIỆN THOẠI (D-57 — vòng đời trọn) — đo thật ~11'
+TRỌN vòng (register 2'52 + form 3'54 + thẩm định 4'21) — **DEMO MẶC ĐỊNH: warm-up account +
+form trước giờ G, trên sân khấu kể từ bước THẨM ĐỊNH (~4') hoặc chỉ nhịp duyệt→mail (~2')**.
+- TRÁI: Đăng xuất → tab **"Đăng ký khách mới"** → tạo account NGAY TRÊN SÂN KHẤU (username tự
+  đặt, **email = Gmail demo đang mở trên điện thoại**) → vào thẳng Workspace "Khách hàng".
+  "Người ngoài đường tải app là dùng được — không cần là khách có sẵn hồ sơ."
+- Gõ: **"Tôi muốn vay 300 triệu mua nhà."** → MAIN KHÔNG hỏi vặt — **card FORM hiện trên
+  canvas** (6 trường do server định nghĩa) → điền trực tiếp → Nộp → "✅ Đã nộp" → hệ TỰ tạo hồ
+  sơ (mã C9xx) + MAIN tiếp tục thẩm định.
+- Thẩm định ra **VÀNG — "chưa xác minh được nhân thân/thu nhập"** (khách mới chưa có bản ghi
+  công an/CIC/lương): "hệ TRUNG THỰC với dữ liệu thiếu — không đoán sạch/bẩn, đẩy về con người.
+  Đó là cách ngân hàng thật xử khách lạ."
+- PHẢI (bank): duyệt phiếu → **📱 GIƠ ĐIỆN THOẠI: mail "BANK Digital" màu cam ting về hộp thư
+  khách** (HTML brand: số tiền, ai duyệt, mã biên bản — 2 mail: phê duyệt + giải ngân, đã verify
+  Gmail thật 18/7) — "khách không ngồi trong app vẫn biết kết quả." + TRÁI: **chuông 🔔 badge
+  nổi** trong app — lưới kép khi mất mạng. (Bell dropdown: verify bằng MẮT lúc rehearsal —
+  screenshot tool không chụp được layer này, đã biết.)
+- ⚠️ Server chạy tay (không compose): PHẢI export SMTP env từ .env trước khi start — quên là
+  mail no-op im lặng. Compose (S10) tự lo qua env_file.
 
 ### CẢNH 3 — Control Tower: đài GIÁM SÁT của ngân hàng (deliverable #4) — ~90s (cửa sổ PHẢI)
 - "Khách không bao giờ thấy màn này — đây là phía ngân hàng."

@@ -4,6 +4,25 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-62 · Deploy seed = SNAPSHOT trong repo + entrypoint SEED-NẾU-RỖNG** (architect chốt 18/7,
+  backend build + verify) — (a) `deploy/seed/shb-132.db` (2.4MB, md5 8b3597cd, README ghi rõ
+  "snapshot deploy — nguồn sự thật vẫn là LAB, refresh = copy + cập nhật md5"); code
+  `_resolve_seed_db` fallback chain LAB-sibling → snapshot (dev hành vi cũ, deploy tự rơi,
+  0 config) — diệt phụ-thuộc-ngầm LAB-repo-cạnh (cùng lớp lỗi cwd-ngầm); binary vào git = chấp
+  nhận có ghi chú. (b) entrypoint `seed_if_empty` (check assumptions>0 → skip) — seed-mỗi-start
+  wipe khách C9xx = phá gate S10 "restart giữa ca vẫn nhớ"; migration vẫn luôn chạy; reset =
+  lệnh chủ động. Verify: clone-trần sim seed từ snapshot OK + restart-persistence user sống.
+  — cách đổi: xoá snapshot + đổi compose command, 2 file.
+
+- **D-61 · BỎ BRAND "SHB" — danh xưng generic "BANK Digital"** (người chốt 18/7 "SHB bỏ đi đặt
+  tên bank cũng được"; tên cụ thể architect tự quyết khớp lobby 3D đã dựng chữ BANK) — sweep
+  các chỗ USER-FACING: FE (header, Login, title tab), BE (FastAPI title, mail template
+  render_email_html + NOTIFY_FROM_NAME default + .env), MAIN_SKILL danh xưng, demo-script,
+  footer mail. SKILL legal v3 CERTIFIED có chữ "ngân hàng SHB" → đổi DUY NHẤT danh xưng (không
+  đụng luật nào) + note deviation về LAB (hành vi certify không phụ thuộc tên bank). KHÔNG đổi:
+  tên repo, path, identifier code, docs nội bộ lịch sử (rủi ro > giá trị). — cách đổi: tên nằm
+  ở ít chỗ, grep "SHB" sweep lại được.
+
 - **D-60 · Chat assistant render MARKDOWN qua react-markdown + remark-gfm** (sếp chốt trực
   tiếp 18/7, giữa S7) — assistant + streaming bubble render markdown (heading/bold/bảng/list/
   code/blockquote); user/system bubble GIỮ plain (input người = literal). XSS-safe tự nhiên:

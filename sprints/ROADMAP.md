@@ -81,7 +81,18 @@
   3 trụ honest-null → yellow → người duyệt → MAIL Gmail thật (app password người gửi sau,
   no-op sạch khi thiếu env) + bell in-app (lưới mất mạng).
 
-## Sprint 10 — Docker hoá + deploy `digital.tinhdev.com` ⏳ (người chốt 18/7 — sau S7/S9, "cùng test verify")
+## Sprint 9 — Khách mới + vòng đời hồ sơ ✅ ĐÓNG (5059e1a→6ec86bc + merges, cùng S10)
+- **Gate:** ✅ tester e2e vòng đời 6 bước local + **6/6 PASS trên PROD digital.tinhdev.com**.
+  465 test (355 BE + 110 FE). Mail HTML brand BANK Digital verify Gmail thật ×2 vòng.
+- 6 fix prod trong sprint: cross-owner (A) · restart-script (B) · provider-disable (C) ·
+  image-configs (D) · **READ-SCOPE leak (E — nặng nhất dự án)** · mock-banner (F) +
+  effective-default + UV_NO_SYNC + durable volume UID/GID.
+
+## Sprint 10 — Docker + deploy `digital.tinhdev.com` ✅ ĐÓNG SỚM trong S9 (user lệnh "deploy lẹ")
+- Compose shb132-prod (8011/3011 cô lập, volumes SDK/conv/PG) + tunnel swap (backup, web mẫu
+  vốn chết trước) + seed snapshot D-62 + seed-if-empty + Dockerfile durable. Còn nợ nhẹ S10:
+  1 vòng "restart container GIỮA ca đang chạy trên VM → resume nhớ" chấm chính thức (local đã
+  pass; ghép vào vòng rehearsal trước giờ G).
 - **Đích (team-lead khảo sát 18/7):** GCP `dev-vm` us-east1-b (Ubuntu 24.04 · 5GB RAM free ·
   23GB disk · Docker 29 + Compose v5 sẵn). Domain → Cloudflare → cloudflared systemd →
   `localhost:3010` (hiện web mẫu — GIỮ tới khi #132 xanh rồi mới chuyển tunnel, rollback dễ).
@@ -91,7 +102,10 @@
   digital.tinhdev.com → FE-port + restart cloudflared (external/one-way — verify từng bước).
   Provider: standalone zai/wrap qua `SHB_PROVIDER` (VM không có CLI auth — D-45b).
 
-## Sprint 12 — Port RETRIEVAL 4 TẦNG từ LAB ⏳ (phong bì sẵn — đề xuất chạy SAU S9, TRƯỚC S10)
+## Sprint 12 — Port RETRIEVAL 4 TẦNG từ LAB ⏳ (phong bì sẵn — user chốt 18/7: CUỐI, sau S11)
+- **⚠️ Hệ quả thứ tự (S10 deploy trước S12):** image S10 CHƯA cài sentence-transformers/pyvi —
+  S12 xong phải REBUILD image + redeploy (ghi thành bước cuối S12; model embedding cache vào
+  volume để venue không cần mạng).
 - **Nguồn (LAB đã build + QA đối kháng 18/7 — KHÔNG phải xây mới):**
   `../shb-digital-experts/missions/shb-132/RETRIEVAL-README.md` (swap §7 = 3 thao tác) +
   `../battle/de-archive/note-discuss-wiki-compare-132.md` (thiết kế sếp chốt). DOER-test 5/5,
@@ -109,13 +123,14 @@
   legal SKILL v3 là bản CERTIFIED KHÔNG SỬA (D-55) → đoạn retrieval cho legal phải về LAB
   certify (v4) hoặc tách lớp inject vỏ — blocker về LAB, không tự vá.
 
-## Sprint 11 — Cleanup + Documentation ⏳ (người chốt 18/7 — CUỐI CÙNG, sau S12)
+## Sprint 11 — Cleanup + Documentation ⏳ (user chốt thứ tự 18/7: SAU S10, TRƯỚC S12)
 - **Theme:** dọn repo (archive nháp, chuẩn hoá docs/, README) + bộ tài liệu thi. Nguồn
   methodology: `../battle/de-archive/METHODOLOGY-132.md` → port `docs/METHODOLOGY.md` (khuôn:
   định kiến → cơ chế thật → lựa chọn → trade-off khai thật).
-- **Đối chiếu THẬT khi port:** §3 RAG 4 tầng khai được TRỌN sau khi S12 port xong (LAB đã
-  build — hết caveat nói-vống); vẫn rà từng § khớp hệ thật (vd doc nói "pgvector" nhưng bản
-  build là BLOB+numpy — sửa doc theo THẬT).
+- **Đối chiếu THẬT khi port (S11 chạy TRƯỚC S12):** §3 RAG 4 tầng khai trạng thái thật tại
+  thời điểm viết — "4 tầng thiết kế + build CERTIFIED ở LAB (DOER 5/5, QA 7 hướng), tầng
+  SQL+wiki nào đã trong SYSTEM, phần còn lại port S12" — không nói vống, không giấu; doc nói
+  "pgvector" → sửa theo bản thật (BLOB+numpy local). S12 xong → 1 lượt cập nhật doc nhỏ.
 - **Theme:** đóng gói compose full-stack (BE + FE build + PG đã có service). **SỐNG CÒN — SDK
   lưu session trên DISK, PHẢI mount volume ra ngoài** (người nhắc đích danh): (1) `~/.claude/`
   của user trong container (transcripts resume — mất là MAIN lú toàn bộ ca); (2)
