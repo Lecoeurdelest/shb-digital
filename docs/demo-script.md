@@ -1,4 +1,4 @@
-# DEMO SCRIPT v8 — SYSTEM #132 "BANK Digital — Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ + 3 TRỤ + KHÁCH MỚI (D-56/D-52/D-57/D-61)
+# DEMO SCRIPT v9 — SYSTEM #132 "BANK Digital — Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ + 3 TRỤ + KHÁCH MỚI (D-56/D-52/D-57/D-61)
 
 > Kể 5 deliverable đề #132 trong 1 mạch chuyện ~10-13 phút, THEO HƯỚNG D-56: app là CỬA KHÁCH
 > HÀNG — khách tự chat với đội chuyên gia số, khoản nhỏ agent TỰ DUYỆT theo ma trận, khoản lớn
@@ -34,12 +34,15 @@
 
 ### CẢNH 2 — PHANH PHÂN TẦNG 2 CỬA SỔ: khoản nhỏ TỰ DUYỆT, khoản lớn BAY về ngân hàng (deliverable #3 — CẢNH ĂN TIỀN) — ~3 phút
 **Chuẩn bị:** cửa sổ PHẢI đã login **admin/admin**, để ở Workspace (thấy nút 🗼 Control Tower).
-**Nhịp A — khoản nhỏ, ma trận cho tự duyệt:**
-- TRÁI gõ: **"Giải ngân khoản vay L006 số tiền 300 triệu."** → ~15s: card **"✅ Tự động duyệt &
-  thực thi"** + biên nhận LUÔN — "dưới ngưỡng 500 triệu, ma trận thẩm quyền cho agent tự duyệt.
-  Nhưng NHÌN: phiếu vẫn ghi `decided_by='auto-rule'` + lý do — tự động CÓ KIỂM SOÁT, audit đủ."
+**Nhịp A — khoản nhỏ, ma trận cho tự duyệt (⚠️ v9 sửa theo SEED THẬT + Fix-A cross-owner:
+khách CHỈ giải ngân được loan CỦA MÌNH — L006 là của C003, b001 gõ sẽ bị từ chối đúng luật!):**
+- TRÁI: login **c001/c001** → gõ: **"Giải ngân khoản vay L001 số tiền 340 triệu."** (L001 CỦA
+  C001, 340tr < 500tr) → ~15-45s: card **"✅ Tự động duyệt & thực thi"** + biên nhận LUÔN —
+  "dưới ngưỡng 500 triệu, ma trận thẩm quyền cho agent tự duyệt. Nhưng NHÌN: phiếu vẫn ghi
+  `decided_by='auto-rule'` + lý do — tự động CÓ KIỂM SOÁT, audit đủ."
 **Nhịp B — khoản lớn: phiếu BAY sang ngân hàng:**
-- TRÁI gõ: **"Giải ngân khoản vay L007 số tiền 1 tỷ đồng."** → ~5-10s: card
+- TRÁI: login lại **b001/b001** → gõ: **"Giải ngân khoản vay L007 số tiền 3 tỷ đồng."** (L007
+  CỦA B001, dư nợ 3 tỷ — v9 sửa: script cũ ghi "1 tỷ" lệch seed) → ~5-10s: card
   **"⏳ Đang chờ ngân hàng phê duyệt"** — KHÔNG có nút duyệt phía khách. "Vượt ngưỡng → agent bị
   CHẶN ở tầng tool. Khách không tự duyệt được, dụ agent cũng không mở được — luật nằm ở cái két."
 - CHỈ TAY sang cửa sổ PHẢI: **badge đỏ nổi trên nút Control Tower** (poll ≤5s) — "phiếu vừa BAY
@@ -62,7 +65,7 @@ pain người ra đề):**
 - Kết quả: **hồ sơ XANH**. Gõ tiếp: **"Giải ngân khoản vay L108 số tiền 594 triệu."** — *594tr
   VƯỢT ngưỡng 500tr* → nhưng ~15s: **✅ TỰ ĐỘNG DUYỆT** — phiếu `auto-rule`, reason **"Hồ sơ
   XANH — assessment #N"**. → *"Ma trận thẩm quyền 3 tầng: khoản nhỏ tự chạy · khoản vừa CHỈ tự
-  chạy khi 3 nguồn chấm XANH — có số biên bản truy được · khoản lớn và hồ sơ chưa xanh (DN 1 tỷ
+  chạy khi 3 nguồn chấm XANH — có số biên bản truy được · khoản lớn và hồ sơ chưa xanh (DN 3 tỷ
   vừa nãy) vẫn qua người. Không chặn hết, không thả hết — đúng pain ngân hàng thật."*
 - *Tương phản kể miệng: khách C001 tra công an CHƯA CÓ bản ghi → hệ nói "chưa xác minh được",
   KHÔNG đoán sạch/bẩn → bắt buộc người xem. Agent trung thực với dữ liệu thiếu.*
