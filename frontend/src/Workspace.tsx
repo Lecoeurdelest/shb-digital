@@ -10,6 +10,7 @@ import { conversationApi, USE_MOCK_API } from './api';
 import { ApiRequestError } from './api/client';
 import { useConversationSSE, type ConversationSSEHandlers } from './hooks/useConversationSSE';
 import { useApprovalBadge } from './hooks/useApprovalBadge';
+import { NotificationBell } from './components/NotificationBell';
 import { ConversationSidebar } from './components/ConversationSidebar';
 import { ModelPicker } from './components/ModelPicker';
 import { Composer } from './components/Composer';
@@ -326,6 +327,22 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
       });
   }, [handleError, applyFullState]);
 
+  // khách nộp hồ sơ (T9-3 D-57). form-submit → SSE card update (status submitted) → FormCard read-only.
+  // Ném lỗi lại cho FormCard hiển thị message 4-field (missing_fields/bad_income); 409 → refetch read-only.
+  const handleFormSubmit = useCallback(async (cardId: string, values: Record<string, string>): Promise<void> => {
+    const id = activeIdRef.current;
+    if (!id) throw new Error('Chưa mở ca');
+    try {
+      await conversationApi.submitForm(id, cardId, values);
+    } catch (err: unknown) {
+      // 409 đã nộp → refetch full-state để card về read-only (DB nguồn sự thật §0)
+      if (err instanceof ApiRequestError && err.status === 409) {
+        conversationApi.getConversation(id).then((s) => { if (id === activeIdRef.current) applyFullState(s); }).catch(() => {});
+      }
+      throw err; // FormCard bắt → hiện message
+    }
+  }, [applyFullState]);
+
   // auto-scroll khi có message mới / chữ stream
   useEffect(() => {
     const el = scrollRef.current;
@@ -350,6 +367,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
         <div className="ws__spacer" />
         {USE_MOCK_API && <span className="ws__mockflag" title="VITE_USE_MOCK_API != false — dữ liệu mock, chưa nối backend thật">● MOCK API</span>}
         <span className="ws__user">{user.username} · {ROLE_LABEL_USER[user.role]}</span>
+        <NotificationBell enabled={user.role === 'customer'} onOpenConv={openConversation} />
         {onOpenTower && (
           <button className="ws__logout ws__tower-btn" onClick={onOpenTower} type="button" data-testid="open-tower">
             🗼 Control Tower
@@ -456,7 +474,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
             onBack={() => setFocusSub(null)}
           />
         ) : (
-          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} canDecide={user.role === 'admin'} onSelectSub={setFocusSub} />
+          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} canDecide={user.role === 'admin'} onFormSubmit={handleFormSubmit} onSelectSub={setFocusSub} />
         )}
       </div>
     </div>

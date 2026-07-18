@@ -10,6 +10,7 @@ import './Login.css';
 export function Login({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login'); // D-57 — khách mới đăng ký
 
   // UNCONTROLLED form: đọc value từ FormData lúc submit (không giữ state per-keystroke). Chuẩn
   // HTML form → hoạt động đồng nhất với người gõ, password-manager autofill, và automation tool
@@ -20,22 +21,29 @@ export function Login({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
     const form = new FormData(e.currentTarget);
     const username = String(form.get('username') ?? '').trim();
     const password = String(form.get('password') ?? '');
+    const email = String(form.get('email') ?? '').trim();
     if (!username || !password) {
-      setError('Nhập đủ tên đăng nhập và mật khẩu.');
+      setError(mode === 'register' ? 'Nhập đủ tên đăng nhập và mật khẩu.' : 'Nhập đủ tên đăng nhập và mật khẩu.');
       return;
     }
     setBusy(true);
     setError(null);
-    conversationApi
-      .login(username, password)
+    // register (khách mới) → auto-login cookie; login (account có sẵn). Cả 2 trả {user} → onSuccess.
+    const call = mode === 'register'
+      ? conversationApi.register(username, password, email || undefined)
+      : conversationApi.login(username, password);
+    call
       .then((res) => onSuccess(res.user))
       .catch((err: unknown) => {
+        // lỗi 4-field từ body (409 username_taken, 400 bad_username/password/email) → message rõ
         if (err instanceof ApiRequestError && err.body) setError(err.body.message);
-        else if (err instanceof Error) setError(`Đăng nhập thất bại: ${err.message}`);
-        else setError('Đăng nhập thất bại');
+        else if (err instanceof Error) setError(`${mode === 'register' ? 'Đăng ký' : 'Đăng nhập'} thất bại: ${err.message}`);
+        else setError(mode === 'register' ? 'Đăng ký thất bại' : 'Đăng nhập thất bại');
       })
       .finally(() => setBusy(false));
   };
+
+  const switchMode = (m: 'login' | 'register') => { setMode(m); setError(null); };
 
   return (
     <div className="login">
@@ -50,11 +58,34 @@ export function Login({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
 
         {USE_MOCK_API && <div className="login__mockflag">● MOCK API — mọi credential đều vào được</div>}
 
+        <div className="login__tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            className={`login__tab${mode === 'login' ? ' login__tab--active' : ''}`}
+            onClick={() => switchMode('login')}
+            aria-selected={mode === 'login'}
+          >
+            Đăng nhập
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`login__tab${mode === 'register' ? ' login__tab--active' : ''}`}
+            onClick={() => switchMode('register')}
+            aria-selected={mode === 'register'}
+            data-testid="tab-register"
+          >
+            Đăng ký khách mới
+          </button>
+        </div>
+
         <label className="login__field">
           <span>Tên đăng nhập</span>
           <input
             name="username"
-            defaultValue="user"
+            defaultValue={mode === 'login' ? 'user' : ''}
+            key={mode} // reset defaultValue khi đổi mode
             autoComplete="username"
             aria-label="Tên đăng nhập"
           />
@@ -64,18 +95,28 @@ export function Login({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
           <input
             name="password"
             type="password"
-            autoComplete="current-password"
+            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
             aria-label="Mật khẩu"
           />
         </label>
+        {mode === 'register' && (
+          <label className="login__field">
+            <span>Email (tuỳ chọn)</span>
+            <input name="email" type="email" autoComplete="email" aria-label="Email" placeholder="name@domain.com" />
+          </label>
+        )}
 
         {error && <div className="login__error" role="alert">{error}</div>}
 
         <button className="btn btn--primary login__submit" type="submit" disabled={busy}>
-          {busy ? 'Đang đăng nhập…' : 'Đăng nhập'}
+          {busy
+            ? (mode === 'register' ? 'Đang đăng ký…' : 'Đang đăng nhập…')
+            : (mode === 'register' ? 'Đăng ký & vào' : 'Đăng nhập')}
         </button>
 
-        <div className="login__hint">Demo: <b>user / user</b> (RM) · <b>admin / admin</b> (quản lý)</div>
+        {mode === 'login'
+          ? <div className="login__hint">Demo: <b>user / user</b> (RM) · <b>admin / admin</b> (quản lý) · <b>c001 / c001</b> (khách)</div>
+          : <div className="login__hint">Khách mới đăng ký → tạo hồ sơ vay ngay trong cuộc trò chuyện đầu tiên.</div>}
       </form>
     </div>
   );

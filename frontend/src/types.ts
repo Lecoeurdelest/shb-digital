@@ -221,3 +221,25 @@ export interface ApiError {
   hint: string;
   retryable: boolean;
 }
+
+// ── Form intake khách mới (D-57 T9-3) ──
+// Card type='form' data: fields SERVER định nghĩa (FE render đúng, KHÔNG hardcode).
+export interface FormField {
+  name: string;
+  label: string;
+  type: 'text' | 'number';
+  required: boolean;
+}
+// POST /form-submit {card_id, values} → 200 {owner_id, customer_created}.
+export interface FormSubmitResult {
+  owner_id: string;
+  customer_created: boolean;
+}
+
+// ── Bell thông báo khách (D-57 T9-3 · GET /api/notifications) ──
+export interface NotificationItem {
+  type: 'approval_decided' | 'disbursed';
+  title: string;
+  ts: string;
+  conv_id: string;
+}

@@ -12,8 +12,10 @@ import type {
   CompareResult,
   Conversation,
   ConversationFullState,
+  FormSubmitResult,
   Message,
   ModelsResponse,
+  NotificationItem,
   OrchTask,
   SSEEnvelope,
 } from '../types';
@@ -137,6 +139,33 @@ class MockBackend {
     };
   }
 
+  // ── Form intake khách mới (T9-3): submitForm flip card pending→submitted + emit card update ──
+  async submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult> {
+    await delay(MOCK_LATENCY_MS);
+    const r = this.room(convId);
+    const card = r.cards.find((c) => c.id === cardId && c.type === 'form');
+    if (!card) throw new ApiErrorLike(404, 'not_found', 'Không tìm thấy form hồ sơ (mock).');
+    if (card.status === 'submitted') throw new ApiErrorLike(409, 'form_already_submitted', 'Hồ sơ đã được nộp (mock).');
+    // validate thiếu field bắt buộc (mock: full_name + monthly_income tiêu biểu)
+    const required = ((card.fields as { name: string; required: boolean }[]) ?? []).filter((f) => f.required).map((f) => f.name);
+    const missing = required.filter((n) => !String(values[n] ?? '').trim());
+    if (missing.length) throw new ApiErrorLike(400, 'missing_fields', `Thiếu thông tin bắt buộc: ${missing.join(', ')} (mock).`);
+    // flip submitted + emit card update (SSE) → FE render read-only
+    card.status = 'submitted';
+    this.emit(convId, envelope(convId, 'card', { card }));
+    return { owner_id: 'C9' + Math.floor(Math.random() * 900 + 100), customer_created: true };
+  }
+
+  // bell thông báo khách (T9-3 · T9-2 shape). Mock: 2 sự kiện gần đây.
+  async getNotifications(): Promise<NotificationItem[]> {
+    await delay(MOCK_LATENCY_MS);
+    const anyConv = [...this.rooms.keys()][0] ?? uid('c');
+    return [
+      { type: 'approval_decided', title: 'Khoản vay L001 đã được ngân hàng duyệt', ts: nowIso(), conv_id: anyConv },
+      { type: 'disbursed', title: 'Giải ngân 500 triệu vào tài khoản của bạn', ts: nowIso(), conv_id: anyConv },
+    ];
+  }
+
   async runCompare(question: string): Promise<CompareResult> {
     await delay(MOCK_LATENCY_MS * 3);
     return {
@@ -219,6 +248,27 @@ class MockBackend {
     const r = this.room(convId);
     const turnId = uid('turn');
     const seq = { n: 0 }; // seq TĂNG DẦN theo lượt (turn) — hook re-order/dedup theo (turn_id, seq)
+
+    // ── Nhánh FORM INTAKE (D-57 T9-3): khách mới hỏi vay → MAIN present_form → card type 'form' ──
+    if (/(hồ sơ|đăng ký hồ sơ|form|thu thập|khai báo|vay.*mới|mở hồ sơ)/i.test(question)) {
+      await delay(MOCK_LATENCY_MS);
+      await this.streamText(convId, turnId, seq, 'Dạ, để bắt đầu em cần thu thập một số thông tin hồ sơ của anh/chị. Mời điền form bên phải ạ.', true);
+      await delay(MOCK_LATENCY_MS);
+      const card: Card = {
+        id: uid('card'), conv_id: convId, task_id: null, type: 'form', ts: nowIso(),
+        title: 'Hồ sơ vay — thông tin khách hàng', status: 'pending',
+        fields: [
+          { name: 'full_name', label: 'Họ và tên', type: 'text', required: true },
+          { name: 'id_number', label: 'Số CMND/CCCD', type: 'text', required: true },
+          { name: 'address', label: 'Địa chỉ thường trú', type: 'text', required: true },
+          { name: 'occupation', label: 'Nghề nghiệp', type: 'text', required: true },
+          { name: 'monthly_income', label: 'Thu nhập hàng tháng (VND)', type: 'number', required: true },
+          { name: 'loan_purpose', label: 'Mục đích vay', type: 'text', required: true },
+        ],
+      };
+      this.pushCard(convId, card);
+      return;
+    }
 
     // Trigger nhánh FAILED để drive contract §4b (test/demo được) — từ khoá trong câu hỏi.
     const mainFail = /(main fail|lỗi main|quá tải|hết trần)/i.test(question);

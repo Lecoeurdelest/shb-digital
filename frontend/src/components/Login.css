@@ -116,3 +116,18 @@
   color: var(--mute);
   animation: deg-pulse 1.4s infinite;
 }
+
+/* tab đăng nhập / đăng ký khách mới (D-57) */
+.login__tabs { display: flex; gap: 4px; margin-bottom: 4px; }
+.login__tab {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg2);
+  color: var(--mute);
+  border: 1px solid var(--bd);
+  cursor: pointer;
+}
+.login__tab--active { background: var(--acc-bg); color: var(--acc); border-color: rgba(217, 119, 87, 0.35); }
