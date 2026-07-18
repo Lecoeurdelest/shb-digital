@@ -4,9 +4,11 @@
 
 FROM python:3.11-slim
 
-# ── deps hệ thống: node (cho Claude CLI npm) + libpq (psycopg2) + curl (healthcheck) ──
+# ── deps hệ thống: node (Claude CLI npm) + libpq (psycopg2) + curl (healthcheck) + procps (`ps`,
+# port DevCrew ref — SDK/process-mgmt cần). bubblewrap/socat (SDK sandbox) KHÔNG cài mặc định —
+# setting_sources=[] của mình không engage sandbox; bật theo bằng chứng (deploy.md "lỗi sandbox").
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl ca-certificates gnupg libpq5 \
+      curl ca-certificates gnupg libpq5 procps \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && npm install -g @anthropic-ai/claude-code \
@@ -16,8 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ── uv (package manager D-26) ──
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# ── user non-root (app chạy quyền thấp; ~/.claude + data volume map ở compose) ──
-RUN useradd -m -u 10001 appuser
+# ── user non-root — UID/GID BUILD-ARG (port DevCrew ref, durable volume ownership): named volume
+# RỖNG lần đầu mount copy ownership từ image dir → phải khớp host. Compose truyền DOCKER_UID/GID.
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g ${GID} appuser \
+    && useradd -u ${UID} -g appuser -m -d /home/appuser -s /usr/sbin/nologin appuser
 WORKDIR /app
 
 # ── deps trước (cache layer) — chỉ copy manifest, uv sync ──
@@ -36,9 +42,14 @@ COPY configs/ ./configs/
 # khi không có LAB sibling (VM clone-trần).
 COPY deploy/seed/ ./deploy/seed/
 
-RUN chown -R appuser:appuser /app
+# DURABLE VOLUME OWNERSHIP (port DevCrew ref — miếng chính): TẠO SẴN dir sẽ mount named volume
+# (data/conversations + ~/.claude) + chown TRƯỚC USER. Named volume RỖNG lần đầu mount copy ownership
+# từ image dir → appuser sở hữu từ lúc sinh (hết Permission denied mkdir conversations trên fresh
+# deploy — không cần chown tay). Sự cố VM 18/7.
+RUN mkdir -p /app/backend/data/conversations /home/appuser/.claude \
+    && chown -R appuser:appuser /app /home/appuser
 USER appuser
-ENV PATH="/app/backend/.venv/bin:${PATH}"
+ENV PATH="/app/backend/.venv/bin:${PATH}" HOME="/home/appuser"
 WORKDIR /app/backend
 
 # 1 worker (D-38 canonical), no-reload trong container. Migration chạy ở entrypoint compose.

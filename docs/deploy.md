@@ -76,4 +76,17 @@ docker compose -f docker-compose.prod.yml exec backend uv run python -m app.db.r
 - FE build-time gọi API path tương đối `/api` → nginx proxy sang `backend:8000` (network shb132).
   SSE (`/api/.../sse`) nginx đã tắt buffer + timeout 3600s (stream sống dài).
 - Claude CLI cài trong image backend (`npm i -g @anthropic-ai/claude-code`) — SDK runtime cần dù
-  provider=zai. Build lỗi ở bước này → xem log npm (mạng/registry).
+  provider=zai. Build lỗi ở bước này → xem log npm (mạng/registry). Note (ref DevCrew): ref dùng
+  trick symlink `claude` sau COPY node_modules (COPY deref symlink → hỏng require path). Mình cài
+  trực tiếp `npm i -g` (không multi-stage COPY node_modules) → `claude --version` pass, KHÔNG cần trick.
+
+## 6d. Volume ownership durable (port DevCrew ref) + sandbox deps (bật theo bằng chứng)
+- **UID/GID build-arg (đã áp):** Dockerfile `ARG UID/GID` + `mkdir -p data/conversations ~/.claude
+  && chown TRƯỚC USER`. Named volume RỖNG lần đầu copy ownership từ image dir → appuser sở hữu, HẾT
+  "Permission denied mkdir conversations" fresh deploy. Compose args `DOCKER_UID/GID` (default 1000).
+  Host UID khác 1000 → set `DOCKER_UID=$(id -u) DOCKER_GID=$(id -g)` trước `compose build`.
+- **SDK sandbox deps (bubblewrap/socat/cap_add) — CHƯA cài, bật NẾU CẦN:** ref DevCrew ghi bwrap/
+  socat "required by Claude Agent SDK sandbox". Mình dùng `setting_sources=[]` → sandbox thường KHÔNG
+  engage → không cài để khỏi phình image. **NẾU MAIN turn trên VM fail lỗi sandbox/bwrap/seccomp** →
+  thêm vào backend/Dockerfile runtime deps: `bubblewrap socat` + compose backend:
+  `cap_add: [SYS_ADMIN]` + `security_opt: [seccomp:unconfined, apparmor:unconfined]` (ref-proven).

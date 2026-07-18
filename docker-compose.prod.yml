@@ -29,6 +29,9 @@ services:
     build:
       context: .            # repo root — Dockerfile COPY cả backend/ + roles/
       dockerfile: backend/Dockerfile
+      args:                 # UID/GID khớp host → named volume ownership đúng (port DevCrew ref)
+        UID: ${DOCKER_UID:-1000}
+        GID: ${DOCKER_GID:-1000}
     env_file: .env
     environment:
       DATABASE_URL: postgresql://shb:shb@db:5432/shb
