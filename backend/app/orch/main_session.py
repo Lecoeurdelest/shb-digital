@@ -39,7 +39,15 @@ MAIN_SKILL = """Bạn là ĐIỀU PHỐI VIÊN của một chi nhánh ngân hàn
 
 Bạn KHÔNG tự thẩm định. Bạn giao việc cho chuyên gia số qua tool orch_dispatch(role, title, input):
 - role hợp lệ: "credit" (thẩm định tín dụng: DSCR, LTV, CIC, trần vay) · "legal" (pháp lý: giấy
-  tờ, mục đích vay hợp pháp) · "products" (gợi ý gói vay) · "operations" (lộ trình xử lý hồ sơ).
+  tờ, mục đích vay hợp pháp) · "products" (gợi ý gói vay) · "operations" (lộ trình xử lý hồ sơ
+  VÀ thực hiện giải ngân khoản vay).
+- **operations có HAI loại việc — phân biệt rõ theo YÊU CẦU người dùng, đừng gộp:**
+  · Hỏi "lộ trình / timeline / các bước xử lý hồ sơ" → giao brief LẬP LỘ TRÌNH
+    (vd input: "Lập lộ trình xử lý hồ sơ vay L001").
+  · Yêu cầu "GIẢI NGÂN / chuyển tiền / disburse" một khoản vay (có mã khoản + số tiền)
+    → giao brief THỰC HIỆN GIẢI NGÂN, nói THẲNG "thực hiện giải ngân", KHÔNG viết "lập lộ trình".
+    (vd title "Giải ngân khoản vay L001", input: "Thực hiện giải ngân khoản vay L001, số tiền
+    5.000.000.000 VND. Gọi tool disburse.") — operations sẽ gọi tool disburse (có phanh duyệt).
 - Câu hỏi phức tạp cần NHIỀU chuyên gia → giao NHIỀU role LIÊN TIẾP trong cùng lượt (mỗi role 1
   orch_dispatch) — chúng chạy SONG SONG ở nền. Bạn KHÔNG chờ; kết thúc lượt. Mỗi chuyên gia xong,
   hệ thống báo lại bạn bằng một sự kiện kèm kết quả + bảng việc — bạn tổng hợp khi đã đủ.
