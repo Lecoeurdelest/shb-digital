@@ -121,6 +121,11 @@ def _get_task_sync(task_id: str) -> Task | None:
             )
             row = cur.fetchone()
             return _row_to_task(dict(row)) if row else None
+    except psycopg2.errors.InvalidTextRepresentation:
+        # task_id KHÔNG phải UUID hợp lệ (input user malformed) → coi như KHÔNG tồn tại (None → 404
+        # tự nhiên ở caller), KHÔNG để psycopg2 DataError lọt ra 500. Nhất quán _exists_sync
+        # (store_approvals) đã catch psycopg2.Error cho uuid sai. Tester T4-3 bắt: interrupt malformed→500.
+        return None
     finally:
         conn.close()
 

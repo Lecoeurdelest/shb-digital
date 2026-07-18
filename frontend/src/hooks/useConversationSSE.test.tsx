@@ -47,7 +47,7 @@ function taskEv(type: 'task.created' | 'task.status', task: OrchTask): SSEEnvelo
 }
 
 function makeHandlers(): ConversationSSEHandlers & { calls: Record<string, unknown[][]> } {
-  const calls: Record<string, unknown[][]> = { appendText: [], turnDone: [], upsertTask: [], setConversationStatus: [], applyFullState: [], upsertCard: [], approvalDecided: [] };
+  const calls: Record<string, unknown[][]> = { appendText: [], turnDone: [], upsertTask: [], setConversationStatus: [], applyFullState: [], upsertCard: [], approvalDecided: [], addTrace: [] };
   return {
     calls,
     applyFullState: (s) => calls.applyFullState.push([s]),
@@ -57,6 +57,7 @@ function makeHandlers(): ConversationSSEHandlers & { calls: Record<string, unkno
     setConversationStatus: (s) => calls.setConversationStatus.push([s]),
     upsertCard: (c) => calls.upsertCard.push([c]),
     approvalDecided: (p) => calls.approvalDecided.push([p]),
+    addTrace: (i) => calls.addTrace.push([i]),
   };
 }
 
@@ -158,6 +159,32 @@ describe('useConversationSSE — ghép chunk streaming', () => {
     });
     expect(h.calls.approvalDecided.length).toBe(1);
     expect((h.calls.approvalDecided[0][0] as { id: string }).id).toBe('appr1');
+  });
+
+  it('toolcall event → addTrace {kind:tool} với id (dedup)', async () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    await act(async () => {
+      fakeES.fire('open');
+      fakeES.emit({ type: 'toolcall', conversation_id: 'c1', seq: null, ts: '', data: { id: 'tc1', task_id: 't', tool: 'credit_assess', summary: 'DSCR C001' } });
+    });
+    expect(h.calls.addTrace.length).toBe(1);
+    const it0 = h.calls.addTrace[0][0] as { kind: string; id: string; tool: string };
+    expect(it0.kind).toBe('tool');
+    expect(it0.id).toBe('tc1');
+    expect(it0.tool).toBe('credit_assess');
+  });
+
+  it('thinking event → addTrace {kind:thinking}; text rỗng → bỏ qua', async () => {
+    const h = makeHandlers();
+    renderHook(() => useConversationSSE('c1', h));
+    await act(async () => {
+      fakeES.fire('open');
+      fakeES.emit({ type: 'thinking', conversation_id: 'c1', seq: null, ts: 't1', data: { task_id: null, text: 'đang cân nhắc DSCR' } });
+      fakeES.emit({ type: 'thinking', conversation_id: 'c1', seq: null, ts: 't2', data: { task_id: null, text: '   ' } }); // rỗng → bỏ
+    });
+    expect(h.calls.addTrace.length).toBe(1);
+    expect((h.calls.addTrace[0][0] as { kind: string; text: string }).kind).toBe('thinking');
   });
 
   it('frame malformed (JSON hỏng) → không crash, bỏ qua', async () => {

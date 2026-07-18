@@ -74,6 +74,8 @@
   background: var(--p1);
   border: 1px solid var(--bd);
 }
+.livemap__node--clickable { cursor: pointer; }
+.livemap__node--clickable:hover { border-color: var(--acc); }
 .livemap__node--run { border-color: var(--tone-run-bd); background: var(--tone-run-bg); }
 .livemap__node--pass { border-color: var(--tone-pass-bd); }
 .livemap__node--fail { border-color: var(--tone-fail-bd); background: var(--tone-fail-bg); }
@@ -96,7 +98,9 @@
 }
 .canvas__tasks-empty { font-size: 11px; color: var(--faint); }
 .canvas__tasks-list { display: flex; flex-direction: column; gap: 7px; }
-.canvas__task-row { display: flex; align-items: center; gap: 9px; }
+.canvas__task-row { display: flex; align-items: center; gap: 9px; border-radius: 7px; padding: 3px 5px; }
+.canvas__task-row--clickable { cursor: pointer; }
+.canvas__task-row--clickable:hover { background: var(--p2); }
 .canvas__task-title {
   font-size: 11px;
   color: var(--dim);

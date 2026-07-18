@@ -114,6 +114,7 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
         ClaudeSDKClient,
         ResultMessage,
         TextBlock,
+        ThinkingBlock,
         ToolResultBlock,
         ToolUseBlock,
         UserMessage,
@@ -136,6 +137,9 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
                 for block in msg.content:
                     if isinstance(block, TextBlock):
                         text_parts.append(block.text)
+                    elif isinstance(block, ThinkingBlock):
+                        # T4-2 F1 trace: suy nghĩ sub → SSE thinking (task_id=sub). LIVE-only, không persist.
+                        _emit_thinking(task.conv_id, task.id, block.thinking)
                     elif isinstance(block, ToolUseBlock):
                         tool_name = block.name.split("__")[-1]
                         tool_calls.append({"tool": tool_name, "input": block.input})
@@ -213,6 +217,20 @@ def _emit_toolcall(conv_id: str, row: dict[str, Any]) -> None:
         log.warning("emit toolcall lỗi (bỏ qua): %s", e)
 
 
+def _emit_thinking(conv_id: str, task_id: str | None, text: str) -> None:
+    """T4-2 F1 trace: SSE thinking {task_id, text} — suy nghĩ model (ThinkingBlock). task_id=sub role
+    · None=main. LIVE-only (KHÔNG persist DB — trace tạm, SPEC không đòi bảng thinking). Fire-and-forget
+    (lỗi SSE KHÔNG fail turn). text rỗng → bỏ qua (không emit khối rỗng)."""
+    if not text:
+        return
+    try:
+        from app.sse.emit import emit
+
+        emit(conv_id, "thinking", {"task_id": str(task_id) if task_id else None, "text": text})
+    except Exception as e:  # noqa: BLE001
+        log.warning("emit thinking lỗi (bỏ qua): %s", e)
+
+
 def _build_main_options(conv_id: str, resume: str | None, provider_env: dict[str, str] | None = None) -> Any:
     """Options MAIN: skill điều phối + orch_* + common. model=sonnet. resume phiên bền.
 
@@ -250,6 +268,7 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
         ProcessError,
         ResultMessage,
         TextBlock,
+        ThinkingBlock,
         ToolResultBlock,
         ToolUseBlock,
         UserMessage,
@@ -297,6 +316,9 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
                         text_parts.append(block.text)
                         if on_text is not None:
                             await on_text(block.text)
+                    elif isinstance(block, ThinkingBlock):
+                        # T4-2 F1 trace: suy nghĩ MAIN → SSE thinking (task_id=None). LIVE-only.
+                        _emit_thinking(conv_id, None, block.thinking)
                     elif isinstance(block, ToolUseBlock):
                         pending[block.id] = {"tool": block.name.split("__")[-1], "input": block.input}
             elif isinstance(msg, UserMessage):

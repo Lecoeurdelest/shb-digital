@@ -93,6 +93,11 @@ def _decide_sync(approval_id: str, decision: str, decided_by: str, reason: str |
         decided = _row_to_dict(dict(row))
         decided["_card_row"] = dict(card_row) if card_row else None  # _ prefix: nội bộ, không lên API
         return decided
+    except psycopg2.errors.InvalidTextRepresentation:
+        # approval_id KHÔNG phải UUID hợp lệ (input user malformed) → None → API check _exists (cũng
+        # catch → False) → 404, KHÔNG để psycopg2 DataError lọt ra 500 (nhất quán _get_task/_exists).
+        # tester/architect rà 3 API nhận uuid ngoài (T4-3): decide malformed → 500 → giờ 404.
+        return None
     finally:
         conn.close()
 

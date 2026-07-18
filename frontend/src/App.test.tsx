@@ -58,6 +58,21 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
     expect(screen.queryByLabelText('Đội đang làm việc')).not.toBeInTheDocument();
   });
 
+  it('mở ca → hydrate trace toolcall từ GET /api/audit (reload-safe T4-2 fix)', async () => {
+    // mock auditByConv trả 1 toolcall persist → trace block phải hiện sau openConversation.
+    const { conversationApi } = await import('./api');
+    vi.spyOn(conversationApi, 'auditByConv').mockResolvedValue([
+      { id: 'au_reload', task_id: 't1', conv_id: 'c1', ts: '', actor: 'credit', tool: 'credit_assess', input: { owner_id: 'C001' }, output: {} },
+    ]);
+    render(<Workspace user={USER} onAuthExpired={noop} />);
+    fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));
+    // openConversation → auditByConv → setTrace → TraceBlock hiện (thu gọn, có 🔧 1)
+    await waitFor(() => expect(screen.getByTestId('trace-block')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { expanded: false }));
+    expect(screen.getByText('credit_assess')).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
   it('SUB fail (§4b Gap2 A) → badge failed + render task.result.reason + badge ca "Lỗi"', async () => {
     render(<Workspace user={USER} onAuthExpired={noop} />);
     fireEvent.click(screen.getByRole('button', { name: /Ca mới/i }));

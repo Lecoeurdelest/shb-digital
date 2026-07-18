@@ -5,7 +5,7 @@
 
 import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
+import type { AuditRow, AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 
@@ -17,6 +17,9 @@ export interface ConversationApi {
   getConversation(id: string): Promise<ConversationFullState>;
   sendChat(id: string, content: string): Promise<void>;
   decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown>;
+  auditByConv(convId: string): Promise<AuditRow[]>;
+  auditByTask(taskId: string): Promise<AuditRow[]>;
+  interruptTask(convId: string, taskId: string): Promise<unknown>;
   openEventSource(convId: string): MinimalEventSource;
 }
 
@@ -44,6 +47,15 @@ const mockApi: ConversationApi = {
   },
   async decideApproval(id: string, decision: 'approved' | 'rejected', reason: string) {
     await mockBackend.decideApproval(id, decision, reason);
+  },
+  async auditByConv(convId: string) {
+    return mockBackend.auditByConv(convId);
+  },
+  async auditByTask(taskId: string) {
+    return mockBackend.auditByTask(taskId);
+  },
+  async interruptTask(convId: string, taskId: string) {
+    return mockBackend.interruptTask(convId, taskId);
   },
   openEventSource(convId: string) {
     return createMockEventSource(convId);
@@ -73,6 +85,9 @@ const realApi: ConversationApi = {
   getConversation: apiClient.getConversation,
   sendChat: apiClient.sendChat,
   decideApproval: apiClient.decideApproval,
+  auditByConv: apiClient.auditByConv,
+  auditByTask: apiClient.auditByTask,
+  interruptTask: apiClient.interruptTask,
   openEventSource: browserEventSource,
 };
 

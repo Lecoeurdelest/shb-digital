@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
+import type { ApiError, AuditRow, AuthUser, Conversation, ConversationFullState, LoginResult } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -87,6 +87,24 @@ export const apiClient = {
   // list phiếu pending (approval queue Control Tower — admin). CONTRACT §11.
   listApprovals(status = 'pending'): Promise<unknown[]> {
     return request<unknown[]>(`/api/approvals?status=${encodeURIComponent(status)}`);
+  },
+
+  // trace history toàn ca (TraceBlock reload T4-2): GET /api/audit?conv_id → tool_calls persist.
+  auditByConv(convId: string): Promise<AuditRow[]> {
+    return request<AuditRow[]>(`/api/audit?conv_id=${encodeURIComponent(convId)}`);
+  },
+
+  // trace history 1 sub (SubAgentView T4-3): GET /api/audit?task_id → tool_calls persist newest-first.
+  auditByTask(taskId: string): Promise<AuditRow[]> {
+    return request<AuditRow[]>(`/api/audit?task_id=${encodeURIComponent(taskId)}`);
+  },
+
+  // huỷ 1 sub đang chạy (T4-3 · POST interrupt — BE chốt shape). target=task_id. 200 {cancelled} · 404/409.
+  interruptTask(convId: string, taskId: string): Promise<unknown> {
+    return request<unknown>(`/api/conversations/${convId}/interrupt`, {
+      method: 'POST',
+      body: JSON.stringify({ target: taskId }),
+    });
   },
 
   sendChat(id: string, content: string): Promise<void> {

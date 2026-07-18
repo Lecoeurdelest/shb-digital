@@ -103,8 +103,42 @@ export type SSEEventType =
   | 'chat.delta'
   | 'card'
   | 'toolcall'
+  | 'thinking'
   | 'approval.pending'
   | 'approval.decided';
+
+// ── Trace (F1 — D-43): thinking + toolcall hiện trong chat (khối collapsible). ──
+// toolcall (T4-1): {id, task_id, tool, summary, cost} — id khớp GET /api/audit row.id (upsert dedup).
+// thinking (T4-2 BE): {task_id|null, text} — trace tạm, KHÔNG persist DB (chỉ live).
+export interface ToolcallData {
+  id: string;
+  task_id: string | null;
+  tool: string;
+  summary?: string;
+  cost?: Record<string, unknown> | null;
+}
+export interface ThinkingData {
+  task_id: string | null;
+  text: string;
+}
+
+// item gộp trong TraceBlock (render 1 dòng). kind phân biệt thinking vs tool.
+export type TraceItem =
+  | { kind: 'thinking'; id: string; task_id: string | null; text: string }
+  | { kind: 'tool'; id: string; task_id: string | null; tool: string; summary?: string };
+
+// audit row (GET /api/audit — reload trace toolcall history). Cùng shape cột tool_calls.
+export interface AuditRow {
+  id: string;
+  task_id: string | null;
+  conv_id: string;
+  ts: string;
+  actor: string;
+  tool: string;
+  input?: Record<string, unknown> | null;
+  output?: Record<string, unknown> | null;
+  cost?: Record<string, unknown> | null;
+}
 
 export interface SSEEnvelope<T = unknown> {
   type: SSEEventType;

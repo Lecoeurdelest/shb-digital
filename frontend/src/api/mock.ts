@@ -5,6 +5,7 @@
 // Đây LÀ đường dây thay cho backend thật — swap: đổi VITE_USE_MOCK_API=false, không đụng UI.
 
 import type {
+  AuditRow,
   Card,
   ChatDeltaData,
   Conversation,
@@ -87,6 +88,58 @@ class MockBackend {
     }
     r.listeners.add(cb);
     return () => r!.listeners.delete(cb);
+  }
+
+  // trace history toàn ca (TraceBlock reload) — mock trả vài tool-call giả (main + sub credit).
+  async auditByConv(convId: string): Promise<AuditRow[]> {
+    const r = this.rooms.get(convId);
+    const creditTask = r?.tasks.find((t) => t.role === 'credit');
+    const mk = (taskId: string | null, actor: string, tool: string, input: Record<string, unknown>): AuditRow => ({
+      id: uid('au'), task_id: taskId, conv_id: convId, ts: nowIso(), actor, tool, input, output: {}, cost: null,
+    });
+    return [
+      mk(null, 'main', 'orch_dispatch', { role: 'credit', input: 'C001' }),
+      ...(creditTask
+        ? [
+            mk(creditTask.id, 'credit', 'cust_get', { customer_id: 'C001' }),
+            mk(creditTask.id, 'credit', 'credit_assess', { owner_id: 'C001', loan_amount_vnd: 5_000_000_000 }),
+          ]
+        : []),
+    ];
+  }
+
+  // trace history 1 sub (SubAgentView) — mock trả vài tool-call giả đúng shape AuditRow (T4-1).
+  async auditByTask(taskId: string): Promise<AuditRow[]> {
+    // tìm task để biết role + conv
+    let role = 'credit';
+    let convId = '';
+    for (const r of this.rooms.values()) {
+      const t = r.tasks.find((x) => x.id === taskId);
+      if (t) { role = t.role; convId = r.conversation.id; break; }
+    }
+    const mk = (tool: string, input: Record<string, unknown>, output: Record<string, unknown>): AuditRow => ({
+      id: uid('au'), task_id: taskId, conv_id: convId, ts: nowIso(), actor: role, tool, input, output, cost: null,
+    });
+    return [
+      mk('cust_get', { customer_id: 'C001' }, { name: 'Nguyễn Văn An', income: 30_000_000 }),
+      mk('credit_cic_get', { owner_id: 'C001' }, { cic_group: 1 }),
+      mk('credit_assess', { owner_id: 'C001', loan_amount_vnd: 5_000_000_000 }, { dscr: 3.709 }),
+    ];
+  }
+
+  // huỷ 1 sub (mock): task→failed(cancel) + emit task.status. task không running → 409.
+  async interruptTask(convId: string, taskId: string): Promise<{ cancelled: boolean }> {
+    const r = this.room(convId);
+    const task = r.tasks.find((t) => t.id === taskId);
+    if (!task) throw new ApiErrorLike(404, 'not_found', 'Task không tồn tại (mock)');
+    if (task.status !== 'running' && task.status !== 'queued') {
+      throw new ApiErrorLike(409, 'task_not_running', 'Sub không còn chạy (mock)');
+    }
+    await delay(MOCK_LATENCY_MS);
+    const updated: OrchTask = { ...task, status: 'failed', result: { reason: 'Đã huỷ bởi người dùng' }, ended_at: nowIso() };
+    r.tasks = r.tasks.map((t) => (t.id === taskId ? updated : t));
+    this.emit(convId, envelope(convId, 'task.status', { task: updated }));
+    return { cancelled: true };
   }
 
   async sendChat(convId: string, content: string): Promise<void> {
@@ -179,6 +232,12 @@ class MockBackend {
       };
       r.tasks.push(task);
       this.emit(convId, envelope(convId, 'task.created', { task }));
+      // trace F1 (D-43): main thinking + dispatch tool + sub tool-calls (mock đúng shape T4-1/T4-2)
+      this.emit(convId, envelope(convId, 'thinking', { task_id: null, text: 'Yêu cầu cần thẩm định tín dụng — giao chuyên gia Credit tra hồ sơ C001.' }));
+      this.emit(convId, envelope(convId, 'toolcall', { id: uid('tc'), task_id: null, tool: 'orch_dispatch', summary: 'role=credit, C001' }));
+      this.emit(convId, envelope(convId, 'toolcall', { id: uid('tc'), task_id: task.id, tool: 'cust_get', summary: 'customer_id=C001' }));
+      this.emit(convId, envelope(convId, 'toolcall', { id: uid('tc'), task_id: task.id, tool: 'credit_cic_get', summary: 'C001' }));
+      this.emit(convId, envelope(convId, 'toolcall', { id: uid('tc'), task_id: task.id, tool: 'credit_assess', summary: 'C001, khoản vay 5 tỷ' }));
     }
 
     // 2) main mở lời stream trong lúc chờ sub

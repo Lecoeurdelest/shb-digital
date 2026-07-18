@@ -12,6 +12,9 @@ import type {
   OrchTask,
   Phieu,
   SSEEnvelope,
+  ThinkingData,
+  ToolcallData,
+  TraceItem,
 } from '../types';
 
 export interface ConversationSSEHandlers {
@@ -22,6 +25,7 @@ export interface ConversationSSEHandlers {
   setConversationStatus: (status: string) => void;
   upsertCard: (card: Card) => void;
   approvalDecided: (phieu: Phieu) => void;
+  addTrace: (item: TraceItem) => void;
 }
 
 interface TurnBuffer {
@@ -90,7 +94,22 @@ export function useConversationSSE(convId: string | null, handlers: Conversation
           if (data.phieu) handlersRef.current.approvalDecided(data.phieu);
           return;
         }
-        if (ev.type !== 'chat.delta') return; // toolcall — sprint sau (S4)
+        if (ev.type === 'toolcall') {
+          const d = ev.data as ToolcallData;
+          if (d && d.id) {
+            handlersRef.current.addTrace({ kind: 'tool', id: d.id, task_id: d.task_id ?? null, tool: d.tool, summary: d.summary });
+          }
+          return;
+        }
+        if (ev.type === 'thinking') {
+          const d = ev.data as ThinkingData;
+          if (d && typeof d.text === 'string' && d.text.trim()) {
+            // thinking không có id (không persist DB) → sinh id ổn định theo (task_id, seq/ts) để dedup.
+            handlersRef.current.addTrace({ kind: 'thinking', id: `think_${d.task_id ?? 'main'}_${ev.ts}`, task_id: d.task_id ?? null, text: d.text });
+          }
+          return;
+        }
+        if (ev.type !== 'chat.delta') return;
 
         const d = ev.data as ChatDeltaData;
         const t = turns.get(d.turn_id) ?? { last: 0, buf: new Map<number, ChatDeltaData>() };

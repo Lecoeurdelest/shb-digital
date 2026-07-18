@@ -48,6 +48,15 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-49 · Đợt T4-2/3/4 — các quyết nhỏ (architect signoff 18/7):** (a) interrupt `target=main`
+  SKIP → 400 target_not_supported (SPEC §11 body target mở rộng sau — chỉ huỷ sub trước). (b) compare
+  poll "SETTLED" (idle/done VÀ không task queued/running, HOẶC waiting_approval/failed) — break ở idle-
+  lần-đầu = so sánh lúc main mới giao việc, demo tệ hơn single. (c) malformed-uuid từ ngoài → catch
+  InvalidTextRepresentation Ở STORE (→None→404 tự nhiên) thay validate router — nhất quán _exists_sync
+  T3-2, mọi caller hưởng; rà đủ 3 API (interrupt/decide 500→404, audit 400 sẵn). (d) thinking SSE
+  LIVE-only không persist (SPEC không đòi bảng thinking; reload chỉ toolcall từ audit). (e) T4-5
+  card-trùng = PROMPT-fix không present-dedup (dedup theo title có thể nuốt card hợp lệ — đổi card
+  semantics rủi ro N5 không đáng polish). — Đổi: từng mục theo nhu cầu demo.
 - **D-48 · tool_calls audit (T4-1): thêm `conv_id` + SSE toolcall thêm `id` — mở rộng tương thích
   SPEC §9/§10 (architect signoff 18/7)** — (a) `conv_id` vào tool_calls: main tool có task_id=null →
   không join tasks được → cần conv_id filter audit theo ca. SPEC §10 là cột TỐI THIỂU; thêm cột phục

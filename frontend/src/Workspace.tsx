@@ -14,8 +14,11 @@ import { Composer } from './components/Composer';
 import { MessageBubble, StreamingMessageBubble, type StreamingBubble } from './components/MessageBubble';
 import { TaskBadge } from './components/TaskBadge';
 import { Canvas } from './components/Canvas';
+import { TraceBlock } from './components/TraceBlock';
+import { SubAgentView } from './components/SubAgentView';
 import { roleLabel } from './roles';
 import type {
+  AuditRow,
   AuthUser,
   Card,
   Conversation,
@@ -24,6 +27,7 @@ import type {
   Message,
   OrchTask,
   Phieu,
+  TraceItem,
 } from './types';
 import './App.css';
 
@@ -57,6 +61,8 @@ export function Workspace({ user, onAuthExpired }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [tasks, setTasks] = useState<OrchTask[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
+  const [trace, setTrace] = useState<TraceItem[]>([]);
+  const [focusSub, setFocusSub] = useState<string | null>(null); // task_id đang xem SubAgentView (F2a)
   const [convStatus, setConvStatus] = useState<ConversationStatus>('idle');
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [creating, setCreating] = useState(false);
@@ -127,6 +133,16 @@ export function Workspace({ user, onAuthExpired }: Props) {
     );
   }, []);
 
+  // SSE toolcall/thinking → append vào trace (F1). Backend chốt:
+  // - toolcall: CÓ id (khớp audit row.id) → DEDUP upsert (reload GET /api/audit + SSE cùng id không trùng).
+  // - thinking: KHÔNG id, LIVE-only (không persist) → LUÔN append theo thứ tự đến (mất khi reload — trace tạm).
+  const addTrace = useCallback((item: TraceItem) => {
+    setTrace((prev) => {
+      if (item.kind === 'tool' && prev.some((t) => t.kind === 'tool' && t.id === item.id)) return prev;
+      return [...prev, item];
+    });
+  }, []);
+
 
   const appendText = useCallback((turnId: string, chunk: string) => {
     setStreaming((cur) =>
@@ -182,18 +198,21 @@ export function Workspace({ user, onAuthExpired }: Props) {
   }, [applyFullState]);
 
   const handlers: ConversationSSEHandlers = useMemo(
-    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided }),
-    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided],
+    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided, addTrace }),
+    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided, addTrace],
   );
 
   useConversationSSE(activeId, handlers);
 
   // ── mở ca: reset view + refetch full state (SSE onopen cũng refetch — đây là đường mở tay) ──
   const openConversation = useCallback((id: string) => {
+    activeIdRef.current = id; // set NGAY (trước async) — guard trong auditByConv/.then dùng đúng id
     setActiveId(id);
     setMessages([]);
     setTasks([]);
     setCards([]);
+    setTrace([]);
+    setFocusSub(null);
     setStreaming(null);
     setConvStatus('idle');
     setLoadError(null);
@@ -201,6 +220,18 @@ export function Workspace({ user, onAuthExpired }: Props) {
       .getConversation(id)
       .then(applyFullState)
       .catch((err: unknown) => setLoadError(handleError(err, 'Không tải được nội dung ca')));
+    // hydrate trace TOOLCALL từ DB (GET /api/audit?conv_id) — reload/mở lại ca thấy trace lại
+    // (T4-2 fix: thinking live-only không khôi phục; toolcall persist → dựng lại). SSE live sau
+    // upsert dedup theo id (addTrace). id audit row.id khớp toolcall SSE id → không trùng.
+    conversationApi
+      .auditByConv(id)
+      .then((rows) => {
+        if (id !== activeIdRef.current) return; // đổi ca giữa chừng → bỏ
+        setTrace(rows.map(auditToTrace));
+      })
+      .catch(() => {
+        // audit lỗi không chí mạng — trace live vẫn chạy, chỉ mất history khi reload
+      });
   }, [applyFullState, handleError]);
 
   const createConversation = useCallback(() => {
@@ -260,6 +291,8 @@ export function Workspace({ user, onAuthExpired }: Props) {
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
   const busy = convStatus === 'running';
   const hasContent = messages.length > 0 || streaming !== null;
+  // sub đang xem (F2a). Nếu task biến mất (đổi ca) → focusedTask null → về Canvas.
+  const focusedTask = focusSub ? tasks.find((t) => t.id === focusSub) ?? null : null;
 
   return (
     <div className="ws">
@@ -314,6 +347,9 @@ export function Workspace({ user, onAuthExpired }: Props) {
                 ))}
                 {streaming && <StreamingMessageBubble bubble={streaming} />}
 
+                {/* khối trace F1 (thinking + toolcall collapsible) — D-43 user track */}
+                <TraceBlock items={trace} taskRole={(id) => tasks.find((t) => t.id === id)?.role} />
+
                 {tasks.length > 0 && (
                   <div className="ws__tasks" aria-label="Đội đang làm việc">
                     <span className="ws__tasks-label">ĐỘI ĐANG LÀM VIỆC</span>
@@ -346,8 +382,17 @@ export function Workspace({ user, onAuthExpired }: Props) {
           )}
         </section>
 
-        {/* canvas: live map 2D + bảng việc + card render (S2) + approval panel (S3 — T3-3) */}
-        <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} />
+        {/* vùng phải: click sub → SubAgentView (F2a T4-3); else Canvas (live map + card + approval) */}
+        {focusedTask ? (
+          <SubAgentView
+            task={focusedTask}
+            liveTrace={trace.filter((t) => t.task_id === focusedTask.id)}
+            convId={activeId ?? ''}
+            onBack={() => setFocusSub(null)}
+          />
+        ) : (
+          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} onSelectSub={setFocusSub} />
+        )}
       </div>
     </div>
   );
@@ -373,6 +418,20 @@ function upsertCardInto(prev: Card[], card: Card): Card[] {
 
 function canvasKey(c: Card): string {
   return `${c.task_id ?? 'null'}::${c.type}`;
+}
+
+// AuditRow (GET /api/audit) → TraceItem toolcall. id khớp SSE toolcall id (dedup upsert). summary
+// từ input (tóm tắt ≤120 char). thinking KHÔNG có trong audit (live-only) — reload chỉ toolcall.
+function auditToTrace(row: AuditRow): TraceItem {
+  let summary = '';
+  if (row.input) {
+    try {
+      summary = JSON.stringify(row.input).slice(0, 120);
+    } catch {
+      summary = '';
+    }
+  }
+  return { kind: 'tool', id: row.id, task_id: row.task_id, tool: row.tool, summary };
 }
 
 function describeError(err: unknown, fallback: string): string {

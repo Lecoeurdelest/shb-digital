@@ -1,0 +1,83 @@
+.trace {
+  align-self: stretch;
+  flex: none;
+  background: var(--p1);
+  border: 1px solid var(--bd);
+  border-radius: 10px;
+  overflow: hidden;
+  animation: deg-fadein 0.3s;
+}
+
+.trace__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--dim);
+}
+.trace__toggle:hover { background: var(--p2); }
+
+.trace__caret {
+  font-size: 10px;
+  color: var(--mute);
+  transition: transform 0.15s;
+  flex: none;
+}
+.trace__caret--open { transform: rotate(90deg); }
+
+.trace__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dim);
+}
+.trace__count { color: var(--mute); font-weight: 500; }
+
+.trace__body {
+  padding: 4px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-top: 1px solid var(--bd);
+}
+
+.trace__row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.trace__icon { flex: none; font-size: 10px; }
+.trace__actor {
+  flex: none;
+  font-weight: 700;
+  color: var(--main);
+  min-width: 48px;
+}
+.trace__row--tool .trace__actor { color: var(--run); }
+.trace__tool {
+  flex: none;
+  font: 600 10px var(--mono);
+  color: var(--acc);
+  background: var(--acc-bg);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+.trace__text {
+  color: var(--mute);
+  min-width: 0;
+}
+/* thinking/summary dài → cắt 2 dòng, không vỡ layout (defensive) */
+.trace__text--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}

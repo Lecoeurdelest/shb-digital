@@ -190,6 +190,16 @@ def test_api_decide_not_found_404():
 
 
 @requires_db
+def test_api_decide_malformed_uuid_404_not_500():
+    """approval_id KHÔNG phải UUID (input rác) → 404 (KHÔNG 500). rà 3-API T4-3: _decide_sync raise
+    InvalidTextRepresentation lọt 500 → giờ catch → None → _exists (cũng catch) → 404."""
+    cookies = _admin_cookie()
+    r = client.post("/api/approvals/nonexistent-xyz/decide", json={"decision": "approved"}, cookies=cookies)
+    assert r.status_code == 404, f"malformed approval_id PHẢI 404 không 500 — thấy {r.status_code}"
+    assert r.json()["code"] == "not_found"
+
+
+@requires_db
 @pytest.mark.asyncio
 async def test_api_decide_already_decided_409():
     conv = f"appr-409-{uuid4()}"
