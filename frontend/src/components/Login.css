@@ -121,22 +121,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  height: 42px;
+  padding: 0 12px;
   border: 1px solid var(--bd2);
   border-radius: 9px;
   background: var(--bg2);
   color: var(--tx);
   font: 600 12.5px var(--font);
   text-decoration: none;
-  transition: border-color 0.15s;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
-.login__google:hover {
-  border-color: var(--acc);
+.login__google:hover { border-color: var(--acc); background: var(--p2); }
+.login__google:active { background: var(--p3); }
+.login__google-icon { flex: none; }
+/* reserve chỗ khối Google khi providers đang tải (undefined) — cùng chiều cao nút thật + divider
+   → không đẩy layout khi resolved (chống flaky layout-shift T11-4). */
+.login__google-reserve { display: flex; flex-direction: column; gap: 14px; }
+.login__google--skeleton {
+  height: 42px;
+  border: 1px solid var(--bd);
+  border-radius: 9px;
+  background: linear-gradient(90deg, var(--bg2) 25%, var(--p2) 50%, var(--bg2) 75%);
+  background-size: 200px 100%;
+  animation: deg-shimmer 1.4s infinite linear;
 }
-.login__google-icon {
-  flex: none;
-}
+@keyframes deg-shimmer { to { background-position: 200px 0; } }
 
 .login__hint {
   font-size: 10.5px;

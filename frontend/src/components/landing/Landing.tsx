@@ -2,9 +2,10 @@
 // Hero 3D = Lobby3D THẬT của app (chi nhánh BANK — "cửa sổ vào sản phẩm", người chốt 18/7 thay
 // team3d capsule của mock). Auth modal = Login component thật (user/pass + Google PR #2) —
 // KHÔNG form đăng ký email giả của mock (đăng ký = Google, khách mới tự tạo). Deviation ghi PR.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Login } from '../Login';
 import { Lobby3D, type LobbyStatus } from '../Lobby3D';
+import { conversationApi } from '../../api';
 import type { AuthUser } from '../../types';
 import './Landing.css';
 
@@ -43,6 +44,19 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
   const [authOpen, setAuthOpen] = useState(false);
   const [heroFocus, setHeroFocus] = useState('planner');
   const pick = AGENTS[heroFocus] ?? AGENTS.planner;
+
+  // PREFETCH providers NGAY khi Landing mount (không đợi mở modal) — chống flaky layout-shift T11-4:
+  // fetch bắt đầu lúc page-load, user đọc hero vài giây trước khi bấm Đăng nhập → thường resolved
+  // TRƯỚC khi modal mở → Login nhận googleEnabled đã biết → nút Google KHÔNG "nhảy vào" sau. undefined
+  // = đang chờ (Login reserve chỗ), bool = resolved. Fail → false (fail-closed, nút ẩn).
+  const [googleEnabled, setGoogleEnabled] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    conversationApi.getAuthProviders()
+      .then((p) => { if (alive) setGoogleEnabled(p.google); })
+      .catch(() => { if (alive) setGoogleEnabled(false); });
+    return () => { alive = false; };
+  }, []);
 
   return (
     <div className="landing">
@@ -194,7 +208,7 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
             <button type="button" className="lp-modal__close" aria-label="Đóng" onClick={() => setAuthOpen(false)}>✕</button>
             {/* Login tự lo mọi đường vào: user/pass · tab Đăng ký khách mới (T9-3) · nút Google (ẩn khi
                server tắt — gỡ signup-hint google cứng ở đây để khối Google ẩn TRỌN khi providers.google=false). */}
-            <Login onSuccess={onSuccess} />
+            <Login onSuccess={onSuccess} googleEnabled={googleEnabled} />
           </div>
         </div>
       )}

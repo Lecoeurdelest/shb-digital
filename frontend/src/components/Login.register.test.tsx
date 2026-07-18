@@ -52,18 +52,31 @@ describe('Login — đăng ký khách mới (D-57)', () => {
     await waitFor(() => expect(spy).toHaveBeenCalledWith('newcust', 'pass1234', 'a@b.com'));
   });
 
-  // T11-4: google ẩn TRỌN khi providers.google=false (finding tester #6 — không sót text/nút Google)
-  it('providers.google=false → KHÔNG có nút/chuỗi "Google" nào trong DOM login', async () => {
-    vi.spyOn(conversationApi, 'getAuthProviders').mockResolvedValue({ password: true, google: false });
-    const { container } = render(<Login onSuccess={vi.fn()} />);
-    await waitFor(() => expect(screen.getByRole('button', { name: /^Đăng nhập$/ })).toBeInTheDocument());
+  // T11-4: googleEnabled do CALLER truyền (Login KHÔNG tự fetch — chống flaky). Prop điều khiển khối Google.
+  it('googleEnabled=false → KHÔNG có nút/chuỗi "Google", KHÔNG skeleton (ẩn trọn)', () => {
+    const { container } = render(<Login onSuccess={vi.fn()} googleEnabled={false} />);
     expect(screen.queryByTestId('login-google')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('login-google-reserve')).not.toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Google/i);
   });
 
-  it('providers.google=true → nút Google hiện', async () => {
-    vi.spyOn(conversationApi, 'getAuthProviders').mockResolvedValue({ password: true, google: true });
-    render(<Login onSuccess={vi.fn()} />);
-    await waitFor(() => expect(screen.getByTestId('login-google')).toBeInTheDocument());
+  it('googleEnabled=true → nút Google hiện (cả tab đăng nhập lẫn đăng ký)', () => {
+    render(<Login onSuccess={vi.fn()} googleEnabled={true} />);
+    expect(screen.getByTestId('login-google')).toHaveTextContent(/Đăng nhập với Google/);
+    // đổi sang tab đăng ký → nút vẫn hiện (text đổi)
+    fireEvent.click(screen.getByTestId('tab-register'));
+    expect(screen.getByTestId('login-google')).toHaveTextContent(/Đăng ký với Google/);
+  });
+
+  it('googleEnabled=undefined (đang tải providers) → RESERVE skeleton, CHƯA nút thật (chống layout-shift)', () => {
+    render(<Login onSuccess={vi.fn()} googleEnabled={undefined} />);
+    expect(screen.getByTestId('login-google-reserve')).toBeInTheDocument();
+    expect(screen.queryByTestId('login-google')).not.toBeInTheDocument();
+  });
+
+  it('Login KHÔNG tự gọi getAuthProviders (caller prefetch + truyền prop — chống double-fetch/flaky)', () => {
+    const spy = vi.spyOn(conversationApi, 'getAuthProviders');
+    render(<Login onSuccess={vi.fn()} googleEnabled={true} />);
+    expect(spy).not.toHaveBeenCalled();
   });
 });
