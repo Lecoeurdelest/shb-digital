@@ -4,6 +4,13 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-60 · Chat assistant render MARKDOWN qua react-markdown + remark-gfm** (sếp chốt trực
+  tiếp 18/7, giữa S7) — assistant + streaming bubble render markdown (heading/bold/bảng/list/
+  code/blockquote); user/system bubble GIỮ plain (input người = literal). XSS-safe tự nhiên:
+  AST→React elements, KHÔNG dangerouslySetInnerHTML, KHÔNG rehype-raw → HTML/script trong text
+  agent hiện literal (unit test + Chrome verify 0 inject), không cần sanitizer. Bundle +157KB
+  gzip chấp nhận. — cách đổi: gỡ Markdown.tsx khỏi MessageBubble (2 dòng).
+
 - **D-59 · Verdict phanh: decision SUY TỪ LANE, không thêm cột decision vào assessments**
   (backend phát hiện + architect duyệt, T7-3 18/7) — LAB classify chỉ INSERT `lane` (decision
   suy runtime từ lane+amount); thêm cột = phải sửa classify = phá byte-identity T7-2/N1. Mapping

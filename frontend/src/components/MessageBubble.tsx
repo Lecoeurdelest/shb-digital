@@ -1,6 +1,7 @@
 // components/MessageBubble.tsx — bubble chat tối giản (S1 chỉ cần user/assistant text +
 // trạng thái đang stream). Card/verdict có cấu trúc (7 loại) là S3 — KHÔNG build ở đây (D-13 scope).
 import type { Message } from '../types';
+import { Markdown } from './Markdown';
 import './MessageBubble.css';
 
 export interface StreamingBubble {
@@ -21,13 +22,20 @@ export function MessageBubble({ msg }: { msg: Message }) {
       </div>
     );
   }
-  return <div className="msg-bubble msg-bubble--assistant deg-fadein">{msg.content}</div>;
+  // assistant (Main) → render markdown (bold/heading/bảng/list/code). XSS-safe (react-markdown AST).
+  return (
+    <div className="msg-bubble msg-bubble--assistant deg-fadein">
+      <Markdown text={msg.content} />
+    </div>
+  );
 }
 
 export function StreamingMessageBubble({ bubble }: { bubble: StreamingBubble }) {
+  // stream = markdown TỪNG PHẦN (có thể **chưa đóng / bảng nửa dòng) — react-markdown render best-effort,
+  // không crash; con trỏ nhấp nháy cuối.
   return (
     <div className="msg-bubble msg-bubble--assistant msg-bubble--streaming deg-fadein" data-testid="streaming-bubble">
-      {bubble.text}
+      <Markdown text={bubble.text} />
       <span className="msg-bubble__cursor" aria-hidden="true" />
     </div>
   );
