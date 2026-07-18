@@ -21,6 +21,9 @@ SEED_ACCOUNTS = [
     ("admin", os.environ.get("SEED_ADMIN_PASSWORD", "admin"), "admin", None),  # NGÂN HÀNG (quản lý)
     ("c001", os.environ.get("SEED_C001_PASSWORD", "c001"), "customer", "C001"),  # KHÁCH cá nhân → C001
     ("b001", os.environ.get("SEED_B001_PASSWORD", "b001"), "customer", "B001"),  # KHÁCH DN → B001
+    # T7-4: KHÁCH C019 (Huỳnh Văn Phong) — lane-green cả 300/700tr + loan L108 594tr active =
+    # tổ hợp DUY NHẤT cho cảnh demo "hồ sơ XANH tự duyệt TRÊN ngưỡng" (c001/C001 yellow = tương phản).
+    ("c019", os.environ.get("SEED_C019_PASSWORD", "c019"), "customer", "C019"),
 ]
 
 
