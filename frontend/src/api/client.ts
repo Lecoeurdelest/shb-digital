@@ -77,6 +77,11 @@ export const apiClient = {
     return { user: { username, role, owner_id } };
   },
 
+  // providers (public): FE render đúng nút login. Google bật = server đủ env (bool-only).
+  getAuthProviders(): Promise<{ password: boolean; google: boolean }> {
+    return request<{ password: boolean; google: boolean }>('/api/auth/providers');
+  },
+
   listConversations(): Promise<Conversation[]> {
     return request<Conversation[]>('/api/conversations');
   },

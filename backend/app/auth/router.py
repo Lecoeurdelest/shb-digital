@@ -7,11 +7,17 @@ KHÔNG chứa business (service lo) — router chỉ dịch HTTP↔service.
 from __future__ import annotations
 
 import re
+import secrets
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
+from app import config
+from app.auth import google as google_oauth
 from app.auth.deps import require_user
+from app.auth.security import make_token
 from app.auth.service import UsernameTaken, authenticate, register
 from app.config import AUTH_COOKIE, JWT_TTL_SECONDS
 from app.errors import ApiError
@@ -35,9 +41,15 @@ class RegisterBody(BaseModel):
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
-    """Set JWT httponly cookie — dùng chung login + register (EventSource dùng cookie, không header)."""
+    """Set JWT httponly cookie — dùng chung login + register (EventSource dùng cookie, không header).
+    secure=COOKIE_SECURE: prod https (=1) bật; dev http default off (landing merge — giữ google cookie flag)."""
     response.set_cookie(
-        key=AUTH_COOKIE, value=token, httponly=True, samesite="lax", max_age=JWT_TTL_SECONDS
+        key=AUTH_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=JWT_TTL_SECONDS,
+        secure=config.COOKIE_SECURE,
     )
 
 
@@ -54,9 +66,104 @@ def login(body: LoginBody, response: Response) -> dict:
             hint="Kiểm lại credential. 2 account demo: user / admin.",
             retryable=True,
         )
-    _set_auth_cookie(response, result["token"])
+    _set_auth_cookie(response, result["token"])  # helper đã kèm secure=COOKIE_SECURE (google flag)
     # Success = resource trần (CONTRACT §0) — trả token (FE dùng nếu cần) + user
     return result
+
+
+# ── Google OAuth (persona KHÁCH D-56 — cửa phát JWT thêm; user/pass + DEV_SKIP_AUTH giữ nguyên) ──
+# Flow Authorization-Code server-side (port pattern có sẵn): /google/start redirect Google (state
+# cookie chống CSRF) → Google gọi /google/callback?code&state → đổi code → userinfo → upsert KHÁCH
+# → set cookie JWT shb NHƯ login thường → 302 về FE. FE không cần trang callback (cookie theo host).
+
+_STATE_COOKIE = "oauth_state"
+
+
+@router.get("/providers")
+def providers() -> dict:
+    """Public — FE đọc lúc boot để render đúng nút login. Bool-only, không lộ key/client_id."""
+    return {"password": True, "google": google_oauth.is_configured()}
+
+
+@router.get("/google/start")
+def google_start() -> RedirectResponse:
+    """Redirect sang màn chọn account Google. State ngẫu nhiên vào cookie httponly (chống CSRF)."""
+    if not google_oauth.is_configured():
+        raise ApiError(
+            status_code=503,
+            code="auth_provider_disabled",
+            message="Đăng nhập Google chưa được bật trên server này.",
+            hint="Đặt AUTH_GOOGLE_ENABLED=1 + GOOGLE_OAUTH_CLIENT_ID/SECRET trong env rồi restart.",
+            retryable=False,
+        )
+    state = secrets.token_urlsafe(32)
+    params = {
+        "client_id": config.GOOGLE_OAUTH_CLIENT_ID,
+        "redirect_uri": config.GOOGLE_OAUTH_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "online",
+        "prompt": "select_account",
+    }
+    resp = RedirectResponse(f"{google_oauth.GOOGLE_AUTH_URL}?{urlencode(params)}")
+    resp.set_cookie(
+        _STATE_COOKIE, state, httponly=True, samesite="lax", max_age=600, secure=config.COOKIE_SECURE
+    )
+    return resp
+
+
+@router.get("/google/callback")
+def google_callback(request: Request, code: str | None = None, state: str | None = None) -> RedirectResponse:
+    """Google gọi lại với ?code&state → verify state, đổi code, upsert KHÁCH, set cookie JWT, về FE."""
+    if not google_oauth.is_configured():
+        raise ApiError(
+            status_code=503,
+            code="auth_provider_disabled",
+            message="Đăng nhập Google chưa được bật trên server này.",
+            hint="Đặt AUTH_GOOGLE_ENABLED=1 + GOOGLE_OAUTH_CLIENT_ID/SECRET trong env rồi restart.",
+            retryable=False,
+        )
+    if not code or not state:
+        raise ApiError(
+            status_code=400,
+            code="oauth_malformed",
+            message="Thiếu code hoặc state từ Google.",
+            hint="Bắt đầu lại từ /api/auth/google/start.",
+            retryable=True,
+        )
+    if request.cookies.get(_STATE_COOKIE) != state:
+        raise ApiError(
+            status_code=400,
+            code="oauth_state_mismatch",
+            message="State không khớp — có thể CSRF hoặc cookie hết hạn (10 phút).",
+            hint="Bắt đầu lại từ /api/auth/google/start.",
+            retryable=True,
+        )
+    try:
+        access = google_oauth.exchange_code(code)
+        info = google_oauth.fetch_userinfo(access)
+    except google_oauth.GoogleOAuthError as e:
+        raise ApiError(
+            status_code=502,
+            code="oauth_google_failed",
+            message=f"Google từ chối phiên đăng nhập: {e}",
+            hint="Thử lại; kéo dài → kiểm client_id/secret/redirect_uri khớp Google Console.",
+            retryable=True,
+        ) from e
+    user = google_oauth.upsert_google_user(google_sub=info["sub"], email=info["email"])
+    token = make_token(user_id=str(user["id"]), username=user["username"], role=user["role"])
+    resp = RedirectResponse(config.FRONTEND_URL)
+    resp.set_cookie(
+        key=AUTH_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=JWT_TTL_SECONDS,
+        secure=config.COOKIE_SECURE,
+    )
+    resp.delete_cookie(_STATE_COOKIE)
+    return resp
 
 
 @router.post("/register", status_code=201)

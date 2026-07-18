@@ -1,12 +1,12 @@
 // App.tsx — auth gate + boot-check (CONTRACT §1 · D-19 · D-39 skip-auth).
 // Boot: gọi GET /api/auth/me:
-//   · 200 {user} (đã login HOẶC DEV_SKIP_AUTH ON) → skip Login, vào thẳng Workspace (role từ /me).
-//   · 401 → Login flow (Login.tsx). Đăng xuất / 401 mid-session → về Login.
+//   · 200 {user} (đã login HOẶC DEV_SKIP_AUTH ON) → skip Landing, vào thẳng Workspace (role từ /me).
+//   · 401 → Landing (mặt tiền — Login thật trong modal). Đăng xuất / 401 mid-session → về Landing.
 // Cookie JWT httponly do server giữ; /me là đường FE biết "đã có phiên" qua reload (thay vì mất
-// state như trước). Mock mode: me() ném 401 → luôn hiện Login (test luồng Login).
+// state như trước). Mock mode: me() ném 401 → luôn hiện Landing (test luồng Login qua modal).
 import { useEffect, useState } from 'react';
 import { conversationApi } from './api';
-import { Login } from './components/Login';
+import { Landing } from './components/landing/Landing';
 import { Workspace } from './Workspace';
 import { ControlTower } from './components/ControlTower';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -57,7 +57,7 @@ function AppInner() {
   }
 
   if (boot.phase === 'anon') {
-    return <Login onSuccess={(user) => setBoot({ phase: 'authed', user })} />;
+    return <Landing onSuccess={(user) => setBoot({ phase: 'authed', user })} />;
   }
 
   // Control Tower = màn admin (D-19). Admin toggle sang tower; user chỉ Workspace.

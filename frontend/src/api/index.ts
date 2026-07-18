@@ -13,6 +13,7 @@ export interface ConversationApi {
   login(username: string, password: string): Promise<LoginResult>;
   register(username: string, password: string, email?: string): Promise<LoginResult>;
   me(): Promise<{ user: AuthUser }>;
+  getAuthProviders(): Promise<{ password: boolean; google: boolean }>;
   listConversations(): Promise<Conversation[]>;
   createConversation(title: string, provider?: string, model?: string): Promise<Conversation>;
   getConversation(id: string): Promise<ConversationFullState>;
@@ -45,6 +46,10 @@ const mockApi: ConversationApi = {
     // mock: luôn "chưa login" → App hiện Login (mock mode dùng để test luồng Login). Mock không
     // có DEV_SKIP_AUTH. Ném 401-shape để App bắt như /me thật khi flag OFF.
     throw new ApiRequestError(401, { code: 'unauthorized', message: 'mock: chưa đăng nhập', hint: 'đăng nhập', retryable: false }, 'unauthorized');
+  },
+  async getAuthProviders() {
+    // mock: chỉ password (Google là cửa server thật — mock không mô phỏng OAuth redirect).
+    return { password: true, google: false };
   },
   async listConversations() {
     return mockBackend.listConversations();
@@ -114,6 +119,7 @@ const realApi: ConversationApi = {
   login: apiClient.login,
   register: apiClient.register,
   me: apiClient.me,
+  getAuthProviders: apiClient.getAuthProviders,
   listConversations: apiClient.listConversations,
   createConversation: apiClient.createConversation,
   getConversation: apiClient.getConversation,

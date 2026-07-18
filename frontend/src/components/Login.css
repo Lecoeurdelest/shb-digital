@@ -102,6 +102,42 @@
   cursor: not-allowed;
 }
 
+/* ── Google OAuth (D-56 persona khách) ── */
+.login__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--mute);
+  font-size: 10.5px;
+}
+.login__divider::before,
+.login__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--bd2);
+}
+.login__google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--bd2);
+  border-radius: 9px;
+  background: var(--bg2);
+  color: var(--tx);
+  font: 600 12.5px var(--font);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.login__google:hover {
+  border-color: var(--acc);
+}
+.login__google-icon {
+  flex: none;
+}
+
 .login__hint {
   font-size: 10.5px;
   color: var(--mute);

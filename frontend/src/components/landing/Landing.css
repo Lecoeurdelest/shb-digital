@@ -1,0 +1,179 @@
+/* Landing.css — mặt tiền (design/Landing Page.dc.html). Palette tối-ấm của design:
+   bg #1a1917 · accent #d97757 · text #f2efe8 — độc lập theme app (landing đứng riêng). */
+.landing {
+  --lbg: #1a1917; --lbg2: #161514; --lp1: #211f1d; --lbd: #37332f; --lbd2: #48423b;
+  --ltx: #f2efe8; --ldim: #b0a99d; --lmute: #7d766a; --lfaint: #544e45; --lacc: #d97757;
+  background: var(--lbg);
+  color: var(--ltx);
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+.landing a { color: var(--lacc); text-decoration: none; }
+
+@keyframes lp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes lp-up { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes lp-marq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ── nav ── */
+.lp-nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 28px; height: 60px;
+  background: rgba(26, 25, 23, 0.82); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--lbd);
+}
+.lp-logo {
+  width: 30px; height: 30px; border-radius: 8px; background: var(--lacc);
+  display: grid; place-items: center; font-weight: 800; font-size: 15px; color: var(--lbg); flex: none;
+}
+.lp-logo--sm { width: 22px; height: 22px; font-size: 11px; border-radius: 6px; }
+.lp-nav__title { font-weight: 800; font-size: 14.5px; }
+.lp-nav__sub { font-size: 10.5px; color: var(--lmute); padding-top: 2px; }
+.lp-nav__spacer { flex: 1; }
+.lp-nav__link { font-size: 12px; font-weight: 600; color: var(--ldim); margin: 0 4px; }
+.lp-nav__link:hover { color: var(--ltx); }
+
+/* ── buttons ── */
+.lp-btn {
+  border: none; cursor: pointer; border-radius: 9px; padding: 8px 16px;
+  font: 700 12px 'Be Vietnam Pro', sans-serif; transition: all 0.15s;
+}
+.lp-btn--primary { background: var(--lacc); color: var(--lbg); box-shadow: 0 3px 14px rgba(217, 119, 87, 0.3); }
+.lp-btn--primary:hover { background: #e8906f; }
+.lp-btn--ghost { background: none; border: 1px solid var(--lbd2); color: var(--ltx); }
+.lp-btn--ghost:hover { border-color: var(--lacc); color: var(--lacc); }
+.lp-btn--lg { padding: 13px 26px; border-radius: 12px; font-size: 13.5px; font-weight: 800; }
+
+/* ── hero ── */
+.lp-hero {
+  position: relative; min-height: 94vh; display: flex; align-items: center;
+  padding: 100px 0 40px;
+  background:
+    radial-gradient(1000px 560px at 72% 42%, rgba(217, 119, 87, 0.1), transparent),
+    radial-gradient(600px 380px at 12% 80%, rgba(185, 140, 217, 0.05), transparent);
+}
+.lp-hero__grid {
+  display: grid; grid-template-columns: minmax(400px, 5fr) 6fr; gap: 20px;
+  max-width: 1280px; margin: 0 auto; width: 100%; padding: 0 36px; align-items: center;
+}
+@media (max-width: 900px) { .lp-hero__grid { grid-template-columns: 1fr; } }
+.lp-badge {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px;
+  border: 1px solid rgba(217, 119, 87, 0.35); background: rgba(217, 119, 87, 0.1);
+  font-size: 11px; font-weight: 700; color: var(--lacc); animation: lp-up 0.7s both;
+}
+.lp-badge__dot { width: 7px; height: 7px; border-radius: 50%; background: #82b878; box-shadow: 0 0 8px #82b878; animation: lp-pulse 1.6s infinite; }
+.lp-hero__title { font-size: 52px; font-weight: 900; line-height: 1.08; margin: 24px 0 18px; letter-spacing: -0.025em; animation: lp-up 0.7s 0.1s both; text-wrap: balance; }
+.lp-hero__title span { color: var(--lacc); }
+.lp-hero__sub { font-size: 15px; line-height: 1.7; color: var(--ldim); max-width: 460px; margin: 0 0 30px; animation: lp-up 0.7s 0.2s both; text-wrap: pretty; }
+.lp-hero__cta { display: flex; gap: 12px; animation: lp-up 0.7s 0.3s both; }
+.lp-hero__stats { display: flex; gap: 28px; margin-top: 38px; animation: lp-up 0.7s 0.4s both; }
+.lp-hero__stats i { width: 1px; background: var(--lbd); }
+.lp-hero__stats b { display: block; font-size: 24px; font-weight: 900; }
+.lp-hero__stats .lp-acc { color: var(--lacc); }
+.lp-hero__stats span { font-size: 10.5px; color: var(--lmute); font-weight: 600; }
+
+.lp-hero__stage {
+  position: relative; height: 560px; animation: lp-up 0.9s 0.25s both;
+  border-radius: 18px; overflow: hidden; border: 1px solid var(--lbd2);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+/* Lobby3D root tự set height clamp — trong hero cho full khung */
+.lp-hero__stage .lobby3d { height: 100% !important; }
+.lp-hero__chip {
+  position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; max-width: 420px;
+  background: rgba(33, 31, 29, 0.92); backdrop-filter: blur(8px);
+  border: 1px solid var(--lbd2); border-radius: 12px; padding: 10px 16px; pointer-events: none;
+}
+.lp-hero__chip-icon { font-size: 17px; }
+.lp-hero__chip-name { font-size: 12px; font-weight: 800; }
+.lp-hero__chip-desc { font-size: 10.5px; color: var(--ldim); line-height: 1.45; }
+.lp-hero__hint { position: absolute; top: 8px; right: 10px; font-size: 10px; color: rgba(26, 25, 23, 0.55); pointer-events: none; }
+
+/* ── marquee ── */
+.lp-marquee { border-top: 1px solid var(--lbd); border-bottom: 1px solid var(--lbd); background: var(--lbg2); overflow: hidden; padding: 13px 0; }
+.lp-marquee__track { display: flex; gap: 48px; width: max-content; animation: lp-marq 26s linear infinite; font-size: 12px; font-weight: 600; color: var(--lmute); white-space: nowrap; }
+
+/* ── sections ── */
+.lp-section { padding: 96px 24px; max-width: 1000px; margin: 0 auto; }
+.lp-section--alt { max-width: none; background: var(--lbg2); border-top: 1px solid var(--lbd); border-bottom: 1px solid var(--lbd); }
+.lp-section__inner { max-width: 1000px; margin: 0 auto; }
+.lp-section__head { margin-bottom: 46px; max-width: 640px; }
+.lp-section__head h2 { font-size: 34px; font-weight: 900; letter-spacing: -0.015em; line-height: 1.2; margin: 0; text-wrap: balance; }
+.lp-section__head p { font-size: 13.5px; color: var(--lmute); margin: 12px 0 0; line-height: 1.6; }
+.lp-kicker { font-size: 11px; font-weight: 800; color: var(--lacc); letter-spacing: 0.14em; margin-bottom: 12px; }
+.lp-kicker--dim { color: var(--lmute); letter-spacing: 0.1em; margin-bottom: 10px; }
+
+/* agents rows */
+.lp-agents { display: flex; flex-direction: column; }
+.lp-agent { display: flex; align-items: center; gap: 22px; padding: 22px 18px; border-top: 1px solid #2a2825; border-radius: 12px; transition: background 0.2s; }
+.lp-agent:hover { background: #1f1d1b; }
+.lp-agent__n { font: 800 13px ui-monospace, monospace; color: var(--lfaint); width: 28px; flex: none; }
+.lp-agent__icon { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; font-size: 21px; background: var(--lp1); border: 1px solid var(--lbd); flex: none; }
+.lp-agent__body { flex: 1; min-width: 0; display: block; }
+.lp-agent__name { display: block; font-size: 15px; font-weight: 800; }
+.lp-agent__desc { display: block; font-size: 12px; line-height: 1.6; color: var(--ldim); margin-top: 3px; text-wrap: pretty; }
+.lp-agent__tools { font: 500 10px ui-monospace, monospace; color: #5fb2c9; text-align: right; flex: none; line-height: 1.8; }
+
+/* steps */
+.lp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.lp-step { position: relative; background: var(--lp1); border: 1px solid var(--lbd); border-radius: 16px; padding: 26px 22px; }
+.lp-step:hover { border-color: var(--lbd2); }
+.lp-step__n { position: absolute; top: -14px; left: 20px; width: 30px; height: 30px; border-radius: 9px; background: var(--lacc); color: var(--lbg); display: grid; place-items: center; font-weight: 900; font-size: 13px; }
+.lp-step__icon { display: block; font-size: 26px; margin: 8px 0 12px; }
+.lp-step__title { font-size: 14.5px; font-weight: 800; margin-bottom: 8px; }
+.lp-step__desc { font-size: 12px; line-height: 1.65; color: var(--ldim); text-wrap: pretty; }
+
+/* example strip */
+.lp-example { margin-top: 56px; background: var(--lp1); border: 1px solid var(--lbd); border-radius: 18px; padding: 22px 26px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.lp-example__body { flex: 1; min-width: 280px; }
+.lp-example__text { font-size: 13.5px; line-height: 1.8; color: var(--ldim); }
+.lp-example__text em { font-style: normal; font-weight: 700; }
+.lp-example__text em.ok { color: #82b878; }
+.lp-example__text em.warn { color: #dda94a; }
+.lp-example__text b { color: var(--ltx); font-weight: 800; }
+.lp-example__nums { display: flex; gap: 26px; }
+.lp-example__nums > div { text-align: center; }
+.lp-example__nums s { display: block; font-size: 34px; font-weight: 900; color: var(--lmute); }
+.lp-example__nums b { display: block; font-size: 34px; font-weight: 900; color: var(--lacc); }
+.lp-example__nums span { font-size: 10.5px; color: var(--lmute); font-weight: 600; }
+
+/* control grid */
+.lp-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.lp-control { background: var(--lp1); border: 1px solid var(--lbd); border-radius: 16px; padding: 24px; transition: transform 0.25s, border-color 0.25s; }
+.lp-control:hover { transform: translateY(-4px); border-color: rgba(217, 119, 87, 0.4); }
+.lp-control__icon { display: block; font-size: 24px; margin-bottom: 12px; }
+.lp-control__title { font-size: 14px; font-weight: 800; margin-bottom: 7px; }
+.lp-control__desc { font-size: 12px; line-height: 1.65; color: var(--ldim); text-wrap: pretty; }
+
+/* cta + footer */
+.lp-cta { padding: 80px 24px 96px; text-align: center; background: radial-gradient(600px 300px at 50% 100%, rgba(217, 119, 87, 0.12), transparent); }
+.lp-cta h2 { font-size: 38px; font-weight: 900; letter-spacing: -0.01em; margin: 0 0 14px; text-wrap: balance; }
+.lp-cta p { font-size: 14px; color: var(--ldim); margin: 0 0 30px; }
+.lp-cta__row { display: flex; gap: 12px; justify-content: center; }
+.lp-footer { border-top: 1px solid var(--lbd); background: var(--lbg2); padding: 26px 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lp-footer__name { font-size: 12px; font-weight: 700; }
+.lp-footer__note { font-size: 10.5px; color: var(--lfaint); }
+
+/* ── auth modal (Login thật nhúng trong) ── */
+.lp-modal__overlay { position: fixed; inset: 0; background: rgba(10, 9, 8, 0.7); backdrop-filter: blur(4px); z-index: 90; }
+.lp-modal__card {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px)); z-index: 91; animation: lp-up 0.3s;
+}
+.lp-modal__close {
+  position: absolute; top: 14px; right: 14px; z-index: 2; width: 26px; height: 26px;
+  border-radius: 8px; display: grid; place-items: center; cursor: pointer;
+  background: none; border: 1px solid var(--lbd); color: var(--lmute); font-size: 12px;
+}
+.lp-modal__close:hover { color: var(--ltx); }
+/* Login render .login full-height grid — trong modal thu về card gọn */
+.lp-modal__card .login { height: auto; padding: 0; background: none; display: block; }
+.lp-modal__signup-hint {
+  margin-top: 10px; text-align: center; font-size: 11px; color: var(--lmute);
+  background: var(--lp1); border: 1px solid var(--lbd); border-radius: 10px; padding: 9px 12px;
+}
+.lp-modal__signup-hint b { color: var(--ldim); }
