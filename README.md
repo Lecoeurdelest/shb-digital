@@ -1,5 +1,7 @@
 # Digital Expert Guild — SYSTEM #132
 
+[![CI](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml/badge.svg)](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml)
+
 Hệ thống **chi nhánh ngân hàng số vận hành bằng đội multi-agent AI**: khách hàng chat một câu
 tiếng Việt, đội chuyên gia số (Tín dụng · Pháp chế · Sản phẩm · Vận hành) tự lập kế hoạch, dùng
 tool truy vấn dữ liệu thật, phối hợp với nhau và **thực thi hành động có kiểm soát** — khoản nhỏ
