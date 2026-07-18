@@ -48,6 +48,14 @@
 
 ## ② TỰ-QUYẾT
 
+- **D-54 · SPEC §11/§12 mô tả LỆCH quyền duyệt — người sửa 18/7: USER NÀO CŨNG DUYỆT ĐƯỢC mọi
+  nghiệp vụ; Control Tower = màn GIÁM SÁT/THỐNG KÊ** — người: "user ở đây vẫn được quyền approve
+  mọi nghiệp vụ; Tower kiểu thống kê cost, history tool agent." Nhất quán D-39 (người dùng app =
+  nhân viên cấp cao có quyền). Giá trị phanh KHÔNG đổi: điểm là tool không tự chạy — cần NGƯỜI bấm,
+  không phải cần đúng chức danh. Sửa: decide + approvals list + audit + interrupt require_admin →
+  require_user (no-cookie vẫn 401); Tower đổi cách kể = giám sát & thống kê (audit/cost/trace, tiện
+  thể duyệt gom); duyệt CHÍNH vẫn tại card trên canvas trong luồng user. SPEC §11 "admin" đọc là
+  "user đã đăng nhập". — Đổi: sau này có phân quyền thật (RM/giám đốc) → thêm role check lại.
 - **D-53 · T5-1 polish 2 quyết (architect 18/7):** (a) **font SELF-HOST** (15 woff2 Be Vietnam Pro
   → public/fonts, BỎ Google Fonts CDN — mạng venue thi không tin được, demo không phụ ngoại cảnh
   như seed-reset/provider-standalone; verify 0 request gstatic). Gốc: tokens khai font nhưng

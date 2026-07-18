@@ -48,10 +48,14 @@
   biên nhận cũ." → *"Đây chính là pain nghiệp vụ: không chặn hết (chậm), không thả hết (rủi ro) —
   luật phân tầng nằm ở tầng tool, audit 100%."*
 
-### CẢNH 3 — Control Tower (deliverable #4) — ~60s
-- Bấm **🗼 Control Tower**: hàng chờ duyệt (demo duyệt-tại-chỗ nếu còn phiếu) · **Nhật ký tool**
-  (audit append-only — filter theo ca vừa chạy, thấy từng input/output) · trạng thái đội + cost.
-- "Mọi hành động của mọi agent đều ghi sổ bất biến — giám sát và truy vết 100%."
+### CẢNH 3 — Control Tower: GIÁM SÁT & THỐNG KÊ (deliverable #4) — ~90s
+- Bấm **🗼 Control Tower** — "đây là đài GIÁM SÁT: mọi con số về đội agent gom một chỗ."
+- **Nhật ký tool** (điểm chính): audit append-only — filter theo ca vừa chạy, thấy TỪNG tool call
+  input/output theo thời gian — "lịch sử hành vi agent, truy vết 100%, không sửa được."
+- **Thống kê**: trạng thái đội (ca chạy/chờ/xong/lỗi) + cost meter per-ca — "chi phí từng agent
+  đo được, là nền tối ưu."
+- Hàng chờ duyệt: "phiếu toàn hệ gom đây cho tiện — nhưng duyệt là quyền của MỌI người dùng
+  (nhân viên cấp cao), làm ngay trên card trong luồng như đã thấy ở Cảnh 2. Tower chỉ là chỗ nhìn."
 
 ### CẢNH 4 — 1 LLM vs CẢ ĐỘI (deliverable #5) — ~90s (chạy chờ ~70s)
 - Tab **So sánh 1 vs đội** → gõ "Khách C001 vay 500 triệu được không?" → Chạy.
