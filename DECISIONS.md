@@ -4,6 +4,18 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-57 · S9 "KHÁCH MỚI + VÒNG ĐỜI HỒ SƠ": signup + form intake + mail Gmail thật + bell**
+  (người chốt 18/7 "ok em cứ code còn app password anh gửi sau" — từ input mentor) — (a) app cho
+  người MỚI đăng ký: register account → form intake card (thu họ tên/CMND/thu nhập/mục đích...)
+  → tạo hồ sơ customers mới + link owner_id; khách mới tra 3 trụ → không bản ghi → lane YELLOW
+  "chưa xác minh" → qua người duyệt (hành vi ngân hàng thật, khớp LAB legal honest-null); khách
+  CŨ seed = có sẵn hồ sơ. (b) mail thông báo duyệt/giải ngân qua Gmail SMTP + App Password
+  (smtplib stdlib, `SMTP_USER`/`SMTP_APP_PASSWORD` trong .env gitignored — NGƯỜI gửi creds sau,
+  code no-op sạch khi env thiếu); gửi best-effort async, KHÔNG chết resume. (c) bell in-app phía
+  khách (poll — pattern useApprovalBadge) = lưới khi venue mất mạng. Thứ tự: S7 (3 trụ) TRƯỚC →
+  S9. — vì sao: mentor pain "user không phải lúc nào cũng ở app" + "app đăng ký thì làm gì có
+  thông tin". — cách đổi: lật thứ tự/scope ở kickoff S9.
+
 - **D-56 · ĐẢO D-54: 2 PERSONA — app là CỬA KHÁCH HÀNG, duyệt là việc NGÂN HÀNG** (người chốt
   18/7, discuss với architect) — flow đúng thiết kế gốc: khách vào app tự chat → đội chuyên gia
   số xử lý → khoản vừa/nhỏ agent TỰ DUYỆT theo ma trận thẩm quyền → chỉ khoản lớn/vượt hạn mức

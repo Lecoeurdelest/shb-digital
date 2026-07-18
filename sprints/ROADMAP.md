@@ -69,6 +69,11 @@
   5 tool + SKILL v3) + wire verdict-xanh vào `_auto_approve_ok` (D-52) + script v5. = ma trận
   thẩm quyền nâng cao phục vụ chính D-56. T7-1 dispatch giữ nguyên.
 
+## Sprint 9 — Khách mới + vòng đời hồ sơ ⏳ (draft `plan_sprint_9.md`, D-57 — sau S7)
+- **Theme (mentor input, người chốt):** register khách mới → form intake card → hồ sơ mới →
+  3 trụ honest-null → yellow → người duyệt → MAIL Gmail thật (app password người gửi sau,
+  no-op sạch khi thiếu env) + bell in-app (lưới mất mạng).
+
 ---
 
 ## Map 5 deliverable đề #132 → sprint trả
