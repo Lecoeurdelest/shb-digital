@@ -5,12 +5,13 @@
 
 import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, LoginResult, ModelsResponse } from '../types';
+import type { ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem } from '../types';
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 
 export interface ConversationApi {
   login(username: string, password: string): Promise<LoginResult>;
+  register(username: string, password: string, email?: string): Promise<LoginResult>;
   me(): Promise<{ user: AuthUser }>;
   getAuthProviders(): Promise<{ password: boolean; google: boolean }>;
   listConversations(): Promise<Conversation[]>;
@@ -26,6 +27,9 @@ export interface ConversationApi {
   auditFiltered(filters?: Record<string, string>): Promise<AuditRow[]>;
   getModels(): Promise<ModelsResponse>;
   runCompare(question: string): Promise<CompareResult>;
+  // Form intake + bell (T9-3)
+  submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult>;
+  getNotifications(): Promise<NotificationItem[]>;
   openEventSource(convId: string): MinimalEventSource;
 }
 
@@ -33,6 +37,10 @@ const mockApi: ConversationApi = {
   async login(username: string) {
     // mock không auth — chấp nhận mọi credential, trả role theo username (admin→admin, còn lại user).
     return { token: 'mock-token', user: { username, role: username === 'admin' ? 'admin' as const : 'user' as const } };
+  },
+  async register(username: string) {
+    // mock đăng ký: khách MỚI → role customer + owner_id giả (như /register thật auto-login).
+    return { token: 'mock-token', user: { username, role: 'customer' as const, owner_id: null } };
   },
   async me() {
     // mock: luôn "chưa login" → App hiện Login (mock mode dùng để test luồng Login). Mock không
@@ -79,6 +87,12 @@ const mockApi: ConversationApi = {
   async runCompare(question: string) {
     return mockBackend.runCompare(question);
   },
+  async submitForm(convId: string, cardId: string, values: Record<string, string>) {
+    return mockBackend.submitForm(convId, cardId, values);
+  },
+  async getNotifications() {
+    return mockBackend.getNotifications();
+  },
   openEventSource(convId: string) {
     return createMockEventSource(convId);
   },
@@ -103,6 +117,7 @@ function browserEventSource(convId: string): MinimalEventSource {
 
 const realApi: ConversationApi = {
   login: apiClient.login,
+  register: apiClient.register,
   me: apiClient.me,
   getAuthProviders: apiClient.getAuthProviders,
   listConversations: apiClient.listConversations,
@@ -117,6 +132,8 @@ const realApi: ConversationApi = {
   auditFiltered: apiClient.auditFiltered,
   getModels: apiClient.getModels,
   runCompare: apiClient.runCompare,
+  submitForm: apiClient.submitForm,
+  getNotifications: apiClient.getNotifications,
   openEventSource: browserEventSource,
 };
 

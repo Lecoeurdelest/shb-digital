@@ -39,3 +39,8 @@ extend-exclude = ["app/db/migrations/versions"]
 select = ["E", "F", "W", "I", "B", "UP"]
 # B008: Depends() ở default arg là IDIOM CHUẨN FastAPI (không phải bug) — false positive.
 ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# email.py: template mail HTML table-based + inline CSS (T9-2 addendum) — dòng dài BẮT BUỘC
+# (inline CSS không tách được không phá HTML/anti-spam). E501 chỉ cho file template này.
+"app/notify/email.py" = ["E501"]

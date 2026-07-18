@@ -31,6 +31,7 @@ import psycopg2.extras
 
 from app.db.config import DATABASE_URL
 from app.orch import registry
+from app.orch.disburse_guard import cross_owner_refusal
 from app.orch.verdict import disburse_decision
 
 log = logging.getLogger("orch.gated")
@@ -96,9 +97,14 @@ class _GatedResult:
     """Kết quả _gated_txn: dict trả model + optional 'to-emit' (card/approval sinh ở bước 4).
     SSE emit SAU commit ở async handler (advisor #3 — rollback không emit card ma)."""
 
-    def __init__(self, payload: dict[str, Any], emit: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self, payload: dict[str, Any], emit: dict[str, Any] | None = None, fresh_disburse: bool = False
+    ) -> None:
         self.payload = payload
         self.emit = emit  # {card, approval, status} nếu bước 4 tạo phiếu; None nếu không
+        # fresh_disburse: TRUE chỉ khi vừa THỰC THI giải ngân lần này (claim/auto) — KHÔNG replay
+        # (T9-2 hook b: mail giải-ngân 1 lần/receipt, replay-branch disbursed:True nhưng KHÔNG mail lại).
+        self.fresh_disburse = fresh_disburse
 
 
 def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, Any]) -> _GatedResult:
@@ -110,6 +116,16 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
     conn = psycopg2.connect(DATABASE_URL)  # conn RIÊNG (mirror store/D-34 — KHÔNG mount pool adapter)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # GUARD CROSS-OWNER (T9-4 finding, money-adjacent): ca creator = KHÁCH → loan giải ngân
+            # PHẢI thuộc hồ sơ creator. TRƯỚC advisory-lock + 4-step (không phí lock/phiếu cho ca bị
+            # chặn). fail-closed: mismatch / creator owner NULL / lookup lỗi → REFUSE. Ca bank (creator
+            # role≠customer) → qua như cũ (bank thao tác hộ mọi khách). Chỉ áp disburse (có loan_id).
+            if action == "disburse":
+                refusal = cross_owner_refusal(cur, conv_id, args.get("loan_id"))
+                if refusal is not None:
+                    conn.rollback()  # chưa ghi gì — rollback sạch, không giữ lock
+                    return _GatedResult(refusal)
+
             # SERIALIZE per-key (architect phán quyết — chống race phiếu-rác): 2 gọi đồng thời cùng
             # (conv_id, action, ph) → con thua CHỜ con thắng commit → thấy used/pending đã commit →
             # KHÔNG đẻ phiếu giả ở bước 4. tx-scoped → tự release ở commit/rollback (không rò lock).
@@ -153,7 +169,7 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
                     (json.dumps(out), claimed["id"]),
                 )
                 conn.commit()  # claim + inner-write + receipt cùng COMMIT
-                return _GatedResult(out)
+                return _GatedResult(out, fresh_disburse=True)  # vừa giải ngân THẬT (claim) → mail hook b
 
             # 3. Phiếu pending? → báo chờ, KHÔNG đẻ phiếu/card mới (idempotent bước pending)
             cur.execute(
@@ -212,7 +228,9 @@ def _gated_txn(action: str, conv_id: str, task_id: str | None, args: dict[str, A
                 )
                 card_row = dict(cur.fetchone())
                 conn.commit()  # phiếu-approved + inner-write + receipt + card CÙNG COMMIT
-                return _GatedResult(out, emit={"card": card_row, "conv_id": conv_id, "auto": True})
+                return _GatedResult(
+                    out, emit={"card": card_row, "conv_id": conv_id, "auto": True}, fresh_disburse=True
+                )  # auto-duyệt vừa giải ngân THẬT → mail hook b
 
             # 4b. decision='human' (tầng-2 không-xanh / tầng-3 trên ngưỡng / tầng-1 verdict-xấu) →
             # CHỜ NGƯỜI (path S3 nguyên — byte-identical, regress-guard).
@@ -294,9 +312,41 @@ def gated(action: str, inner_read_handler: Callable) -> Callable:
         # SSE SAU commit (advisor #3): bước 4 tạo phiếu → emit card + approval.pending + status
         if result.emit is not None:
             _emit_approval(result.emit)
+        # HOOK b (T9-2): mail giải ngân thành công — CHỈ khi vừa giải ngân THẬT (claim/auto), KHÔNG
+        # replay. 1 điểm CHUNG cả 2 nhánh (handler post-commit) → không dup mail cho 1 receipt.
+        # Chạy trên loop (handler async — to_thread trong _gated_txn không có loop cho create_task).
+        if action == "disburse" and result.fresh_disburse:
+            _notify_disbursed(conv_id, result.payload)
         return _text(result.payload)
 
     return handler
+
+
+def _notify_disbursed(conv_id: str, receipt: dict[str, Any]) -> None:
+    """Mail HOOK b (T9-2 + addendum HTML brand): giải ngân thành công. Plain fallback + HTML multipart.
+    best-effort async (không chặn)."""
+    from app.notify.email import render_email_html
+    from app.notify.hooks import app_url, notify_conv_owner, owner_greeting
+
+    amount = int(float(receipt.get("amount"))) if receipt.get("amount") else 0
+    loan = receipt.get("loan_id", "")
+    amount_str = f" số tiền {amount:,} VND" if amount else ""
+    body = (
+        f"Kính gửi anh/chị,\n\nKhoản vay {loan}{amount_str} của anh/chị đã được GIẢI NGÂN thành "
+        f"công.\n\nTrân trọng,\nBANK Digital."
+    )
+    d = {
+        "greeting_name": owner_greeting(conv_id),
+        "loan_id": loan,
+        "amount_vnd": amount,
+        "decided_by": receipt.get("approved_by"),  # 'auto-rule' nếu auto-duyệt
+        "ref": loan,
+        "app_url": app_url(),
+    }
+    html_body = render_email_html("disbursed", d)
+    amount_disp = f"{amount:,}".replace(",", ".")
+    subject = f"💸 Giải ngân thành công {amount_disp} ₫ — BANK Digital"
+    notify_conv_owner(conv_id, subject, body, html_body)
 
 
 def _emit_approval(emit_data: dict[str, Any]) -> None:

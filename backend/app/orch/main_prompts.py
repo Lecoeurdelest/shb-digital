@@ -34,7 +34,16 @@ def _customer_prompt_block(conv_id: str) -> str:
                     return ""  # ngân hàng / ca cũ → không inject
                 owner_id = row[1]
                 if not owner_id:
-                    return ""
+                    # T9-1 (D-57): KHÁCH role=customer CHƯA có hồ sơ (owner_id NULL) → block đổi ý:
+                    # thu hồ sơ bằng present_form, KHÔNG hỏi vặt từng câu. KHÁC 'set-but-missing'
+                    # (owner_id có nhưng không trong customers → fallback block dưới) — 3 trạng thái riêng.
+                    return (
+                        "\n\n## KHÁCH HÀNG MỚI — CHƯA CÓ HỒ SƠ\nNgười đang chat là KHÁCH mới, CHƯA có "
+                        "hồ sơ trong hệ thống. Khi cần thông tin hồ sơ (họ tên, thu nhập, mục đích "
+                        "vay...) để thẩm định: GỌI tool present_form để hiện form thu thập trên canvas — "
+                        "KHÔNG hỏi vặt từng câu trong chat. Khách điền xong hệ thống tự tạo hồ sơ và gọi "
+                        "lại bạn. Xưng hô với khách (anh/chị)."
+                    )
                 # tên khách: customers (cá nhân) hoặc businesses (DN)
                 cur.execute("SELECT full_name FROM customers WHERE id=%s", (owner_id,))
                 r = cur.fetchone()

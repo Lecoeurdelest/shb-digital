@@ -67,7 +67,19 @@ def reset_demo(database_url: str = DATABASE_URL) -> dict[str, int]:
     dirs_wiped = _wipe_conversation_dirs()
 
     # re-seed nghiệp vụ (load_seed idempotent: TRUNCATE + INSERT business tables + loans.status gốc)
+    # load_seed TRUNCATE customers → C9xx (khách đăng ký T9-1) bị xoá cùng (không re-seed C9xx).
     seeded = load_seed()
+
+    # RIDER T9-1: sau load_seed wipe customers C9xx, account đăng ký (users.owner_id='C9xx') trỏ owner
+    # KHÔNG còn tồn tại (dangling, không FK). Set NULL để account về trạng thái CHƯA-hồ-sơ → demo lặp
+    # lại được từ đầu (đăng ký → form → tạo lại). GIỮ users (không xoá account đã đăng ký — dispatch QUYẾT).
+    conn = psycopg2.connect(database_url)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET owner_id=NULL WHERE owner_id LIKE 'C9%%'")
+    finally:
+        conn.close()
 
     # verify: đếm row sau reset (vận hành = 0, nghiệp vụ = seed count)
     conn = psycopg2.connect(database_url)

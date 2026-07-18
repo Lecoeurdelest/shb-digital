@@ -5,6 +5,12 @@ TÁCH DB TEST (luật vận hành → code): test chạy DB RIÊNG (TEST_DATABAS
 file — TRƯỚC bất kỳ `from app.db.config import` (config đọc env lúc import) → cả app-under-test +
 test conn dùng test-db trong phiên test. env TEST_DATABASE_URL không set → dùng DB chính (dev
 nhanh) + WARNING (tránh bơm rác demo mà không biết).
+
+LUẬT TEST PHÁ HOẠI = ENV-GATED (T7-4 rider — sự cố thật: test reset_demo wipe DEMO DB khi tester
+quên TEST_DATABASE_URL, warning KHÔNG đủ chặn). Mọi test GỌI reset_demo / TRUNCATE / xoá runtime
+trên DATABASE_URL PHẢI mang `@requires_test_db` (skip cứng khi thiếu TEST_DATABASE_URL) — KHÔNG
+BAO GIỜ chạy trên DB chính kể cả có warning. Test chỉ SEED thêm row (assessments) rồi tự dọn thì
+`@requires_db` đủ; test WIPE/reset toàn bộ = `@requires_test_db`.
 """
 
 from __future__ import annotations
@@ -90,6 +96,15 @@ requires_db = pytest.mark.skipif(
     reason="PG chưa sẵn/chưa seed — `docker compose up -d db` + "
     "`uv run alembic upgrade head` + `uv run python -m app.db.seed_from_lab` "
     "(hoặc set TEST_DATABASE_URL để auto-setup test-db riêng)",
+)
+
+# GATE PHÁ HOẠI (T7-4 rider): test WIPE/reset toàn bộ (reset_demo, TRUNCATE runtime) → SKIP CỨNG
+# khi thiếu TEST_DATABASE_URL — chặn wipe nhầm DB chính dù DB chính đang seeded (requires_db pass).
+# Chồng requires_db: phải CÓ test-db riêng VÀ db sẵn. Warning không đủ — người quên env vẫn bị chặn.
+requires_test_db = pytest.mark.skipif(
+    not _TEST_DB or not _db_ready(),
+    reason="TEST PHÁ HOẠI (reset/wipe) — CHỈ chạy khi TEST_DATABASE_URL set (test-db riêng). "
+    "Không set → skip để KHÔNG wipe DB chính. Set TEST_DATABASE_URL=postgresql://shb:shb@localhost:5432/shb_test.",
 )
 
 

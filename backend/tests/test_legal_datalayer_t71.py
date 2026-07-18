@@ -13,7 +13,7 @@ import psycopg2
 
 from app.db.config import DATABASE_URL
 
-from .conftest import requires_db
+from .conftest import requires_db, requires_test_db
 
 
 def _q1(sql: str, args: tuple = ()) -> object:
@@ -160,7 +160,10 @@ def test_employment_has_income_mismatch_case():
     assert mismatched >= 1, "cần ≥1 ca income mismatch >10% (trap SEED-REPORT §7.2)"
 
 
-@requires_db
+@requires_test_db  # count==0 CHỈ đúng ngay-sau-seed (assessments = ledger demo ghi) → test-db sạch (siết)
 def test_assessments_seeded_empty():
-    """assessments = sổ GHI runtime → seed RỖNG (legal_classify_profile ghi lúc chạy, T7-2)."""
+    """assessments = sổ GHI runtime → seed RỖNG (legal_classify_profile ghi lúc chạy, T7-2).
+
+    requires_test_db (không requires_db): count==0 KHÔNG phải invariant DB chính (demo ghi ledger
+    mỗi lần classify) — chỉ đúng trên test-db conftest vừa seed. Chạy trên DB chính = false-alarm."""
     assert _q1("SELECT count(*) FROM assessments") == 0

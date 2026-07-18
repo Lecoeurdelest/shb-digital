@@ -6,14 +6,23 @@ import type { Card } from '../../types';
 import { cardItems, cardField, itemField, renderValue, collectSources } from './cardUtil';
 import { CitationChip } from './CitationChip';
 import { ApprovalPanel, type DecideFn } from './ApprovalPanel';
+import { FormCard, type FormSubmitFn } from './FormCard';
 import './CardRenderer.css';
 
 type CiteFn = (taskId: string | null, source: string) => void;
 
-// card chiếm cả 2 cột (rộng) cho case_file/document/approval; còn lại 1 cột.
-const WIDE = new Set(['case_file', 'document', 'approval']);
+interface CardProps {
+  card: Card;
+  onCite?: CiteFn;
+  onDecide?: DecideFn;
+  canDecide?: boolean;
+  onFormSubmit?: FormSubmitFn; // T9-3 — khách nộp hồ sơ (card type 'form')
+}
 
-export function CardRenderer({ card, onCite, onDecide, canDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn; canDecide?: boolean }) {
+// card chiếm cả 2 cột (rộng) cho case_file/document/approval/form; còn lại 1 cột.
+const WIDE = new Set(['case_file', 'document', 'approval', 'form']);
+
+export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit }: CardProps) {
   const wide = WIDE.has(card.type);
   return (
     <div className={`card${wide ? ' card--wide' : ''}`} id={`card-${card.id}`} data-testid={`card-${card.type}`}>
@@ -22,13 +31,13 @@ export function CardRenderer({ card, onCite, onDecide, canDecide }: { card: Card
         <span className="card__type">{card.type}</span>
       </div>
       <div className="card__body">
-        <CardBody card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} />
+        <CardBody card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit} />
       </div>
     </div>
   );
 }
 
-function CardBody({ card, onCite, onDecide, canDecide }: { card: Card; onCite?: CiteFn; onDecide?: DecideFn; canDecide?: boolean }) {
+function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit }: CardProps) {
   switch (card.type) {
     case 'metric':
       return <MetricBody card={card} onCite={onCite} />;
@@ -44,6 +53,8 @@ function CardBody({ card, onCite, onDecide, canDecide }: { card: Card; onCite?: 
       return <DocumentBody card={card} onCite={onCite} />;
     case 'approval':
       return <ApprovalPanel card={card} onDecide={onDecide} canDecide={canDecide} />;
+    case 'form':
+      return <FormCard card={card} onSubmit={onFormSubmit} />;
     default:
       return <RawBody card={card} />;
   }

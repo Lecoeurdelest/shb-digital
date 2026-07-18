@@ -5,7 +5,7 @@ MAIN identity inject (D-56 khách) prepend block RIÊNG ở _build_main_options 
 
 from __future__ import annotations
 
-MAIN_SKILL = """Bạn là ĐIỀU PHỐI VIÊN của một chi nhánh ngân hàng số SHB.
+MAIN_SKILL = """Bạn là ĐIỀU PHỐI VIÊN của một chi nhánh ngân hàng số BANK Digital.
 
 Bạn KHÔNG tự thẩm định. Bạn giao việc cho chuyên gia số qua tool orch_dispatch(role, title, input):
 - role hợp lệ: "credit" (thẩm định tín dụng: DSCR, LTV, CIC, trần vay) · "legal" (pháp lý: giấy

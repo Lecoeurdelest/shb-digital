@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, LoginResult, ModelsResponse } from '../types';
+import type { ApiError, ApprovalRow, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -51,6 +51,17 @@ export const apiClient = {
     return request<LoginResult>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
+    });
+  },
+
+  // đăng ký khách mới (D-57 T9-3): {username, password, email?} → 201 {token, user} + cookie auto-login.
+  // Lỗi 4-field: 400 bad_username/bad_password/bad_email · 409 username_taken.
+  register(username: string, password: string, email?: string): Promise<LoginResult> {
+    const body: { username: string; password: string; email?: string } = { username, password };
+    if (email) body.email = email;
+    return request<LoginResult>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
     });
   },
 
@@ -114,6 +125,20 @@ export const apiClient = {
   // model/provider list (dropdown D-45b).
   getModels(): Promise<ModelsResponse> {
     return request<ModelsResponse>('/api/models');
+  },
+
+  // khách nộp hồ sơ form (D-57 T9-3) → 200 {owner_id, customer_created}. 400 missing_fields/bad_income
+  // · 409 form_already_submitted · 404 (đều 4-field).
+  submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult> {
+    return request<FormSubmitResult>(`/api/conversations/${convId}/form-submit`, {
+      method: 'POST',
+      body: JSON.stringify({ card_id: cardId, values }),
+    });
+  },
+
+  // bell thông báo khách (D-57 T9-3 · T9-2). Server T9-2 chưa lên → 404 (bell ẩn im, hook lo).
+  getNotifications(): Promise<NotificationItem[]> {
+    return request<NotificationItem[]>('/api/notifications');
   },
 
   // compare single vs multi-agent (deliverable #5). Chạy DÀI ~90s → FE loading rõ. body {question}.
