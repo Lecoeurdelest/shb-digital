@@ -114,9 +114,14 @@ def mount_role(role: str) -> tuple[str, McpSdkServerConfig, list[str]]:
     if present_path.exists():
         skill = skill + "\n\n" + present_path.read_text()
 
+    from app.orch.gated import GATED_WHITELIST, gated
+
     sdk_tools = []
     for name, fn in mod.REGISTRY.items():
-        handler = _make_handler(fn, name, mod.SCHEMAS)
+        read_handler = _make_handler(fn, name, mod.SCHEMAS)
+        # PHANH (T3-1, advisor #5): tool trong GATED_WHITELIST → gated handler (own conn/tx, thread
+        # SAME conn vào inner). Read tool giữ handler per-call (mount §2). CHỈ gated whitelist thread-tx.
+        handler = gated(name, read_handler) if name in GATED_WHITELIST else read_handler
         input_schema = schema_to_input(mod.SCHEMAS[name].get("params", {}))
         sdk_tools.append(tool(name=name, description=mod.SCHEMAS[name]["mô tả"], input_schema=input_schema)(handler))
 

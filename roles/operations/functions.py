@@ -36,8 +36,21 @@ def ops_plan(conn: sqlite3.Connection, owner_id: str, loan_type: str | None = No
     }
 
 
-REGISTRY = {"ops_plan": ops_plan}
-ANNOTATIONS = {"ops_plan": {"readOnlyHint": True}}
+def disburse(conn: sqlite3.Connection, loan_id: str, amount: float = 0) -> dict[str, Any]:
+    """[GATED — vỏ, T3-1] Giải ngân khoản vay. CÓ PHANH: gọi đầu → chờ người duyệt → duyệt →
+    chạy (ghi loans.status='disbursed'). Logic thật ở app/orch/gated.disburse (wrapper thread-conn
+    tự chạy — REGISTRY entry này chỉ để mount thấy tên+schema; gated wrapper KHÔNG gọi fn này).
+    D-18: phanh là của VỎ. GATED_WHITELIST={disburse}."""
+    # KHÔNG chạy trực tiếp — gated wrapper (mount) chặn + tự chạy GATED_TOOLS['disburse'].
+    raise RuntimeError("disburse phải qua gated wrapper (T3-1) — không gọi trực tiếp")
+
+
+# ops_plan read-only; disburse GATED (whitelist app/orch/gated.GATED_WHITELIST).
+REGISTRY = {"ops_plan": ops_plan, "disburse": disburse}
+ANNOTATIONS = {
+    "ops_plan": {"readOnlyHint": True},
+    "disburse": {"destructiveHint": True},  # gated (§4.4) — harness policy máy-đọc
+}
 SCHEMAS: dict[str, Any] = {
     "ops_plan": {
         "mô tả": ("[STUB] Lộ trình xử lý hồ sơ vay: các bước + người phụ trách + ETA + tổng ngày."
@@ -46,5 +59,13 @@ SCHEMAS: dict[str, Any] = {
             "owner_id": {"type": "str", "required": True, "desc": "id khách/DN"},
             "loan_type": {"type": "str", "values": ["consumer", "secured"], "default": None,
                           "desc": "loại vay"},
+        }},
+    "disburse": {
+        "mô tả": ("GIẢI NGÂN khoản vay (CÓ PHANH — cần người duyệt). Gọi lần đầu → hệ thống CHẶN, "
+                  "tạo phiếu chờ duyệt; báo main kết thúc lượt. Sau khi được DUYỆT, gọi lại đúng "
+                  "tham số → giải ngân chạy thật. KHÔNG tự nhẩm/bỏ qua phanh."),
+        "params": {
+            "loan_id": {"type": "str", "required": True, "desc": "id khoản vay, vd 'L001'"},
+            "amount": {"type": "float", "default": 0, "desc": "số tiền giải ngân (VND)"},
         }},
 }

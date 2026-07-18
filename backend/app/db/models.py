@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Integer, String, Text, text
+from sqlalchemy import BigInteger, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -170,6 +170,32 @@ class Message(Base):
     sender: Mapped[str | None] = mapped_column(Text)
     content: Mapped[str | None] = mapped_column(Text)
     meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+
+class Approval(Base):
+    # SPEC §10 §4.4 — phanh (T3-1). Phiếu chờ duyệt: 1 mặt với card approval. status vòng đời
+    # pending→approved|rejected→used. Key (conv_id, action, payload_hash) khớp phiếu — lookup
+    # LUÔN lọc conv_id (phiếu ca A không mở ca B). id/conv_id/task_id pattern D-28c/D-31.
+    __tablename__ = "approvals"
+    __table_args__ = (
+        # lookup key wrapper gated (conv_id, action, payload_hash) — 4 bước phanh
+        Index("ix_approvals_key", "conv_id", "action", "payload_hash"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4
+    )
+    conv_id: Mapped[str] = mapped_column(Text, index=True)
+    task_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    action: Mapped[str] = mapped_column(Text)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    payload_hash: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, server_default="pending")  # pending|approved|rejected|used
+    decided_by: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    receipt: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
 
 class Card(Base):
