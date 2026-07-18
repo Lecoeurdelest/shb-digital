@@ -3,7 +3,7 @@
 **Theme:** Demo-safety cluster (user chốt "fix UX-treo khi SSE cái này trước đi"): UX-treo SSE-đứt
 + đóng ngoại lệ race-status S5 + tách DB test + restart-sạch + smoke e2e liền mạch.
 **Commit:** bb17cd8 (UX-treo cluster) · ca59f5b (tách-DB + pkill) · 750ccf8 (smoke + hardening) ·
-{{đóng — điền}}
+66c3aeb (đóng)
 
 ## Kết quả từng task
 

@@ -46,7 +46,7 @@
 - **Nợ → S6/sau demo:** UX-treo SSE-đứt (phân tầng + fix) · smoke e2e liền mạch · LAB legal 3-nguồn port ·
   agent-bền D-50 · race nhấp-nháy-status (ngoại lệ có soát).
 
-## Sprint 6 — Demo-safety cluster ✅ ĐÓNG (bb17cd8 · ca59f5b · 750ccf8 · {{đóng}})
+## Sprint 6 — Demo-safety cluster ✅ ĐÓNG (bb17cd8 · ca59f5b · 750ccf8 · 66c3aeb)
 - **Theme (user chốt "fix UX-treo trước đi"):** UX-treo SSE-đứt (heartbeat ping data-frame §4 +
   FE watchdog 25s + time-scope boot-cleanup + conv-idle + guard-B write-war) + tách DB test
   (TEST_DATABASE_URL → shb_test, luật-hoá không-pytest-trên-DB-demo) + restart-sạch pkill

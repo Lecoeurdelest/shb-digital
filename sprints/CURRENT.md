@@ -37,3 +37,4 @@ tester kill-mid-flight: hệ TỰ LÀNH) + tách DB test (shb_test, hết rác d
 | 3 | 87d9e18, 3d3cf9d, a04df64, 44fdb4b, 2ab26a4, cd1bd24 | PHANH e2e: disburse gated + phiếu + resume + giải ngân thật. Gate 4/4 browser+PG. Race FIXED (guard A/B). Provider standalone (zai). Routing fix + card-sync + skip-auth. 160 test. Ngoại lệ: loop-edge S4. |
 | 5 | 66ffbc2, 5434874, 8dff186, 111458e, 5513813, 5d3810b + đóng | Demo-prep: script v4 + rehearsal PASS + phanh phân tầng + MAIN tuần tự + D-54 + polish. 288 test. DEMO-READY. |
 | 4 | dcf3ac3, ad4f1b1, a9e931c, be8560d, 5da3667, 13860c2 | Control Tower + trace F1 + SubAgentView/huỷ F2a + compare + picker 3 nhà model + loop-bound + seed-reset. Gate tester trọn. 282 test. Ngoại lệ RỖNG. 5/5 deliverable có mặt. |
+| 6 | bb17cd8, ca59f5b, 750ccf8, 66c3aeb | Demo-safety: UX-treo SSE fixed (ping+watchdog+time-scope+guard-B, race S5 đóng) + tách DB test + pkill restart-sạch + smoke e2e liền mạch 4'25". 302 test. |
