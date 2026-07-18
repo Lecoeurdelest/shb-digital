@@ -29,6 +29,13 @@ Backend entrypoint tự chạy `alembic upgrade head` + seed (idempotent) trư�
 docker compose -f docker-compose.prod.yml ps          # 3 service healthy
 curl -fsS http://localhost:8011/api/health            # {"ok":true}
 curl -fsS http://localhost:3011/ | head -c 200        # FE index.html (SPA)
+# FIX D: providers ≥2 (KHÔNG chỉ claude-cli chết) — bắt lỗi thiếu COPY configs/ trong image.
+# /api/models cần auth (prod DEV_SKIP_AUTH off) → login lấy cookie trước.
+CJ=$(mktemp); curl -fsS -c "$CJ" -X POST http://localhost:8011/api/auth/login \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin"}' >/dev/null
+curl -fsS -b "$CJ" http://localhost:8011/api/models | python3 -c "import sys,json; d=json.load(sys.stdin); \
+  ps=d.get('providers',d) if isinstance(d,dict) else d; names=[p['name'] for p in ps]; \
+  print('providers:', names); assert len(names)>=2, 'CHỈ 1 provider — thiếu configs/ trong image?'"; rm -f "$CJ"
 # smoke 1 vòng: đăng ký khách → form → thẩm định (qua UI localhost:3011)
 ```
 Lỗi → `docker compose -f docker-compose.prod.yml logs backend` (migration/seed/CLI).

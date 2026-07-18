@@ -29,9 +29,14 @@ def _names(env_val: str | None, monkeypatch) -> list[str]:
 
 
 def test_no_env_all_providers(monkeypatch):
-    """Không set env → đủ provider yaml (dev/local KHÔNG đổi)."""
+    """Không set env → configs/providers.yaml LOAD ĐỦ (KHÔNG rơi built-in default 1-provider).
+
+    FIX D: built-in default (khi thiếu configs) CHỈ có claude-cli → assert ≥2 + có 'zai' bắt được
+    lỗi thiếu COPY configs/ trong image (loader fallback default = 1 provider chết)."""
     names = _names(None, monkeypatch)
-    assert "claude-cli" in names and len(names) >= 1  # đủ như cấu hình gốc
+    assert "claude-cli" in names
+    assert len(names) >= 2, f"configs không load (built-in default 1-provider?): {names}"
+    assert "zai" in names  # provider yaml thật — không có trong built-in default
 
 
 def test_disable_hides_provider(monkeypatch):

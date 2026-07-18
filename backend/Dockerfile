@@ -29,6 +29,9 @@ RUN uv sync --frozen --no-dev 2>/dev/null || uv sync --no-dev
 WORKDIR /app
 COPY backend/ ./backend/
 COPY roles/ ./roles/
+# FIX D (deploy-blocking): configs/providers.yaml — Providers loader resolve /app/configs/ (parents[3]
+# từ /app/backend/app/orch). THIẾU → loader rơi built-in default CHỈ claude-cli (nút chết trên VM).
+COPY configs/ ./configs/
 # SEED snapshot (D-62): repo tự chứa seed — seed_from_lab fallback rơi vào /app/deploy/seed/
 # khi không có LAB sibling (VM clone-trần).
 COPY deploy/seed/ ./deploy/seed/
