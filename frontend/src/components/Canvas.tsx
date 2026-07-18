@@ -1,24 +1,16 @@
-// Canvas.tsx — panel phải: tab Đội làm việc (constellation spatial-2D 4 sub + bảng việc) | Công việc (cards).
-// Constellation (D-53): Main giữa + 4 sub tỏa góc + đường nối chấm SVG + status dot — CSS/SVG THUẦN,
-// KHÔNG three.js (D-24 3D vẫn hoãn). Card từ SSE/full-state, render defensive. Look-and-feel: design/ (D-13).
+// Canvas.tsx — panel phải: tab Đội làm việc (lobby 3D chi nhánh BANK + bảng việc) | Công việc (cards).
+// Lobby 3D (D-24 ĐÓNG — thay constellation D-53, người chốt 18/7): three.js, scene tĩnh render-on-demand,
+// agent 'run' → icon nhấp nháy trên đầu. Card từ SSE/full-state, render defensive. Look-and-feel: design/ (D-13).
 import { useState } from 'react';
 import type { Card, OrchTask } from '../types';
 import { CardRenderer } from './cards/CardRenderer';
 import type { DecideFn } from './cards/ApprovalPanel';
 import { TaskBadge } from './TaskBadge';
-import { roleLabel } from '../roles';
+import { Lobby3D, type LobbyStatus } from './Lobby3D';
 import './Canvas.css';
 
-// 4 phòng ban sub (D-24 live map 2D → spatial constellation D-53, CSS/SVG thuần, KHÔNG three.js).
-// Mỗi sub có toạ độ % quanh Main (giữa) — Main tỏa đường nối chấm ra 4 góc chéo.
-const ROLE_ICON: Record<string, string> = { credit: '🧮', legal: '⚖', products: '📦', ops: '⚙' };
-// vị trí node trên khung constellation (% — x,y). 4 góc chéo cân đối quanh Main (50,50).
-const SUB_LAYOUT = [
-  { role: 'credit', x: 24, y: 26 },   // trên-trái
-  { role: 'legal', x: 76, y: 26 },    // trên-phải
-  { role: 'products', x: 76, y: 74 },  // dưới-phải
-  { role: 'ops', x: 24, y: 74 },       // dưới-trái
-] as const;
+// 4 phòng ban sub. Main không nằm trong grid sub (là điều phối).
+const SUB_ROLES = ['credit', 'legal', 'products', 'ops'] as const;
 
 interface Props {
   cards: Card[];
@@ -34,14 +26,7 @@ function subStatus(tasks: OrchTask[], role: string): OrchTask['status'] | 'idle'
   return t?.status ?? 'idle';
 }
 
-const DOT_TONE: Record<string, string> = {
-  idle: 'idle', queued: 'run', running: 'run', done: 'pass', failed: 'fail',
-};
-const STATUS_TEXT: Record<string, string> = {
-  idle: '— chờ', queued: '● hàng đợi', running: '● đang làm', done: '✓ xong', failed: '✗ lỗi',
-};
-
-// task mới nhất của 1 role (để click node live map → mở sub đó).
+// task mới nhất của 1 role (để click nhân vật lobby → mở sub đó).
 function latestTaskOfRole(tasks: OrchTask[], role: string): OrchTask | undefined {
   return tasks.filter((t) => t.role === role).at(-1);
 }
@@ -51,6 +36,21 @@ export function Canvas({ cards, tasks, onDecide, canDecide, onSelectSub }: Props
   // citation chip bấm — S2: hiện banner tên tool (tooltip đã có). Trace view mở tool-call = S4.
   const [cited, setCited] = useState<string | null>(null);
   const onCite = (_taskId: string | null, source: string) => setCited(source);
+
+  // trạng thái từng agent cho lobby 3D (map TaskStatus → trạng thái hiển thị); Main 'run' nếu có sub chạy
+  const agentStatus = (role: string): LobbyStatus => {
+    const st = subStatus(tasks, role);
+    return st === 'running' || st === 'queued' ? 'run' : st === 'done' ? 'done' : st === 'failed' ? 'err' : 'idle';
+  };
+  const subStates = SUB_ROLES.map(agentStatus);
+  const agents: Record<string, LobbyStatus> = {
+    planner: subStates.includes('run') ? 'run' : subStates.includes('done') ? 'done' : 'idle',
+    credit: agentStatus('credit'), legal: agentStatus('legal'), products: agentStatus('products'), ops: agentStatus('ops'),
+  };
+  const handleSelectRole = (role: string) => {
+    const task = latestTaskOfRole(tasks, role);
+    if (task && onSelectSub) onSelectSub(task.id);
+  };
 
   return (
     <section className="canvas">
@@ -73,57 +73,8 @@ export function Canvas({ cards, tasks, onDecide, canDecide, onSelectSub }: Props
 
       {tab === 'lobby' ? (
         <div className="canvas__lobby">
-          {/* constellation — Main giữa + 4 sub tỏa góc + đường nối chấm (SVG). D-53, CSS/SVG thuần. */}
-          <div className="constel" aria-label="Bản đồ đội — sơ đồ không gian">
-            {/* lớp đường nối: Main(50,50) → mỗi sub. dasharray = chấm; màu theo tone active. */}
-            <svg className="constel__links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              {SUB_LAYOUT.map(({ role, x, y }) => {
-                const st = subStatus(tasks, role);
-                const active = st === 'running' || st === 'queued';
-                return (
-                  <line
-                    key={role}
-                    x1="50" y1="50" x2={x} y2={y}
-                    className={`constel__link${active ? ' constel__link--active' : ''}`}
-                  />
-                );
-              })}
-            </svg>
-
-            {/* Main — tâm điều phối */}
-            <div className="constel__main" style={{ left: '50%', top: '50%' }}>
-              <span className="constel__main-icon">◆</span>
-              <span className="constel__main-name">Main</span>
-              <span className="constel__main-desc">điều phối · hòa giải</span>
-            </div>
-
-            {/* 4 sub node tỏa góc */}
-            {SUB_LAYOUT.map(({ role, x, y }) => {
-              const st = subStatus(tasks, role);
-              const tone = DOT_TONE[st] ?? 'idle';
-              const task = latestTaskOfRole(tasks, role); // click node có task → mở SubAgentView
-              const clickable = !!task && !!onSelectSub;
-              return (
-                <div
-                  key={role}
-                  className={`constel__node constel__node--${tone}${clickable ? ' constel__node--clickable' : ''}`}
-                  style={{ left: `${x}%`, top: `${y}%` }}
-                  data-testid={`node-${role}`}
-                  onClick={clickable ? () => onSelectSub!(task!.id) : undefined}
-                  role={clickable ? 'button' : undefined}
-                  tabIndex={clickable ? 0 : undefined}
-                  onKeyDown={clickable ? (e) => e.key === 'Enter' && onSelectSub!(task!.id) : undefined}
-                >
-                  <span className="constel__icon">{ROLE_ICON[role]}</span>
-                  <span className="constel__name">{roleLabel(role)}</span>
-                  <span className="constel__meta">
-                    <span className={`status-dot status-dot--${tone}${st === 'running' ? ' deg-pulse' : ''}`} />
-                    <span className="constel__status">{STATUS_TEXT[st] ?? st}</span>
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          {/* live map 3D — chi nhánh BANK (D-24 lobby-3D): click nhân vật → mở SubAgentView */}
+          <Lobby3D agents={agents} onSelect={handleSelectRole} />
 
           {/* bảng việc */}
           <div className="canvas__tasks">
