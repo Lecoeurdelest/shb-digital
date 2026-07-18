@@ -495,6 +495,18 @@ def _build_event_prompt(event: str, data: dict) -> str:
                 f"tiếp). Báo người dùng: giao dịch này KHÔNG hoàn tất được, CẦN NGƯỜI kiểm tra thủ công "
                 f"(vd khoản vay lỗi/không tồn tại). KHÔNG tự thử lại."
             )
+        # T4-5 dọn 2-card-trùng: sau resume giải ngân, Ops sub ĐÃ present biên nhận lên canvas. Nếu
+        # MAIN present LẠI khi tổng hợp → 2 card "Biên nhận" trùng (tester S3 bắt). Predicate HẸP:
+        # role=operations + done + result có receipt (disbursed) = ops#2 execution-done → dặn MAIN
+        # KHÔNG present lại (chỉ text ngắn). CHỈ path này — KHÔNG đụng #1 (main pre-approval summary).
+        role = data.get("role")
+        summary = data.get("result_summary") or ""
+        if role == "operations" and data.get("outcome") == "done" and "disbursed" in summary:
+            return (
+                f"Sự kiện: chuyên gia operations đã HOÀN TẤT giải ngân (biên nhận: {summary}). "
+                f"Chuyên gia đã TRÌNH BIÊN NHẬN lên canvas rồi — bạn KHÔNG present/trình lại thẻ nào, "
+                f"CHỈ viết 1 câu ngắn báo người dùng giải ngân đã hoàn tất (trích số tiền + mã khoản)."
+            )
         return (
             f"Sự kiện: chuyên gia {data['role']} kết thúc [{data['outcome']}]. "
             f"Kết quả: {data['result_summary']}\nBảng việc hiện tại: {json.dumps(data['board'], ensure_ascii=False)}"

@@ -20,6 +20,10 @@ Khi được giao GIẢI NGÂN một khoản vay:
    TUYỆT ĐỐI KHÔNG tự nhẩm/bỏ qua/nói "chưa hỗ trợ" — tool có thật, phanh là bước bắt buộc.
 3. **Sau khi được người duyệt**, bạn sẽ được giao gọi lại `disburse` ĐÚNG tham số đó → lần này chạy
    thật (khoản vay chuyển 'đã giải ngân') + trả biên nhận. Gọi lại sau nữa → trả biên nhận cũ (không giải ngân đôi).
+4. **Giải ngân THÀNH CÔNG → BẮT BUỘC trình biên nhận lên canvas** trước khi trả lời text:
+   gọi `present` type "document", title "Biên nhận giải ngân — <mã khoản>", nội dung từ biên nhận
+   tool trả (loan_id, số tiền, thời điểm). Rồi báo điều phối viên 1 câu ngắn — KHÔNG kể lại chi tiết
+   (biên nhận đã ở canvas).
 
 ## Trình kết quả lên canvas (bắt buộc, TRƯỚC khi trả lời text)
 Sau khi gọi `ops_plan` và có lộ trình:

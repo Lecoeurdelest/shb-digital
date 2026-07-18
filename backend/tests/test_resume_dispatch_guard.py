@@ -229,6 +229,44 @@ def test_prompt_exec_failed_deterministic():
     assert "KHÔNG tự thử lại" in p
 
 
+def test_prompt_disburse_done_dan_khong_present_lai():
+    """T4-5: task_done ops+done+disbursed → dặn MAIN KHÔNG present lại (Ops đã trình biên nhận) →
+    chống 2-card-trùng. Predicate HẸP: chỉ path này."""
+    from app.orch.main_session import _build_event_prompt
+
+    p = _build_event_prompt(
+        "task_done",
+        {
+            "role": "operations",
+            "outcome": "done",
+            "result_summary": '{"disbursed": true, "loan_id": "L001", "amount": 5000000000}',
+            "board": [],
+        },
+    )
+    assert "KHÔNG present" in p and "TRÌNH BIÊN NHẬN" in p
+    assert "1 câu ngắn" in p
+
+
+def test_prompt_non_disburse_task_done_normal():
+    """T4-5 predicate KHÔNG fire cho task khác (credit done / ops không disbursed) → prompt generic
+    (GIỮ #1 main summary + present bình thường)."""
+    from app.orch.main_session import _build_event_prompt
+
+    # credit done → generic (không dặn không-present)
+    p_credit = _build_event_prompt(
+        "task_done",
+        {"role": "credit", "outcome": "done", "result_summary": "DSCR 1.5 đủ điều kiện", "board": []},
+    )
+    assert "KHÔNG present" not in p_credit
+
+    # ops done nhưng KHÔNG disbursed (vd ops_plan lộ trình) → generic
+    p_ops_plan = _build_event_prompt(
+        "task_done",
+        {"role": "operations", "outcome": "done", "result_summary": '{"steps": [...], "totalDays": 5}', "board": []},
+    )
+    assert "KHÔNG present" not in p_ops_plan
+
+
 @pytest.mark.asyncio
 async def test_T40_exhausted_wrong_role_no_mark(monkeypatch):
     """grant vượt trần NHƯNG task_done role KHÁC → KHÔNG mark (chờ role sở hữu done)."""
