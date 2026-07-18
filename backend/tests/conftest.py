@@ -39,10 +39,12 @@ def _db_ready() -> bool:
         return False
     try:
         cur = conn.cursor()
-        cur.execute("SELECT count(*) FROM assumptions")
-        n = cur.fetchone()[0]
+        # seed đủ = nghiệp vụ (assumptions) VÀ users (auth) — half-setup (nghiệp vụ có, users thiếu →
+        # login 401 oan) → coi CHƯA sẵn để _ensure_test_db seed_users lại (edge tách-DB test).
+        cur.execute("SELECT (SELECT count(*) FROM assumptions), (SELECT count(*) FROM users)")
+        n_assum, n_users = cur.fetchone()
         cur.close()
-        return n > 0
+        return n_assum > 0 and n_users > 0
     except psycopg2.Error:
         return False
     finally:
