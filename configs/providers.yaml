@@ -44,4 +44,5 @@ providers:
     base_url: http://localhost:11434
     api_key: ${LOCAL_KEY}
     models: [qwen3:8b]
+    sub_model: qwen3:8b   # sub KHÔNG dùng alias haiku (Ollama không map tên claude)
     note: "model local qua Ollama — on-prem/chủ quyền dữ liệu; cost_usd KHÔNG TIN"

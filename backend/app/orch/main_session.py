@@ -46,7 +46,9 @@ def conversation_cwd(conv_id: str) -> Path:
     return d
 
 
-def _build_sub_options(task: Task, provider_env: dict[str, str] | None = None) -> Any:
+def _build_sub_options(
+    task: Task, provider_env: dict[str, str] | None = None, model: str | None = None
+) -> Any:
     """Options SUB: SKILL role + toolpack role (mount_role) + common. model=haiku. KHÔNG resume.
 
     provider_env (D-45): env {ANTHROPIC_BASE_URL/AUTH_TOKEN/API_KEY} chọn gateway SDK per-session.
@@ -59,7 +61,7 @@ def _build_sub_options(task: Task, provider_env: dict[str, str] | None = None) -
 
     return ClaudeAgentOptions(
         system_prompt=skill,
-        model=SUB_MODEL,
+        model=model or SUB_MODEL,
         mcp_servers={f"banking_{task.role}": server, "common": COMMON_SERVER},
         tools=[],
         allowed_tools=allowed + COMMON_ALLOWED,
@@ -86,13 +88,17 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
         UserMessage,
     )
 
-    from app.orch.providers import conv_provider_env
+    from app.orch.providers import conv_provider_env, conv_sub_model
 
     # D-45b (c): sub cùng conv dùng provider CỦA CONV (nhất quán trải nghiệm). null → server-default.
     conv = await store.get_conversation(task.conv_id)
-    penv = conv_provider_env(conv.get("provider") if conv else None)
+    _cprov = conv.get("provider") if conv else None
+    penv = conv_provider_env(_cprov)
+    # sub_model per-provider (yaml, optional): provider không map tên claude (local Ollama) khai
+    # sub_model → sub spawn model TỒN TẠI thay vì haiku alias (fix sub chết câm khi provider=local).
+    smodel = conv_sub_model(_cprov)
     brief = task.input or task.title
-    client = ClaudeSDKClient(options=_build_sub_options(task, penv))
+    client = ClaudeSDKClient(options=_build_sub_options(task, penv, smodel))
     text_parts: list[str] = []
     tool_calls: list[dict[str, Any]] = []
     # T4-1 audit: buffer tool_use theo id (input) → match ToolResultBlock (output) → record 1 row đủ.

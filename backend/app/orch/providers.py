@@ -181,6 +181,17 @@ def server_provider_env() -> dict[str, str]:
     return env
 
 
+def conv_sub_model(conv_provider: str | None) -> str | None:
+    """Model cho SUB theo provider của conv — yaml field `sub_model` (OPTIONAL, D-45b mở rộng).
+
+    Mặc định sub luôn 'haiku' (rẻ, cố ý — D-45b); provider KHÔNG map tên claude (vd `local`
+    Ollama on-prem: model phải tồn tại đúng tên) khai `sub_model:` trong providers.yaml →
+    sub spawn model đó. Trả None → caller giữ SUB_MODEL."""
+    providers.reload()
+    name = conv_provider or providers.effective_default()
+    return (providers._items.get(name) or {}).get("sub_model")
+
+
 def conv_provider_env(conv_provider: str | None) -> dict[str, str]:
     """D-45b (c) per-conv: env từ provider CỦA CONV (resume-consistency — conv tạo trên X chạy X).
 
