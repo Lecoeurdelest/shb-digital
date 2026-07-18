@@ -20,9 +20,13 @@ export function useApprovalBadge(enabled: boolean): number {
     let timer = 0;
     let stopped = false; // 403 → ngừng hẳn (không error-loop)
 
-    const tick = () => {
-      // tab ẩn → bỏ nhịp này (không gọi server), lịch lại nhịp sau
-      if (document.visibilityState === 'hidden') {
+    // DF-B-06: tick ĐẦU (initial) fetch VÔ ĐIỀU KIỆN — bỏ qua check hidden. Lý do (robustness thật,
+    // KHÔNG phải nới-code-cho-test): (1) badge có số NGAY khi user focus tab, không đợi nhịp poll;
+    // (2) edge thật "mở app ở background tab → badge trắng tới hết nhịp" được fix; (3) automation
+    // (visibilityState luôn 'hidden') verify được cơ chế end-to-end mount→1 GET→badge. Tick 2+ giữ
+    // skip-khi-hidden (đỡ spam server khi tab thật ẩn lâu).
+    const tick = (initial = false) => {
+      if (!initial && document.visibilityState === 'hidden') {
         schedule();
         return;
       }
@@ -50,8 +54,8 @@ export function useApprovalBadge(enabled: boolean): number {
       timer = window.setTimeout(tick, POLL_MS);
     };
 
-    // poll ngay lần đầu (không đợi 5s) để badge nổi sớm
-    tick();
+    // poll ngay lần đầu (không đợi 5s) để badge nổi sớm — VÔ ĐIỀU KIỆN (initial, bỏ qua hidden — DF-B-06)
+    tick(true);
     // tab hiện lại → poll ngay (bắt phiếu tích luỹ lúc ẩn) thay vì đợi hết nhịp
     const onVisible = () => {
       if (document.visibilityState === 'visible' && !stopped && alive) {

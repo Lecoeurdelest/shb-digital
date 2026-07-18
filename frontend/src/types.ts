@@ -148,6 +148,14 @@ export interface AuditRow {
 
 // ── Control Tower (S4 — T4-6) ──
 // approval queue row (GET /api/approvals?status=pending — admin, toàn hệ).
+// display (DF-B-01 T14): BE enrich mỗi row cho render người-đọc (tên khách/tiền/loan/lane) — vắng → fallback.
+export interface ApprovalDisplay {
+  customer_name?: string | null;
+  owner_id?: string | null;
+  loan_id?: string | null;
+  amount_vnd?: number | null;
+  lane?: string | null;
+}
 export interface ApprovalRow {
   id: string;
   conv_id: string;
@@ -157,6 +165,7 @@ export interface ApprovalRow {
   status: 'pending' | 'approved' | 'rejected' | 'used';
   decided_by?: string | null;
   reason?: string | null;
+  display?: ApprovalDisplay | null;
   [key: string]: unknown;
 }
 

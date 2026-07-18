@@ -32,11 +32,21 @@ describe('ApprovalPanel', () => {
     expect(onDecide).toHaveBeenCalledWith('appr_1', 'approved', 'OK đủ điều kiện');
   });
 
-  it('bấm Từ chối → onDecide(..., "reject", ...)', () => {
+  // DF-B-07: Từ chối BẮT BUỘC lý do → nút disable khi reason rỗng; điền lý do mới gửi được.
+  it('DF-B-07: Từ chối KHÔNG lý do → nút disabled, không gọi onDecide', () => {
     const onDecide = vi.fn();
     render(<ApprovalPanel card={approvalCard()} onDecide={onDecide} />);
+    expect(screen.getByTestId('approval-reject')).toBeDisabled();
     fireEvent.click(screen.getByTestId('approval-reject'));
-    expect(onDecide).toHaveBeenCalledWith('appr_1', 'rejected', '');
+    expect(onDecide).not.toHaveBeenCalled();
+  });
+
+  it('DF-B-07: điền lý do → Từ chối gọi onDecide(id, "rejected", reason)', () => {
+    const onDecide = vi.fn();
+    render(<ApprovalPanel card={approvalCard()} onDecide={onDecide} />);
+    fireEvent.change(screen.getByLabelText('Lý do quyết định'), { target: { value: 'DSCR quá thấp' } });
+    fireEvent.click(screen.getByTestId('approval-reject'));
+    expect(onDecide).toHaveBeenCalledWith('appr_1', 'rejected', 'DSCR quá thấp');
   });
 
   it('status=approved → KHÔNG nút, badge ĐÃ DUYỆT + text bằng chứng (không xoá card)', () => {

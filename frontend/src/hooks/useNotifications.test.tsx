@@ -53,4 +53,15 @@ describe('useNotifications', () => {
     await act(async () => { vi.advanceTimersByTime(30000); await Promise.resolve(); });
     expect(spy).toHaveBeenCalledTimes(1);
   });
+
+  // DF-B-06-FE-b: tick ĐẦU fetch VÔ ĐIỀU KIỆN dù tab hidden (bell nổi ngay + automation verify được).
+  it('DF-B-06-b: mount khi tab HIDDEN → vẫn fetch 1 lần + set items (không skip tick đầu)', async () => {
+    const orig = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    const spy = vi.spyOn(conversationApi, 'getNotifications').mockResolvedValue(NOTIFS);
+    const { result } = renderHook(() => useNotifications(true));
+    await waitFor(() => expect(result.current.items).toHaveLength(2)); // fetch dù hidden
+    expect(spy).toHaveBeenCalledTimes(1);
+    if (orig) Object.defineProperty(document, 'visibilityState', orig);
+  });
 });

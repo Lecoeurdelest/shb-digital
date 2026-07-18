@@ -118,9 +118,20 @@ class MockBackend {
             id: String(c.approval_id ?? c.id), conv_id: r.conversation.id, task_id: c.task_id ?? null,
             action: String(c.action ?? 'disburse'), payload: { items: c.items ?? [] },
             status: (c.status as ApprovalRow['status']) ?? 'pending', decided_by: (c.decided_by as string) ?? null,
+            // DF-B-01: enrich display (BE thật cũng trả). Mock giá trị gần thực.
+            display: { customer_name: 'DN Gỗ Việt Phát', owner_id: 'B001', loan_id: 'L001', amount_vnd: 5_000_000_000, lane: 'green' },
           });
         }
       }
+    }
+    // seed 2 phiếu cứng (queue có nội dung để verify DF-B-01) khi pending
+    if (status === 'pending' || status === 'all') {
+      out.push(
+        { id: 'appr_seed_1', conv_id: 'conv-seed-1', task_id: null, action: 'disburse', payload: { loan_id: 'L108', amount: 594000000 }, status: 'pending', decided_by: null,
+          display: { customer_name: 'Hộ KD Tân Phú', owner_id: 'C019', loan_id: 'L108', amount_vnd: 594_000_000, lane: 'yellow' } },
+        { id: 'appr_seed_2', conv_id: 'conv-seed-2', task_id: null, action: 'disburse', payload: { loan_id: 'L200', amount: 800000000 }, status: 'pending', decided_by: null,
+          display: { customer_name: 'Nguyễn Văn A', owner_id: 'C029', loan_id: 'L200', amount_vnd: 800_000_000, lane: 'red' } },
+      );
     }
     return out;
   }

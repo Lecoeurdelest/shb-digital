@@ -72,7 +72,7 @@ export function ApprovalPanel({ card, onDecide, canDecide = true }: { card: Card
         <div className="approval__actions">
           <textarea
             className="approval__reason"
-            placeholder="Lý do (tuỳ chọn)…"
+            placeholder="Lý do (bắt buộc khi Từ chối — khách sẽ nhận được)…"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={2}
@@ -93,8 +93,9 @@ export function ApprovalPanel({ card, onDecide, canDecide = true }: { card: Card
               type="button"
               className="btn btn--danger approval__btn"
               onClick={() => decide('rejected')}
-              disabled={busy || !id || !onDecide}
+              disabled={busy || !id || !onDecide || !reason.trim()}
               data-testid="approval-reject"
+              title={!reason.trim() ? 'Nhập lý do từ chối trước' : undefined}
             >
               ✗ Từ chối
             </button>

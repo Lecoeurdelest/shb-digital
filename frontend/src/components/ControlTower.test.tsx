@@ -49,6 +49,35 @@ describe('ControlTower', () => {
     await waitFor(() => expect(screen.queryByTestId('queue-row-a1')).not.toBeInTheDocument());
   });
 
+  // DF-B-07: từ chối 2 bước — bấm "✗ Từ chối" → expand ô lý do; lý do bắt buộc; xác nhận gửi reason.
+  it('DF-B-07: Từ chối → expand ô lý do (bắt buộc); điền → xác nhận gửi reason', async () => {
+    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue({});
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Hàng chờ duyệt'));
+    await waitFor(() => expect(screen.getByTestId('queue-row-a1')).toBeInTheDocument());
+    // bấm "✗ Từ chối" → CHƯA gửi, mở ô lý do
+    fireEvent.click(screen.getByTestId('reject-open-a1'));
+    expect(screen.getByTestId('reject-panel-a1')).toBeInTheDocument();
+    expect(spy).not.toHaveBeenCalled(); // chưa gửi
+    // xác nhận disabled khi lý do rỗng
+    expect(screen.getByTestId('reject-confirm-a1')).toBeDisabled();
+    // điền lý do → xác nhận gửi decideApproval(id,'rejected',reason)
+    fireEvent.change(screen.getByLabelText('Lý do từ chối'), { target: { value: 'Hồ sơ chưa đủ pháp lý' } });
+    fireEvent.click(screen.getByTestId('reject-confirm-a1'));
+    expect(spy).toHaveBeenCalledWith('a1', 'rejected', 'Hồ sơ chưa đủ pháp lý');
+  });
+
+  it('DF-B-07: Huỷ → đóng ô lý do, không gửi', async () => {
+    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue({});
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Hàng chờ duyệt'));
+    await waitFor(() => expect(screen.getByTestId('queue-row-a1')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('reject-open-a1'));
+    fireEvent.click(screen.getByText('Huỷ'));
+    expect(screen.queryByTestId('reject-panel-a1')).not.toBeInTheDocument();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it('tab Nhật ký: audit rows + filter', async () => {
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Nhật ký tool'));
@@ -94,5 +123,31 @@ describe('ControlTower', () => {
     fireEvent.click(screen.getByTestId('compare-run'));
     await waitFor(() => expect(screen.getByText('chỉ single')).toBeInTheDocument());
     expect(screen.getByText(/partial/)).toBeInTheDocument();
+  });
+
+  // DF-B-01: queue render display (tên khách/tiền/loan/lane) thay UUID+JSON thô.
+  it('DF-B-01: row có display → tên khách + tiền VNĐ + loan + lane-chip', async () => {
+    vi.spyOn(conversationApi, 'listApprovals').mockResolvedValue([
+      { id: 'a1', conv_id: 'c1conv', task_id: null, action: 'disburse', payload: { x: 1 }, status: 'pending',
+        display: { customer_name: 'Hộ KD Tân Phú', owner_id: 'C019', loan_id: 'L108', amount_vnd: 594_000_000, lane: 'yellow' } },
+    ]);
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Hàng chờ duyệt'));
+    await waitFor(() => expect(screen.getByText('Hộ KD Tân Phú')).toBeInTheDocument()); // tên khách, không UUID
+    expect(screen.getByText('594.000.000 ₫')).toBeInTheDocument(); // tiền format VN
+    expect(screen.getByText('L108')).toBeInTheDocument();
+    expect(screen.getByText('YELLOW')).toBeInTheDocument(); // lane chip
+  });
+
+  it('DF-B-01 backward: display VẮNG (BE chưa deploy) → fallback shortId + JSON như cũ, không vỡ', async () => {
+    vi.spyOn(conversationApi, 'listApprovals').mockResolvedValue([
+      { id: 'a2', conv_id: 'abcdefghijklmnopqrst', task_id: null, action: 'disburse', payload: { loan: 'L001' }, status: 'pending' },
+    ]);
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Hàng chờ duyệt'));
+    await waitFor(() => expect(screen.getByTestId('queue-row-a2')).toBeInTheDocument());
+    // fallback shortId conv (không có display) + JSON payload hiện
+    expect(screen.getByText(/abcdefghij…/)).toBeInTheDocument();
+    expect(screen.getByText(/L001/)).toBeInTheDocument();
   });
 });

@@ -64,4 +64,30 @@ describe('useApprovalBadge', () => {
     rerender({ on: false });
     expect(result.current).toBe(0);
   });
+
+  // DF-B-06: tick ĐẦU fetch VÔ ĐIỀU KIỆN dù tab hidden (badge nổi ngay + automation verify được);
+  // tick 2+ giữ skip-khi-hidden (đỡ spam server).
+  it('DF-B-06: mount khi tab HIDDEN → vẫn fetch 1 lần + set count (không skip tick đầu)', async () => {
+    const orig = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    const spy = vi.spyOn(conversationApi, 'listApprovals').mockResolvedValue(rows(4));
+    const { result } = renderHook(() => useApprovalBadge(true));
+    await waitFor(() => expect(result.current).toBe(4)); // fetch dù hidden
+    expect(spy).toHaveBeenCalledTimes(1);
+    if (orig) Object.defineProperty(document, 'visibilityState', orig);
+  });
+
+  it('DF-B-06: tick 2+ khi hidden → SKIP (giữ hành vi cũ, không spam server)', async () => {
+    vi.useFakeTimers();
+    const orig = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    const spy = vi.spyOn(conversationApi, 'listApprovals').mockResolvedValue(rows(1));
+    renderHook(() => useApprovalBadge(true));
+    await act(async () => { await Promise.resolve(); }); // tick đầu (initial) fetch
+    expect(spy).toHaveBeenCalledTimes(1);
+    // nhịp sau (5s) — hidden → skip, KHÔNG gọi thêm
+    await act(async () => { vi.advanceTimersByTime(6000); await Promise.resolve(); });
+    expect(spy).toHaveBeenCalledTimes(1); // vẫn 1 (tick 2 skip vì hidden)
+    if (orig) Object.defineProperty(document, 'visibilityState', orig);
+  });
 });

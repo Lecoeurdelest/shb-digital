@@ -35,8 +35,11 @@ export function useNotifications(enabled: boolean): NotificationsState {
     let timer = 0;
     let stopped = false;
 
-    const tick = () => {
-      if (document.visibilityState === 'hidden') { schedule(); return; }
+    // DF-B-06-FE-b: tick ĐẦU (initial) fetch VÔ ĐIỀU KIỆN (bỏ qua hidden) — cùng fix DF-B-06 cho
+    // useApprovalBadge. Bell có số ngay khi user focus + automation verify được + edge background-tab.
+    // tick 2+ giữ skip-khi-hidden (đỡ spam server).
+    const tick = (initial = false) => {
+      if (!initial && document.visibilityState === 'hidden') { schedule(); return; }
       conversationApi
         .getNotifications()
         .then((rows) => {
@@ -59,7 +62,7 @@ export function useNotifications(enabled: boolean): NotificationsState {
     };
     const schedule = () => { if (!stopped && alive) timer = window.setTimeout(tick, POLL_MS); };
 
-    tick();
+    tick(true); // tick đầu vô điều kiện (DF-B-06-FE-b)
     const onVisible = () => {
       if (document.visibilityState === 'visible' && !stopped && alive) { window.clearTimeout(timer); tick(); }
     };

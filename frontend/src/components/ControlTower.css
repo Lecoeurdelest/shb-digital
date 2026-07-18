@@ -152,3 +152,40 @@
   text-align: center;
   vertical-align: middle;
 }
+
+/* DF-B-01: hàng chờ duyệt render người-đọc (tên khách/tiền/loan/lane) */
+.ct__appr-who { font-size: 12.5px; font-weight: 600; color: var(--tx); flex: none; }
+.ct__appr-amount { font: 700 12px var(--mono); color: var(--acc); flex: none; }
+.ct__appr-loan { font: 500 10px var(--mono); color: var(--mute); flex: none; }
+/* lane chip — mirror AssessmentsView .lane--* (self-contained, không phụ load-order) */
+.ct__appr-row .asmt__lane { flex: none; font: 700 10px var(--mono); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.04em; }
+.ct__appr-row .lane--green { color: var(--pass); background: var(--tone-pass-bg); border: 1px solid var(--tone-pass-bd); }
+.ct__appr-row .lane--yellow { color: var(--warn); background: var(--tone-warn-bg); border: 1px solid var(--tone-warn-bd); }
+.ct__appr-row .lane--red { color: var(--fail); background: var(--tone-fail-bg); border: 1px solid var(--tone-fail-bd); }
+.ct__appr-row .lane--idle { color: var(--mute); background: var(--bg2); border: 1px solid var(--bd); }
+
+/* DF-B-07: từ chối 2 bước — ô lý do expand inline */
+.ct__appr-wrap { display: flex; flex-direction: column; }
+.ct__reject {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: -4px;
+  padding: 10px 14px 12px;
+  background: var(--tone-fail-bg);
+  border: 1px solid var(--tone-fail-bd);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+}
+.ct__reject-reason {
+  background: var(--p1);
+  border: 1px solid var(--bd2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--tx);
+  font: 400 12px var(--font);
+  outline: none;
+  resize: vertical;
+}
+.ct__reject-reason:focus { border-color: var(--fail); }
+.ct__reject-btns { display: flex; gap: 8px; justify-content: flex-end; }

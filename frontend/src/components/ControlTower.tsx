@@ -70,6 +70,9 @@ function ApprovalQueue() {
   const [rows, setRows] = useState<ApprovalRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // DF-B-07: từ chối 2 bước — bấm "✗ Từ chối" → expand ô lý do (BẮT BUỘC). Duyệt vẫn 1 click.
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const load = useCallback(() => {
     conversationApi
@@ -80,17 +83,22 @@ function ApprovalQueue() {
 
   useEffect(() => { load(); }, [load]);
 
-  const decide = (row: ApprovalRow, decision: 'approved' | 'rejected') => {
+  // gửi quyết định (reason: duyệt='' optional; từ chối = lý do bắt buộc từ ô expand).
+  const submitDecision = (row: ApprovalRow, decision: 'approved' | 'rejected', reason: string) => {
     setBusyId(row.id);
     conversationApi
-      .decideApproval(row.id, decision, '')
-      .then(() => { setRows((prev) => prev.filter((r) => r.id !== row.id)); }) // rời khỏi hàng chờ
+      .decideApproval(row.id, decision, reason)
+      .then(() => { setRows((prev) => prev.filter((r) => r.id !== row.id)); setRejectingId(null); setRejectReason(''); })
       .catch((e: unknown) => {
-        if (e instanceof ApiRequestError && e.status === 409) { setRows((prev) => prev.filter((r) => r.id !== row.id)); }
+        if (e instanceof ApiRequestError && e.status === 409) { setRows((prev) => prev.filter((r) => r.id !== row.id)); setRejectingId(null); setRejectReason(''); }
         else setError('Quyết phiếu thất bại');
       })
       .finally(() => setBusyId(null));
   };
+
+  // bấm "✗ Từ chối" → mở ô lý do cho phiếu này (collapse phiếu khác đang mở). Chưa gửi.
+  const openReject = (row: ApprovalRow) => { setRejectingId(row.id); setRejectReason(''); setError(null); };
+  const cancelReject = () => { setRejectingId(null); setRejectReason(''); };
 
   return (
     <div className="ct__section">
@@ -103,17 +111,56 @@ function ApprovalQueue() {
         <div className="ct__empty" data-testid="queue-empty">Không có phiếu nào chờ duyệt.</div>
       ) : (
         <div className="ct__rows">
-          {rows.slice(0, 50).map((row) => (
-            <div key={row.id} className="ct__appr-row" data-testid={`queue-row-${row.id}`}>
-              <span className="ct__appr-action">🔒 {row.action}</span>
-              <span className="ct__appr-conv">{shortId(row.conv_id)}</span>
-              <span className="ct__appr-payload">{summarize(row.payload)}</span>
-              <div className="ct__appr-btns">
-                <button type="button" className="btn btn--ok ct__appr-btn" onClick={() => decide(row, 'approved')} disabled={busyId === row.id}>✓ Duyệt</button>
-                <button type="button" className="btn btn--danger ct__appr-btn" onClick={() => decide(row, 'rejected')} disabled={busyId === row.id}>✗ Từ chối</button>
+          {rows.slice(0, 50).map((row) => {
+            const d = row.display ?? null;
+            // DF-B-01: tên khách (fallback owner_id → shortId conv) · tiền VNĐ · loan · lane-chip.
+            // display vắng (BE chưa deploy) → fallback shortId+JSON như cũ (không vỡ, backward).
+            const who = d?.customer_name || d?.owner_id || shortId(row.conv_id);
+            const rejecting = rejectingId === row.id;
+            return (
+              <div key={row.id} className="ct__appr-wrap" data-testid={`queue-row-${row.id}`}>
+                <div className="ct__appr-row">
+                  <span className="ct__appr-action">🔒 {row.action}</span>
+                  {d?.lane && <span className={`asmt__lane ${laneClass(d.lane)}`}>{String(d.lane).toUpperCase()}</span>}
+                  <span className="ct__appr-who">{who}</span>
+                  {d?.amount_vnd != null && <span className="ct__appr-amount">{fmtApprovalVnd(d.amount_vnd)}</span>}
+                  {d?.loan_id && <span className="ct__appr-loan">{d.loan_id}</span>}
+                  <span className="ct__appr-payload" title={summarize(row.payload)}>{d ? '' : summarize(row.payload)}</span>
+                  <div className="ct__appr-btns">
+                    {/* Duyệt: 1 click (reason optional — không thêm friction). Từ chối: mở ô lý do (bắt buộc). */}
+                    <button type="button" className="btn btn--ok ct__appr-btn" onClick={() => submitDecision(row, 'approved', '')} disabled={busyId === row.id}>✓ Duyệt</button>
+                    <button type="button" className="btn btn--danger ct__appr-btn" onClick={() => openReject(row)} disabled={busyId === row.id} data-testid={`reject-open-${row.id}`}>✗ Từ chối</button>
+                  </div>
+                </div>
+                {rejecting && (
+                  <div className="ct__reject" data-testid={`reject-panel-${row.id}`}>
+                    <textarea
+                      className="ct__reject-reason"
+                      placeholder="Lý do từ chối (khách sẽ nhận được)…"
+                      value={rejectReason}
+                      onChange={(e) => setRejectReason(e.target.value)}
+                      rows={2}
+                      aria-label="Lý do từ chối"
+                      autoFocus
+                      disabled={busyId === row.id}
+                    />
+                    <div className="ct__reject-btns">
+                      <button type="button" className="btn btn--ghost ct__appr-btn" onClick={cancelReject} disabled={busyId === row.id}>Huỷ</button>
+                      <button
+                        type="button"
+                        className="btn btn--danger ct__appr-btn"
+                        onClick={() => submitDecision(row, 'rejected', rejectReason.trim())}
+                        disabled={busyId === row.id || !rejectReason.trim()}
+                        data-testid={`reject-confirm-${row.id}`}
+                      >
+                        {busyId === row.id ? 'Đang gửi…' : 'Xác nhận từ chối'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
           {rows.length > 50 && <div className="ct__more">… và {rows.length - 50} phiếu nữa (hiển thị 50 đầu)</div>}
         </div>
       )}
@@ -290,4 +337,13 @@ function summarize(obj: unknown): string {
 }
 function fmtTs(ts: string): string {
   return ts ? ts.slice(0, 19).replace('T', ' ') : '';
+}
+// DF-B-01: lane → class chip (tái dùng .lane--* của AssessmentsView, không chế mới). lane lạ → idle.
+function laneClass(lane: string): string {
+  const m: Record<string, string> = { green: 'lane--green', yellow: 'lane--yellow', red: 'lane--red' };
+  return m[String(lane).toLowerCase()] ?? 'lane--idle';
+}
+// DF-B-01: số tiền → "800.000.000 ₫" (định dạng VN, dấu chấm ngăn nghìn).
+function fmtApprovalVnd(n: number): string {
+  return `${n.toLocaleString('vi-VN')} ₫`;
 }
