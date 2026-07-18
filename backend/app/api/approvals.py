@@ -74,8 +74,43 @@ async def decide(approval_id: str, body: DecideBody, claims: dict = Depends(requ
 
     # SSE approval.decided + card sync + đánh thức main — SAU khi decide commit (§5)
     _emit_and_wake(decided)
+    # HOOK a (T9-2): mail báo khách khoản vay được duyệt/từ chối — best-effort async, KHÔNG chặn.
+    # SAU _emit_and_wake (SSE/wake xong). Ca bank/không email → helper tự skip.
+    _notify_decided(decided)
     decided.pop("_card_row", None)  # nội bộ (emit card SSE) — KHÔNG lên API response
     return decided
+
+
+def _notify_decided(decided: dict[str, Any]) -> None:
+    """Mail HOOK a (T9-2 + addendum HTML brand): khoản vay được {phê duyệt|từ chối}.
+    status='used'/'approved'→phê duyệt, 'rejected'→từ chối. Plain fallback + HTML multipart."""
+    from app.notify.email import render_email_html
+    from app.notify.hooks import app_url, notify_conv_owner, owner_greeting
+
+    approved = decided.get("status") in ("used", "approved")
+    kind = "approved" if approved else "rejected"
+    verb = "phê duyệt" if approved else "từ chối"
+    payload = decided.get("payload") or {}
+    amount = int(float(payload.get("amount"))) if payload.get("amount") else 0
+    loan_id = payload.get("loan_id", "")
+    amount_str = f" số tiền {amount:,} VND" if amount else ""
+    body = (
+        f"Kính gửi anh/chị,\n\nYêu cầu '{decided.get('action')}'{amount_str} của anh/chị đã được "
+        f"{verb}.\n\nTrân trọng,\nSHB Digital."
+    )
+    d = {
+        "greeting_name": owner_greeting(decided["conv_id"]),
+        "loan_id": loan_id,
+        "amount_vnd": amount,
+        "decided_by": decided.get("decided_by"),
+        "decided_at": decided.get("decided_at"),
+        "ref": decided.get("id"),
+        "app_url": app_url(),
+    }
+    html_body = render_email_html(kind, d)
+    icon = "✅" if approved else "✖️"
+    subject = f"{icon} Khoản vay {loan_id} đã được {verb} — SHB Digital"
+    notify_conv_owner(decided["conv_id"], subject, body, html_body)
 
 
 def _emit_and_wake(decided: dict[str, Any]) -> None:
