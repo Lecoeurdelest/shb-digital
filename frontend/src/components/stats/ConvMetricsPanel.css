@@ -1,0 +1,13 @@
+/* ConvMetricsPanel — khối metrics tổng cả ca (S16 T16-4, trong ws__messages) */
+.cmp {
+  margin: 14px 0 4px; padding: 12px 14px;
+  background: var(--p1); border: 1px solid var(--bd); border-radius: 12px;
+}
+.cmp__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.cmp__title { font-size: 12.5px; font-weight: 700; color: var(--tx); }
+.cmp__totals { display: inline-flex; gap: 12px; font: 600 11px var(--mono); }
+.cmp__cost { color: var(--tx); }
+.cmp__cost em { font-style: normal; color: var(--faint); font-size: 9px; margin-left: 2px; }
+.cmp__tokens { color: var(--mute); }
+/* TokenBreakdownBar bên trong panel — bỏ margin/border kép (đã có khung panel) */
+.cmp .tbb { margin: 10px 0 0; border: none; padding: 0; background: none; }

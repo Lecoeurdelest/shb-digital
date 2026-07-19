@@ -20,6 +20,7 @@ import { TaskBadge } from './components/TaskBadge';
 import { Canvas } from './components/Canvas';
 import { TraceBlock } from './components/TraceBlock';
 import { SubAgentView } from './components/SubAgentView';
+import { ConvMetricsPanel } from './components/stats/ConvMetricsPanel';
 import { roleLabel } from './roles';
 import type {
   AuditRow,
@@ -533,6 +534,10 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
                       })}
                   </div>
                 )}
+
+                {/* T16-4: metrics TỔNG cả ca (tasks + main-turn) — conv-wide data ở đây. has_any
+                    false (ca cũ chưa metrics) → panel tự ẩn (backward). */}
+                <ConvMetricsPanel tasks={tasks} messages={messages} trace={trace} />
               </div>
 
               <Composer

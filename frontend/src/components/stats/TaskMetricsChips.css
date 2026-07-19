@@ -1,0 +1,10 @@
+/* TaskMetricsChips — chip metrics per task (S16 T16-4) */
+.tmc { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.tmc__chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font: 500 10.5px var(--mono); color: var(--dim);
+  background: var(--bg2); border: 1px solid var(--bd);
+  padding: 3px 8px; border-radius: 6px;
+}
+.tmc__chip--model { color: var(--acc); }
+.tmc__chip--cost em { font-style: normal; color: var(--faint); font-size: 9px; margin-left: 2px; }

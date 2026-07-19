@@ -1,0 +1,11 @@
+/* ToolRankBar — tool-call ranked bar ngang (S16 T16-4, CSS flex) */
+.trb { margin: 12px 0; }
+.trb__title { font-size: 12px; font-weight: 700; color: var(--tx); margin-bottom: 8px; }
+.trb__empty { font-size: 11px; color: var(--faint); padding: 8px 0; }
+.trb__rows { display: flex; flex-direction: column; gap: 5px; }
+.trb__row { display: flex; align-items: center; gap: 8px; }
+.trb__tool { font: 500 11px var(--mono); color: var(--dim); flex: none; width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trb__track { flex: 1; height: 14px; background: var(--bg2); border-radius: 4px; overflow: hidden; }
+.trb__fill { height: 100%; background: var(--acc); border-radius: 4px; min-width: 2px; transition: width 0.3s; }
+.trb__count { flex: none; width: 24px; text-align: right; font: 700 11px var(--mono); color: var(--tx); }
+.trb__more { font-size: 10.5px; color: var(--faint); margin-top: 4px; }

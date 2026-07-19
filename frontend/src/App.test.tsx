@@ -33,13 +33,16 @@ describe('Workspace chat — vòng lõi S1 (mock API)', () => {
     // gửi câu đầu → ca tạo lazy → user message hiện (optimistic, sau POST create — dùng findBy async)
     expect(await screen.findByText(/Khách C001 xin vay 5 tỷ/)).toBeInTheDocument();
 
-    // chờ tới khi stream chạy XONG câu trả lời (credit_assess đứng sau DSCR trong answer —
-    // chờ nó đảm bảo cả DSCR 3.709 + nguồn đều đã render). Số kèm nguồn — SPEC §6.
+    // chờ tới khi stream chạy XONG câu trả lời — chờ TRỰC TIẾP "DSCR = 3.709" (tín hiệu answer done).
+    // (Sửa 2026-07-19 T16-4: trước chờ /credit_assess/ nhưng ToolRankBar giờ render tool-name
+    // "credit_assess" NGAY khi trace có → điều kiện chờ khớp SỚM, DSCR chưa done. Chờ chính DSCR
+    // là tín hiệu answer-render đúng, không ambiguous. Số kèm nguồn — SPEC §6.)
     await waitFor(
-      () => expect(screen.getAllByText(/credit_assess/).length).toBeGreaterThan(0),
+      () => expect(screen.getAllByText(/DSCR = 3\.709/).length).toBeGreaterThan(0),
       { timeout: 5000 },
     );
-    expect(screen.getAllByText(/DSCR = 3\.709/).length).toBeGreaterThan(0);
+    // nguồn credit_assess cũng render (trace toolcall + answer text) — số kèm nguồn
+    expect(screen.getAllByText(/credit_assess/).length).toBeGreaterThan(0);
 
     // badge task credit chuyển "xong"
     const tasksPanel = screen.getByLabelText('Đội đang làm việc');

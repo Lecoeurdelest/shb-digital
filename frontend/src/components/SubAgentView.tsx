@@ -6,6 +6,9 @@ import { useEffect, useState } from 'react';
 import { conversationApi } from '../api';
 import { ApiRequestError } from '../api/client';
 import { roleLabel } from '../roles';
+import { TaskMetricsChips } from './stats/TaskMetricsChips';
+import { TokenBreakdownBar } from './stats/TokenBreakdownBar';
+import { hasTaskMetrics, taskBreakdown } from './stats/traceMetrics';
 import type { AuditRow, OrchTask, TraceItem } from '../types';
 import './SubAgentView.css';
 
@@ -107,7 +110,17 @@ export function SubAgentView({ task, liveTrace, convId, onBack }: Props) {
           <div className="sav__label">NHIỆM VỤ</div>
           <div className="sav__brief">{task.title}</div>
           {task.input && <pre className="sav__input">{summarizeInput(task.input)}</pre>}
+          {/* T16-4: chip metrics per task (model·duration·cost·token) — null → không hiện (backward) */}
+          <TaskMetricsChips task={task} />
         </div>
+
+        {/* T16-4: token breakdown per task (TÁI DÙNG component chung) — chỉ khi task CÓ metrics */}
+        {hasTaskMetrics(task) && (
+          <div className="sav__section">
+            <div className="sav__label">TOKEN CỦA SUB NÀY</div>
+            <TokenBreakdownBar breakdown={taskBreakdown(task)} />
+          </div>
+        )}
 
         {error && <div className="sav__error" role="alert">{error}</div>}
 

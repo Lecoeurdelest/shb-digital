@@ -28,6 +28,13 @@
   border-color: rgba(217, 119, 87, 0.35);
 }
 
+/* T16-4: dòng mờ metrics MAIN dưới bubble (model·duration·cost·token) */
+.msg-bubble__metrics {
+  margin-top: 8px; padding-top: 7px;
+  border-top: 1px solid var(--bd);
+  font: 500 10px var(--mono); color: var(--faint);
+}
+
 .msg-bubble__cursor {
   display: inline-block;
   width: 6px;

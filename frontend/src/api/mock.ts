@@ -529,7 +529,11 @@ class MockBackend {
       task = {
         ...task, status: 'done',
         result: { dscr, source: 'credit_assess', monthly_income: 30_000_000, monthly_debt: 8_000_000 },
-        ended_at: nowIso(), cost: { tool_calls: 1 },
+        ended_at: nowIso(),
+        // S16 T16-1: metrics per task (shape contract NGUYÊN VĂN). cost jsonb {cost_usd}.
+        cost: { cost_usd: 0.42 },
+        input_tokens: 18_400, output_tokens: 3_200, cache_read_tokens: 42_000, cache_create_tokens: 1_800,
+        duration_ms: 8_240, model: 'glm-4.6',
       };
       r.tasks = r.tasks.map((t) => (t.id === task!.id ? task! : t));
       this.emit(convId, envelope(convId, 'task.status', { task }));
@@ -556,7 +560,11 @@ class MockBackend {
       const answer =
         ` Đã có kết quả từ Tín dụng: DSCR = ${dscr.toFixed(3)} (thu nhập 30tr/tháng, nợ hiện tại 8tr/tháng — nguồn: credit_assess). ` +
         'Bảng chỉ số + gói vay + lộ trình đã trình bên canvas. Cần đối chiếu thêm CIC trước khi kết luận.';
-      await this.streamText(convId, turnId, seq, answer, true);
+      // S16 T16-1: MAIN turn metrics (điều phối — token/cost của lượt Main tổng hợp).
+      await this.streamText(convId, turnId, seq, answer, true, {
+        input_tokens: 6_800, output_tokens: 1_450, cache_read_tokens: 28_000, cache_create_tokens: 900,
+        duration_ms: 3_100, cost_usd: 0.14, model: 'glm-4.6',
+      });
     } else {
       await this.streamText(convId, turnId, seq, ' (mock không nhận diện yêu cầu cần tra tín dụng — gõ câu có "C001" hoặc "DSCR" để xem luồng đầy đủ)', true);
     }
@@ -624,6 +632,8 @@ class MockBackend {
     seq: { n: number },
     text: string,
     isFinal: boolean,
+    // S16 T16-1: metrics MAIN per turn (meta.metrics + role='main'). Chỉ gắn ở final message CÓ metrics.
+    metrics?: Record<string, unknown> | null,
   ): Promise<void> {
     const r = this.room(convId);
     const words = text.split(/(?<=\s)/);
@@ -647,7 +657,7 @@ class MockBackend {
         ts: nowIso(),
         sender: 'assistant',
         content: acc,
-        meta: null,
+        meta: metrics ? { role: 'main', metrics } : null,
       };
       r.messages.push(msg);
       seq.n += 1;

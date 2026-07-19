@@ -56,7 +56,26 @@ export interface OrchTask {
   queued_at?: string | null;
   started_at?: string | null;
   ended_at?: string | null;
-  cost?: Record<string, unknown> | null;
+  cost?: Record<string, unknown> | null; // jsonb {cost_usd} (T16-1) — cost "ước tính" per task
+  // S16 T16-1: metrics per task (ResultMessage.usage). NULLABLE — turn/task CŨ = null → không render
+  // (backward mọi ca cũ). Field-name KHỚP TokenBreakdownBar (tokenSegments) → tái dùng không adapter.
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_read_tokens?: number | null;
+  cache_create_tokens?: number | null;
+  duration_ms?: number | null;
+  model?: string | null; // model THẬT đã chạy task (null = turn cũ)
+}
+
+// S16 T16-1: metrics MAIN per turn (messages assistant meta.metrics, role='main'). Cùng shape token.
+export interface TurnMetrics {
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cache_read_tokens?: number | null;
+  cache_create_tokens?: number | null;
+  duration_ms?: number | null;
+  cost_usd?: number | null;
+  model?: string | null;
 }
 
 // ── Card (canvas — CONTRACT §3 · canvas-present §3). N3 vỏ-mù: agent bơm items TỰ DO, vỏ chỉ
