@@ -1,0 +1,5 @@
+# cwd phiên SDK single-agent (per-session working dir, giống data/conversations/ của hệ thật)
+# — không phải bằng chứng cần commit, chỉ là scratch dir cho SDK.
+data/
+__pycache__/
+*.pyc

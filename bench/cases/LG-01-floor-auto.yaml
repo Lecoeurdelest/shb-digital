@@ -1,0 +1,40 @@
+id: LG-01-floor-auto
+category: single-dept
+role: legal
+source: "LAB answer-keys.json id=LG-L01 (prompt tái dùng nguyên văn; số RE-VERIFY độc lập trên DB
+  live — xem verified_against)"
+prompt: >
+  Chị Phạm Thị Dung (C004) lần này vay tiêu dùng 850 triệu (khác lần trước), em thẩm định pháp lý
+  trọn hồ sơ chốt hộ anh xem đi tự động được không.
+ground_truth:
+  tool_expected: legal_classify_profile
+  args: {owner_id: C004, loan_amount_vnd: 850000000}
+  facts:
+    lane: green
+    decision: auto_approve_eligible
+    criteria_all_pass: true
+    identity_match: true
+    criminal_status: clean
+    cic_group: 1
+    income_mismatch_pct: 0
+    docs: [cccd valid, proof_income valid]
+    dscr: 1.385 (credit sub-check bên trong classify)
+  verified_against: "RUN-CONFIRMED (không chỉ đọc code) — gọi TRỰC TIẾP
+    roles.legal.functions.legal_classify_profile(owner_id='C004', loan_amount_vnd=850000000) qua
+    PGConnAdapter trên DB live ngày build harness → trả NGUYÊN VĂN lane='green',
+    decision='auto_approve_eligible', assessmentId=138, mọi 6 tiêu chí (identity/criminal/cic/
+    employment/docs/credit) đều 'pass'. Đối chiếu psql: customers C004 income=28000000;
+    police_records khớp 100% clean; employment_records declared=verified=28000000 (mismatch 0%);
+    cic_records nhóm 1; owner_documents cccd+proof_income=valid; loans C004 → 0 hàng. Đây là case
+    DUY NHẤT trong bộ được xác nhận bằng CHẠY THẬT tool thay vì chỉ đọc code (advisor: 'floor-auto'
+    case đáng giá xác nhận chạy-thật nhất vì cả case xoay quanh đúng 1 kết luận green)."
+rubric: |
+  1. Đây là CA TRỌN (được giao "thẩm định pháp lý trọn hồ sơ") → PHẢI kết bằng legal_classify_profile
+     (không chỉ gọi tool lẻ).
+  2. Trích NGUYÊN VĂN lane=green, decision=auto_approve_eligible — CẤM tự diễn giải thành "cần người
+     duyệt thêm cho chắc" (target_loss LAB: tool đã chốt rõ tự động, không được thêm lớp thận trọng
+     giả).
+  3. Không tự tính lại DSCR/lương — chỉ trích từ classify (hoặc credit_assess nếu gọi kèm).
+  4. Nói rõ "tự động theo phân cấp thẩm quyền" (không xin phép thừa — luật MAIN_SKILL cũng áp cho
+     single-agent qua ghép skill).
+expected_brake: false

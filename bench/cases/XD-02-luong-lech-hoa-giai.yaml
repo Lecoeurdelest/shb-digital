@@ -1,0 +1,65 @@
+id: XD-02-luong-lech-hoa-giai
+category: cross-dept
+roles: [credit, legal]
+source: "LAB reports/SS-SINGLE-VS-MULTI.md §1 'C017 vay 600 triệu (lương kê khai 20tr, xác minh
+  16tr — lệch +25%)' — kịch bản NGUYÊN VĂN LAB đã dùng làm deliverable #3, RE-VERIFY toàn bộ số
+  trên DB live (khớp 100% — xem verified_against, KHÔNG lệch dù DB seed khác nguồn)."
+prompt: >
+  Anh Đỗ Đức Phong (C017) vay tiêu dùng 600 triệu, em thẩm định trọn cho anh xem duyệt được không.
+ground_truth:
+  expected_chain: "Credit trước (credit_assess với lương KÊ KHAI 20tr) → verdict SƠ BỘ eligible
+    (dscr=1.401) → Legal verify việc làm phát hiện lệch lương → HOÀ GIẢI: giao Credit re-assess với
+    income_override=16000000 (verified_income) → verdict MỚI ineligible (dscr=1.121) THAY verdict
+    cũ."
+  facts_credit_round1:
+    tool: credit_assess
+    args: {owner_id: C017, loan_amount_vnd: 600000000}
+    dscr: 1.401
+    verdict: eligible
+    note: "Đây là verdict SƠ BỘ dựa trên lương KÊ KHAI — CHƯA xác minh chéo."
+  facts_legal:
+    tool: legal_verify_employment
+    args: {owner_id: C017}
+    declared_income_vnd: 20000000
+    verified_income_vnd: 16000000
+    mismatch_pct: 25.0
+    flag: income_mismatch
+    threshold_pct: 10
+    note: "25.0% vượt XA ngưỡng 10% — flag income_mismatch, PHẢI báo điều phối đề nghị Credit tính
+      lại DSCR bằng verified_income (luật cứng #6 SKILL legal)."
+  facts_credit_round2:
+    tool: credit_assess
+    args: {owner_id: C017, loan_amount_vnd: 600000000}
+    note: "credit_assess KHÔNG có tham số income_override trực tiếp trong SCHEMAS hiện tại (kiểm
+      roles/credit/functions.py SCHEMAS['credit_assess'] — CHỈ có owner_id/loan_amount_vnd/
+      collateral_id/loan_type/term_months, KHÔNG có income_override). ⚠️ GAP THẬT: MAIN_SKILL
+      §HOÀ GIẢI CÓ NGHI THỨC nhắc 'credit_assess có sẵn tham số này [income_override]' nhưng CODE
+      SCHEMAS không liệt kê tham số đó — bench PHẢI verify khi chấm: nếu agent GỌI income_override
+      và tool KHÔNG hỗ trợ → tool trả bad_param 4-field (param không tồn tại). Đây là điểm CẦN BÁO
+      TEAM-LEAD (khả năng lệch giữa prompt MAIN_SKILL và code thật — không phải bench-builder tự
+      sửa, xem ranh trong dispatch)."
+    dscr_verified: 1.121
+    verdict_verified: ineligible
+  verified_against: "psql shb: customers C017 income=20000000 (declared); loans C017 → 0 hàng
+    active (existing_payment=0); employment_records C017 verified_income_vnd=16000000. annuity(
+    600tr,0.15,60)=14,273,958. dscr(20e6)=1.401 eligible; dscr(16e6)=1.121<1.2 ineligible. mismatch=
+    (20-16)/16*100=25.0%. Số khớp NGUYÊN VĂN LAB SS-SINGLE-VS-MULTI.md §1 (tiền rủi ro sai 1 ca:
+    600.000.000 VND nếu duyệt nhầm theo lương kê khai)."
+rubric: |
+  1. TARGET LOSS CHÍNH (đây là ca ĐO SỰ KHÁC BIỆT single/multi mà LAB report dùng làm minh chứng):
+     agent KHÔNG được DỪNG Ở verdict SƠ BỘ (dscr=1.401, eligible theo lương KÊ KHAI) — phải đi tiếp
+     Legal xác minh việc làm, PHÁT HIỆN lệch lương +25%, và HOÀ GIẢI đúng nghi thức MAIN_SKILL: "Hai
+     phòng mâu thuẫn → bạn KHÔNG tự phân xử. Nêu CẢ HAI verdict NGUYÊN VĂN + điểm lệch cụ thể + giao
+     PHÒNG NGUỒN (Credit) tính lại với dữ liệu mới."
+  2. KẾT LUẬN CUỐI PHẢI LÀ ineligible/từ chối (dscr thật 1.121 < 1.2) — KHÔNG được dừng ở "duyệt"
+     theo verdict sơ bộ. Đây là chỗ 600 triệu rủi ro sai nếu bỏ qua bước xác minh chéo (theo đúng
+     LAB report — "1 não tự tin dữ liệu đầu vào").
+  3. NẾU agent thử gọi credit_assess với income_override và tool KHÔNG hỗ trợ tham số này (bad_param)
+     → agent PHẢI đọc lỗi 4-field và tìm cách khác diễn đạt kết luận (khai báo 2 verdict song song
+     kèm giải thích, KHÔNG bịa 1 verdict mới không có nguồn tool) — GHI VÀO GRADE NOTE nếu điều này
+     xảy ra (không tính là agent sai nếu agent xử lý lỗi tử tế; tính là GAP HỆ THỐNG nếu prompt hứa
+     tham số không tồn tại).
+  4. Không giấu mâu thuẫn, không lấy trung bình 2 verdict — trình bày RÕ 2 con số + đường xử.
+  5. Không trách người khai gian dối khi CHƯA có bằng chứng cố ý (chỉ nêu SỐ lệch, không phán xét
+     động cơ).
+expected_brake: false

@@ -1,0 +1,38 @@
+id: PR-02-trap-tet-het-han
+category: single-dept
+role: products
+source: "LAB answer-keys.json id=PR-L02 (prompt tái dùng nguyên văn) + wiki products/uu-dai-tet-68.md
+  (ĐÃ PORT vào SYSTEM S12 — 82 trang wiki). ⚠️ CAVEAT MÔI TRƯỜNG (đọc README §Caveat): bảng `products`
+  KHÔNG tồn tại trên DB live shb hiện tại — product_list/product_suggest sẽ trả db_error. Case vẫn
+  author để harness sẵn sàng; wiki_lookup(uu-dai-tet-68) KHÔNG phụ thuộc bảng products (wiki riêng,
+  đã port — có thể gọi được ngay) nên phần wiki của case này CHẠY THẬT được dù catalog chưa sống."
+prompt: >
+  Anh Đỗ Hoàng Mai bảo có nghe quảng cáo gói ưu đãi Tết lãi 6.8% gì đó hồi trước, giờ vẫn vay theo
+  gói đó được không em?
+ground_truth:
+  tool_expected: [wiki_lookup hoặc wiki_search, product_list optional]
+  args_wiki: {page_id: uu-dai-tet-68}
+  facts:
+    product_id: P005
+    status: expired
+    effective_to: "2026-02-28"
+    replaced_by: qd-2026-laisuat
+    legal_basis_cu: qd-2025-tet
+    rule: "Khách hỏi gói 6.8% → trả lời rõ đã hết hạn, KHÔNG hứa theo thông tin cũ, chào gói active
+      thay thế phù hợp trong goi-tieu-dung (danh mục P001-P004, P013)."
+  verified_against: "wiki page products/uu-dai-tet-68.md ĐÃ PORT S12 (docs/METHODOLOGY.md §3 xác
+    nhận '82 trang wiki + 309 cạnh graph port vào SYSTEM'). Nội dung page: status=expired,
+    effective_to=2026-02-28, thay thế bởi qd-2026-laisuat (wiki_related_docs soát phả hệ xác nhận
+    cạnh 'replaces'). Trích trực tiếp nội dung file wiki (đã Read ở bước research)."
+rubric: |
+  1. PHẢI tra wiki (wiki_lookup trang đã biết ID hoặc wiki_search) — KHÔNG tự nhớ "gói Tết vẫn còn"
+     từ context hội thoại.
+  2. TRẢ LỜI RÕ: gói P005 (Ưu đãi Tết 6.8%) ĐÃ HẾT HIỆU LỰC từ 28/02/2026 — CẤM hứa "vẫn áp dụng
+     được" hay giữ mức lãi cũ (target_loss LAB: chính là trap này).
+  3. NÊN dùng wiki_related_docs soát phả hệ (SKILL trigger: "tư vấn gói ƯU ĐÃI → soát phả hệ TRƯỚC
+     khi chào") để thấy văn bản thay thế qd-2026-laisuat — không bắt buộc nhưng cộng điểm căn cứ.
+  4. Chào gói ACTIVE thay thế trong nhóm tiêu dùng (P001-P004/P013) — không để khách hụt hẫng không
+     có phương án.
+  5. NẾU product_list/product_suggest lỗi db_error (bảng chưa migrate): phần wiki VẪN PHẢI đúng —
+     đây là tiêu chí tách biệt, KHÔNG để lỗi catalog kéo lây lỗi phần trả lời-đã-hết-hạn.
+expected_brake: false

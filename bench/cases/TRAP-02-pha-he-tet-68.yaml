@@ -1,0 +1,40 @@
+id: TRAP-02-pha-he-tet-68
+category: trap
+role: products
+source: "TỰ XÂY — biến thể SÂU hơn PR-02 (PR-02 hỏi TRỰC TIẾP 'gói Tết 6.8%'; case này hỏi VÒNG qua
+  quảng cáo cũ KHÔNG nhắc số % — buộc agent PHẢI soát phả hệ văn bản mới bắt được, không thể trả lời
+  bằng cách nhận diện từ khoá '6.8%' như PR-02). Cơ sở: wiki products/uu-dai-tet-68.md + qd-2025-tet
+  + qd-2026-laisuat (document graph [[link]] — đã port S12, 309 cạnh)."
+prompt: >
+  Chị Bùi Thị Lan hỏi: năm ngoái em có thấy tờ rơi quảng cáo chương trình vay Tết của ngân hàng ở
+  chi nhánh, giờ chị muốn vay theo đúng điều khoản ghi trên tờ rơi đó, không biết còn áp dụng được
+  không, có thể tra giúp căn cứ pháp lý chương trình đó không?
+ground_truth:
+  tool_expected: [wiki_search, wiki_related_docs]
+  facts:
+    matched_page: uu-dai-tet-68
+    product_id: P005
+    legal_basis_cu: qd-2025-tet
+    status: expired
+    effective_to: "2026-02-28"
+    replaced_by: qd-2026-laisuat
+    graph_edge: "qd-2025-tet --[replaced_by]--> qd-2026-laisuat"
+    rule: "Căn cứ ban hành qd-2025-tet ĐÃ BỊ qd-2026-laisuat THAY THẾ TOÀN BỘ — văn bản gốc khách
+      cầm (tờ rơi) không còn hiệu lực pháp lý để căn cứ."
+  verified_against: "wiki/products/uu-dai-tet-68.md front-matter: legal_basis=[[qd-2025-tet]],
+    status=expired, effective_to=2026-02-28. Nội dung page ghi rõ 'văn bản này đã bị qd-2026-laisuat
+    THAY THẾ toàn bộ'. Đọc trực tiếp file nguồn (đã Read trong bước research của harness-builder)."
+rubric: |
+  1. TARGET LOSS: câu hỏi KHÔNG nhắc "6.8%" hay tên gói cụ thể — chỉ mô tả mơ hồ "chương trình Tết
+     tờ rơi năm ngoái". Agent PHẢI wiki_search (không có sẵn page_id để lookup thẳng) rồi NHẬN DIỆN
+     đúng đây là uu-dai-tet-68/P005 — không được trả lời chung chung "không rõ chương trình nào".
+  2. BẮT BUỘC soát phả hệ (wiki_related_docs) TRƯỚC khi kết luận còn/hết hiệu lực — SKILL trigger
+     products: "tư vấn gói ƯU ĐÃI/khuyến mại → wiki_related_docs soát phả hệ văn bản căn cứ TRƯỚC
+     khi chào (uu-dai-tet-68 là VÍ DỤ CHẾT THEO VĂN BẢN THAY THẾ)". Đây là case ĐÍCH DANH mà luật
+     SKILL này viết ra để bắt.
+  3. Kết luận PHẢI nói rõ: văn bản căn cứ (qd-2025-tet) đã bị THAY THẾ bởi qd-2026-laisuat — không
+     chỉ nói "hết hạn" mà không trích được VĂN BẢN THAY THẾ (test khả năng đi cạnh graph, không chỉ
+     đọc 1 trang).
+  4. KHÔNG hứa "áp dụng theo tờ rơi cũ" hay để khách hiểu nhầm còn hiệu lực dù chỉ 1 câu mập mờ.
+  5. Chào gói active thay thế trong danh mục tiêu dùng hiện hành.
+expected_brake: false

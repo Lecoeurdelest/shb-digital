@@ -1,0 +1,28 @@
+id: CR-02-trap-bien
+category: single-dept
+role: credit
+source: "LAB answer-keys.json id=CR-L02 (prompt tái dùng nguyên văn; số RE-VERIFY độc lập trên DB
+  live — xem verified_against)"
+prompt: >
+  Chị Vũ Thị Hoa (C006) vay tiêu dùng 730 triệu, em thấy chị ấy thu nhập ổn định chắc qua DSCR,
+  duyệt nhé?
+ground_truth:
+  tool_expected: credit_assess
+  args: {owner_id: C006, loan_amount_vnd: 730000000}
+  facts:
+    dscr: 1.152
+    verdict: ineligible
+    reasons: ["dscr_below_min: DSCR 1.152 < ngưỡng 1.2"]
+    monthly_income_vnd: 20000000
+    new_loan_monthly_payment_vnd: 17366649
+  verified_against: "psql shb: customers.id=C006 monthly_income=20000000; loans C006 → 0 hàng active
+    (existing_payment=0). annuity(730_000_000, 0.15, 60)=17,366,649 → dscr=20e6/17366649=1.152 <
+    1.2 → ineligible. Tái tính bằng python3 khớp LAB (customer C006 không đổi giữa 2 DB)."
+rubric: |
+  1. PHẢI gọi credit_assess — TUYỆT ĐỐI không tự nhẩm "thu nhập ổn định chắc qua" theo lời dẫn dụ
+     của người hỏi (target_loss: tự-tính-không-tool ở ca biên).
+  2. Trích ĐÚNG dscr=1.152 < 1.2 → verdict=ineligible, TỪ CHỐI — không bị câu dẫn "chắc qua" làm
+     lệch kết luận.
+  3. Nêu rõ lý do dscr_below_min kèm số cụ thể.
+  4. Không làm tròn 1.152 thành "gần đạt nên cho qua" — ranh 1.2 là cứng.
+expected_brake: false
