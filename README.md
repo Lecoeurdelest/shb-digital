@@ -3,10 +3,10 @@
 [![CI](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml/badge.svg)](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml)
 
 Hệ thống **chi nhánh ngân hàng số vận hành bằng đội multi-agent AI**: khách hàng chat một câu
-tiếng Việt, đội chuyên gia số (nòng cốt **Tín dụng · Pháp chế** với tool SQL thật; Sản phẩm ·
-Vận hành minh hoạ cùng cơ chế) tự lập kế hoạch, dùng tool truy vấn dữ liệu thật, phối hợp với
-nhau và **thực thi hành động có kiểm soát** — khoản nhỏ tự duyệt theo ma trận thẩm quyền, khoản
-lớn dừng lại chờ người của ngân hàng duyệt. Mọi bước có vết, mọi con số có nguồn.
+tiếng Việt, đội chuyên gia số (Tín dụng · Pháp chế · Sản phẩm · Vận hành) tự lập kế hoạch, dùng
+tool truy vấn dữ liệu thật, phối hợp với nhau và **thực thi hành động có kiểm soát** — khoản nhỏ
+tự duyệt theo ma trận thẩm quyền, khoản lớn dừng lại chờ người của ngân hàng duyệt. Mọi bước có
+vết, mọi con số có nguồn.
 
 Sản phẩm dự thi đề **#132 — Digital Expert Agents** (Vietnam AI Innovation Challenge 2026 /
 Hack CX Together 2026 · SHB). Đề bài: [`docs/problem-statement.md`](docs/problem-statement.md) ·
@@ -77,7 +77,7 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 
 | # | Đề #132 yêu cầu | Sản phẩm trả bằng |
 |---|---|---|
-| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **Tín dụng + Pháp chế — 2 chuyên gia ruột thật** (tool SQL đọc/ghi Postgres, bàn giao ngữ cảnh tuần tự credit→legal→ops); Sản phẩm + Vận hành hiện là **stub minh hoạ** cùng contract (mọi return khai `isMock:true` — không giả làm thật), card đổ về canvas |
+| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **Tín dụng + Pháp chế — 2 chuyên gia ruột thật** (tool SQL đọc/ghi Postgres, bàn giao ngữ cảnh tuần tự); Sản phẩm + Vận hành chạy cùng cơ chế qua khung **labpack cắm-là-chạy** (hiện là stub khai `isMock` minh bạch — đẻ thật một chuyên gia = thay một file `functions.py`, không sửa vỏ); card đổ về canvas |
 | 2 | Cơ chế orchestration: planner phân rã → executor | MAIN (planner, phiên bền — resume qua restart) + `orch_dispatch` giao việc nền + event đánh thức khi sub xong |
 | 3 | Tool use thật — hành động cụ thể, không chỉ text | Tool đọc/ghi Postgres thật (DSCR, CIC, pháp lý…); `disburse` bị **chặn ở tầng tool** bằng phiếu phê duyệt |
 | 4 | Dashboard traces, task status, decisions, collaboration flows | Control Tower + SSE trace (thinking/toolcall) + audit append-only + lobby/task map |
@@ -139,6 +139,20 @@ flowchart LR
   GATE -->|"> 500tr"| BANK[Bàn duyệt ngân hàng<br/>Control Tower]
   BANK -->|approved / rejected| MAIN
 ```
+
+**Vì sao kiến trúc này khác:** đa số bài multi-agent vẽ đồ thị cứng (node → node) bằng
+framework; hệ này **dựng lại cơ chế harness của agent coding cho ngân hàng** — MAIN là phiên
+agent bền có tool, tự quyết đợi-hay-tổng-hợp bằng suy luận nghiệp vụ; vỏ chỉ lo dispatch/event,
+tuyệt không ép "đợi đủ N con". Hệ quả đo được:
+
+- **Sống qua restart**: `session_id` lưu DB — server chết dậy vẫn resume đúng hội thoại đang dở.
+- **Dispatch nền idempotent** (khoá `(conv, role)`) + event đánh thức + hàng đợi 1-lượt/phòng —
+  các ca race khó (admin duyệt nhanh hơn sub trả lời) có 14 test chốt.
+- **Thêm chuyên gia = thêm 1 thư mục** `roles/<role>/` (SKILL.md + functions.py — vỏ mount tự
+  động) · **thêm provider = 1 entry yaml** · đổi luồng nghiệp vụ = sửa prompt. Mở rộng không
+  đụng core.
+
+Lập luận đầy đủ SDK-vs-LangGraph: [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §2.
 
 Các thành phần chính:
 
