@@ -337,4 +337,3 @@ async def test_emit_and_wake_guarded_logs_not_swallow(caplog):
 
 def _payload(env: dict) -> dict:
     return json.loads(env["content"][0]["text"])
-

@@ -119,9 +119,7 @@ async def test_enrich_display_loan_id_is_owner_fallback():
 async def test_enrich_display_ops_disburse_application_id_amount_vnd():
     """T12-5 FAIL C regression: phiếu ops_disburse (application_id/amount_vnd — KHÁC key disburse cũ)
     → display KHÔNG null (COALESCE key + JOIN applications.owner). Trước fix: toàn null."""
-    aid = _mk_pending_raw(
-        "dfb01ops", {"application_id": "APP01", "amount_vnd": 250000000}, action="ops_disburse"
-    )
+    aid = _mk_pending_raw("dfb01ops", {"application_id": "APP01", "amount_vnd": 250000000}, action="ops_disburse")
     try:
         rows = await store_approvals.list_pending("dfb01ops")
         d = next(r for r in rows if r["id"] == aid)["display"]
