@@ -12,7 +12,7 @@
 | [`demo-script.md`](demo-script.md) | Kịch bản demo thi ~10-13 phút, 2 cửa sổ (khách ‖ ngân hàng), kèm đường thoát hiểm | Chuẩn bị demo / muốn hiểu happy-path end-to-end |
 | [`deploy.md`](deploy.md) | Deploy production: Docker compose + cloudflared → `digital.tinhdev.com`, seed snapshot, reset demo, rollback | Deploy / vận hành server |
 | [`business-case.md`](business-case.md) | Khả thi kinh doanh + pilot 3 pha + trách nhiệm pháp lý | Hỏi về triển khai thực tế / giá trị nghiệp vụ |
-| [`ux-design.md`](ux-design.md) | Tư duy thiết kế UX AI-native — lập luận đằng sau từng lựa chọn UI | Muốn hiểu vì sao UI bố cục như hiện tại |
+| [`methodology/`](methodology/README.md) | **Bộ phương pháp luận** — [`README.md`](methodology/README.md) vì sao chọn từng công nghệ (8 mục) · [`skill-training.md`](methodology/skill-training.md) huấn luyện chuyên gia AI như train model · [`loop-engineering.md`](methodology/loop-engineering.md) đội AI build có phanh · [`ux-design.md`](methodology/ux-design.md) tư duy thiết kế UX AI-native | Hỏi "vì sao làm thế này" — kiến trúc, công nghệ, quy trình build, UX |
 | `assets/` | Ảnh chụp sản phẩm dùng cho README | — |
 
 Tài liệu cấp repo (ngoài `docs/`):

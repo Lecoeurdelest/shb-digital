@@ -17,7 +17,7 @@ secret-test) · a690ec9 (badge) · bd9350d (T11-4a) · ff3ad42 (T11-4b google/fl
 - **T11-2 refactor gated 0-đổi-hành-vi** ✅ — tách 5 nhánh giữ-1-tx, `_save_receipt` khử lặp
   (giữ khác biệt set_used_at claim/auto — trap chính), log.exception cửa-cuối, Protocol/TypedDict
   ranh giới tiền. 41 money-test + suite pass KHÔNG SỬA TEST, SQL runtime byte-identical.
-- **T11-3 docs** ✅ — `docs/METHODOLOGY.md` (khuôn khai-thật + §6 mới "người duyệt ở tầng TOOL");
+- **T11-3 docs** ✅ — `docs/methodology/README.md` (khuôn khai-thật + §6 mới "người duyệt ở tầng TOOL");
   README "⚡ Chạy thử 60 giây" compose-1-lệnh + badge. Hygiene: dọn worktree/branch.
 - **T11-4a/5 English docstring surface** ✅ (thân tiếng Việt giữ — giám khảo VAIC/SHB người Việt).
 - Phản biện KHÔNG làm: lockfile (đã có sẵn — reviewer chấm bản backup thiếu git), dịch toàn bộ

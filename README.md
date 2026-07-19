@@ -43,7 +43,7 @@ curl https://digital.tinhdev.com/api/conversations  # → 401 {"code":"unauthori
 5. **Không có key LLM vẫn chấm được:** quickstart Docker 60 giây (dưới) — UI/DB/audit/canvas
    xem đủ, chat cần key provider.
 6. **Đọc gì tiếp:** bảng [5 deliverables](#đáp-ứng-đề-bài-5-deliverables) →
-   [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) (vì sao chọn từng công nghệ, 8 mục) →
+   [`docs/methodology/README.md`](docs/methodology/README.md) (vì sao chọn từng công nghệ, 8 mục) →
    [`docs/business-case.md`](docs/business-case.md) (pilot 3 pha). Kiểm code 5 phút:
    `backend/app/orch/gated.py` + `backend/tests/test_gated.py` (an toàn tiền) ·
    `backend/app/orch/main_session.py` (phiên bền resume) · `roles/_retrieval/functions.py`
@@ -177,18 +177,19 @@ tuyệt không ép "đợi đủ N con". Hệ quả đo được:
   động) · **thêm provider = 1 entry yaml** · đổi luồng nghiệp vụ = sửa prompt. Mở rộng không
   đụng core.
 
-Lập luận đầy đủ SDK-vs-LangGraph: [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §2.
+Lập luận đầy đủ SDK-vs-LangGraph: [`docs/methodology/README.md`](docs/methodology/README.md) §2.
 
-**Bốn định kiến hệ này phá — sự khác biệt nằm ở đây** (mỗi mục một chương
-[`docs/METHODOLOGY.md`](docs/METHODOLOGY.md), khuôn *định kiến → cơ chế thật → lựa chọn →
-trade-off khai thật*):
+**Sáu định kiến hệ này phá — sự khác biệt nằm ở đây** (cùng khuôn *định kiến → cơ chế thật
+→ lựa chọn → trade-off khai thật*):
 
 | Định kiến phổ biến | Hệ này làm khác | Chi tiết |
 |---|---|---|
-| "Multi-agent = vẽ đồ thị LangGraph" | Điều phối là **suy luận nghiệp vụ của MAIN qua prompt** — đổi luồng = sửa prompt, vỏ không hardcode đồ thị | §2 |
-| "RAG = cắm vector DB" | **4 tầng dữ liệu → 4 cách truy vấn đúng bản chất**: SQL cho số · wiki + document-graph cho quy định · entity-graph CTE cho trần nhóm liên quan · vector local chỉ cho ghi-chú-mềm | §3 |
-| "Tool cho agent = bọc API" | Tool viết cho **model xác suất đọc**: một envelope toàn hệ, `hint` = action kế, honest không bịa số (`found:false` + lý do, `asOf` mọi data), idempotent chịu caller quên | §7 |
-| "An toàn = prompt dặn kỹ / thêm agent kiểm duyệt" | **Phanh + thẩm quyền ở tầng tool đọc DB** — điều kiện mở két nằm trong bảng `approvals`/`assessments`, model thuyết phục cỡ nào cũng không mở được két bằng lời | §4 · §6 |
+| "Multi-agent = vẽ đồ thị LangGraph" | Điều phối là **suy luận nghiệp vụ của MAIN qua prompt** — đổi luồng = sửa prompt, vỏ không hardcode đồ thị | [`METHODOLOGY`](docs/methodology/README.md) §2 |
+| "RAG = cắm vector DB" | **4 tầng dữ liệu → 4 cách truy vấn đúng bản chất**: SQL cho số · wiki + document-graph cho quy định · entity-graph CTE cho trần nhóm liên quan · vector local chỉ cho ghi-chú-mềm | [`METHODOLOGY`](docs/methodology/README.md) §3 |
+| "Tool cho agent = bọc API" | Tool viết cho **model xác suất đọc**: một envelope toàn hệ, `hint` = action kế, honest không bịa số (`found:false` + lý do, `asOf` mọi data), idempotent chịu caller quên | [`METHODOLOGY`](docs/methodology/README.md) §7 |
+| "An toàn = prompt dặn kỹ / thêm agent kiểm duyệt" | **Phanh + thẩm quyền ở tầng tool đọc DB** — điều kiện mở két nằm trong bảng `approvals`/`assessments`, model thuyết phục cỡ nào cũng không mở được két bằng lời | [`METHODOLOGY`](docs/methodology/README.md) §4 · §6 |
+| "Chuyên gia AI = viết prompt hay là xong" | SKILL + tool = **trọng số của một vòng huấn luyện**: đề có bẫy làm-ẩu-thì-fail, chấm 2 tầng, gate chặn bản kém, certify có hồ sơ — port vào hệ kiểm bằng test, cấm vá tay | [`skill-training`](docs/methodology/skill-training.md) |
+| "Code AI viết = vibe coding, không tin được" | Repo này chính nó được build bằng **vòng có phanh**: spec-là-contract, tester độc lập (author ≠ checker), 3 lớp gate 100% mới commit, sổ quyết định + sổ lỗi công khai | [`loop-engineering`](docs/methodology/loop-engineering.md) |
 
 Các thành phần chính:
 
@@ -215,7 +216,7 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
   tầng retrieval; văn bản chính sách/án lệ/ghi chú mềm đi **retrieval 4 tầng đã port (S12)**:
   wiki 82 trang (citation page bắt buộc) · document-graph soát phả hệ hiệu lực (trap văn-bản-bị-
   thay-thế) · vector notes local-CPU (2.215 ghi chú, bkai bi-encoder) · entity-graph trần dư nợ
-  NHÓM khách liên quan. Chi tiết ([`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §3).
+  NHÓM khách liên quan. Chi tiết ([`docs/methodology/README.md`](docs/methodology/README.md) §3).
 
 ## Công nghệ sử dụng
 

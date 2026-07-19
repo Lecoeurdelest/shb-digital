@@ -94,7 +94,7 @@ Câu hỏi đúng: *ai chịu trách nhiệm khi tầng auto duyệt sai?* Trả
    phục vụ khách hàng, kiểm toán nội bộ và cơ quan quản lý (khớp yêu cầu giải trình của
    nghiệp vụ tín dụng).
 3. **Thiết kế chỉ-siết:** thiếu dữ liệu/hồ sơ chưa qua pháp lý → rơi về người, không bao giờ
-   tự nới (verdict-aware — `docs/METHODOLOGY.md` §6). Lỗi hệ thống ở bất kỳ tầng nào đều
+   tự nới (verdict-aware — `docs/methodology/README.md` §6). Lỗi hệ thống ở bất kỳ tầng nào đều
    fail-closed về phía "chờ người".
 4. **Pilot bắt đầu với auto = 0** (Pha 0): hệ chứng minh độ khớp bằng số liệu trước, ngân
    hàng mới uỷ quyền dần — trách nhiệm được chuyển giao theo dữ liệu, không theo niềm tin.

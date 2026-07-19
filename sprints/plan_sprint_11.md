@@ -22,7 +22,7 @@ TypedDict biên nhận ở GATED_TOOLS. Guard: 33 money-test + suite pass KHÔNG
 
 ### T11-3 — Docs (architect): METHODOLOGY + README-60s + hygiene
 Review draft `.archive/drafts/METHODOLOGY.draft-s11.md` (206 dòng, subagent viết, khai-thật)
-→ spot-check claims với repo → `docs/METHODOLOGY.md`. README: mục "Chạy thử 60 giây" nổi bật
+→ spot-check claims với repo → `docs/methodology/README.md`. README: mục "Chạy thử 60 giây" nổi bật
 `docker compose -f docker-compose.prod.yml up` (full stack + seed tự động) + badge CI. Cleanup:
 dọn worktree/branch chết, archive nháp, DECISIONS soát entry đã tiêu hoá.
 
