@@ -77,7 +77,7 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 
 | # | Đề #132 yêu cầu | Sản phẩm trả bằng |
 |---|---|---|
-| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **Tín dụng + Pháp chế — 2 chuyên gia ruột thật** (tool SQL đọc/ghi Postgres, bàn giao ngữ cảnh tuần tự); Sản phẩm + Vận hành chạy cùng cơ chế qua khung **labpack cắm-là-chạy** (hiện là stub khai `isMock` minh bạch — đẻ thật một chuyên gia = thay một file `functions.py`, không sửa vỏ); card đổ về canvas |
+| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **4/4 chuyên gia ruột thật** (Tín dụng + Pháp chế + Sản phẩm + Vận hành — S12 port trọn bản CERTIFIED từ LAB, tool SQL đọc/ghi Postgres, bàn giao ngữ cảnh tuần tự). Khung **labpack cắm-là-chạy** đã tự chứng minh: đẻ thật 2 chuyên gia cuối = thay đúng file `functions.py` + `SKILL.md`, vỏ 0 sửa (commit e075f37); card đổ về canvas |
 | 2 | Cơ chế orchestration: planner phân rã → executor | MAIN (planner, phiên bền — resume qua restart) + `orch_dispatch` giao việc nền + event đánh thức khi sub xong |
 | 3 | Tool use thật — hành động cụ thể, không chỉ text | Tool đọc/ghi Postgres thật (DSCR, CIC, pháp lý…); `disburse` bị **chặn ở tầng tool** bằng phiếu phê duyệt |
 | 4 | Dashboard traces, task status, decisions, collaboration flows | Control Tower + SSE trace (thinking/toolcall) + audit append-only + lobby/task map |
@@ -174,11 +174,12 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
   trần; error toàn hệ một shape `{code, message, hint, retryable}`.
 - **Tối giản có chủ đích** (SPEC §14): không Redis, không WebSocket (SSE đủ), không replay-cursor —
   reconnect thì tải lại full-state.
-- **Tool-first thay RAG-corpus (lựa chọn có chủ đích):** dữ liệu nghiệp vụ ngân hàng ở đây là dữ
-  liệu **có cấu trúc** (bảng Postgres) — truy vấn SQL qua tool trả lời đúng-hàng-đúng-cột kèm
-  nguồn, không có hallucination tầng retrieval; tri thức nghề nén trong SKILL per chuyên gia.
-  Retrieval nhiều tầng cho văn bản chính sách phi cấu trúc nằm ở lộ trình
-  ([`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §3).
+- **Tool-first CHO SỐ + retrieval 4 tầng CHO TRI THỨC (mỗi loại dữ liệu một cơ chế đúng):** số
+  nghiệp vụ (bảng Postgres) đi đường SQL-tool — đúng-hàng-đúng-cột kèm nguồn, 0 hallucination
+  tầng retrieval; văn bản chính sách/án lệ/ghi chú mềm đi **retrieval 4 tầng đã port (S12)**:
+  wiki 82 trang (citation page bắt buộc) · document-graph soát phả hệ hiệu lực (trap văn-bản-bị-
+  thay-thế) · vector notes local-CPU (2.215 ghi chú, bkai bi-encoder) · entity-graph trần dư nợ
+  NHÓM khách liên quan. Chi tiết ([`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §3).
 
 ## Công nghệ sử dụng
 
@@ -352,5 +353,5 @@ Repo này được xây bởi **đội AI agent** (điều phối bởi con ngư
 
 **Trạng thái hiện tại:** Sprint 1–9, 10 (deploy), 11 (docs/CI), 13 (stats admin), 14 (dogfood + vá)
 **đã đóng** — sổ chi tiết tại `sprints/end_sprint_*.md` · Sprint 12 (retrieval 4 tầng từ LAB)
-**hoãn có chủ đích** chờ LAB chốt bản certified (D-63) · Sprint 15 **đang chạy**.
+**đang ráp nốt** — retrieval 4 tầng + Products/Ops certified ĐÃ vào master (T12-1..4, chờ wave verify cuối + deploy) · Sprint 15 **đã đóng** (549 test, PROD 4/4) · Sprint 16 (tracing/cost + chart) đang chạy.
 Chi tiết: [`sprints/ROADMAP.md`](sprints/ROADMAP.md).

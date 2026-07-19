@@ -2,7 +2,7 @@
 
 > BANK Digital — Digital Expert Guild · đề #132 · VAIC 2026.
 > Khuôn mỗi mục: *định kiến → cơ chế thật → lựa chọn → trade-off khai thật.* Khai TRẠNG THÁI
-> THẬT tại thời điểm viết (S15) — mọi claim dẫn tên file/test/entry DECISIONS cụ thể, không
+> THẬT tại thời điểm viết (S12 port xong phần lớn, chờ wave verify) — mọi claim dẫn tên file/test/entry DECISIONS cụ thể, không
 > nói vống. Số nào đo được thì kèm lệnh để tự chạy lại (§7).
 
 ## §0. Nguyên tắc gốc
@@ -27,7 +27,7 @@ CERTIFIED v3 ở S7, D-55, không đụng credit đang chạy production). Và q
 VỐN đa phòng ban (NHNN: tách 3 tuyến, maker–checker, phân cấp thẩm quyền) — multi-agent là bản
 số hoá trung thực cách ngân hàng buộc phải tổ chức, không phải kiến trúc áp lên bài toán.
 
-**Trạng thái SYSTEM:** 4 chuyên gia mount cùng một cơ chế labpack — **Credit + Legal ruột thật**
+**Trạng thái SYSTEM:** 4 chuyên gia mount cùng một cơ chế labpack — **4/4 ruột thật** (Credit + Legal port sớm; Products + Ops port bản CERTIFIED ở S12, vỏ 0 sửa)
 (tool LAB byte-identical, D-55/D-58) · Products + Operations **stub vỏ-viết** cùng contract,
 mọi return khai `isMock:true` (PROVISIONAL D-36, chờ LAB — đẻ thật một chuyên gia = thay một
 `functions.py`, không sửa vỏ). Ca "DN X vay 5 tỷ" dispatch ≥2 sub song song, canvas render
@@ -97,7 +97,7 @@ LAB** (DOER-test 5/5 câu đúng ground-truth: gói Tết chết theo cạnh tha
 CIC+notes+dư nợ · B002 vỡ trần nhóm đúng số · trần 1 khách có citation · bộ 3 khách quan tâm
 mua nhà — QA đối kháng 7 hướng, 39 tool-call có biên lai, 4 bug vá + re-verify). **Tầng SQL đã
 nằm TRONG SYSTEM từ S1** (Postgres, D-21/D-22). Wiki + document-graph, entity-graph, vector
-notes **CHƯA port vào SYSTEM** — Sprint 12, hiện **hoãn có chủ đích** (D-63): LAB đang training
+notes **ĐÃ PORT vào SYSTEM** (S12 — 82 trang wiki + 309 cạnh graph + 2.215 notes vector-hoá + entity-graph trần nhóm; ground-truth khớp LAB từng số, semantic search PASS trên Postgres). Trước đó hoãn có chủ đích (D-63) chờ LAB certify — LAB đã drop; lịch sử:
 tiếp nguồn tri thức, port bản chưa khoá là rước bản trôi; chờ LAB drop bản certified thì port
 bằng 3 thao tác quen thuộc (thả `functions/retrieval.py`, dán SCHEMAS, migration 4 bảng + seed
 wiki), không phải xây mới.
@@ -209,7 +209,7 @@ nguồn-sự-thật của thứ nó tin càng khắt khe.
 
 Nguyên tắc xuyên suốt: số không tự chạy lại được = lời khai, không phải bằng chứng. Vì vậy:
 
-- **Suite tự chạy lại được (S15): 542 test — 380 backend passed / 13 skipped (skip = live-SDK
+- **Suite tự chạy lại được (S12/S16 đang chạy): 605 test — 396 backend passed / 38 skipped (skip = live-SDK + embed/test-db gate
   opt-in `RUN_LIVE_SDK=1`) + 162 frontend, ruff + tsc sạch.** Lệnh ở README §Kiểm thử; CI
   (GitHub Actions) chạy đủ 4 job trên mỗi push/PR. Test đo hành vi quan sát được trên DB
   (set → gọi handler thật → query lại row), không phải assert-lại-chính-output: test race 2
