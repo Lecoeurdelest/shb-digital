@@ -40,8 +40,6 @@ d009e2d (FAIL B+C) · 2f38ab0 (HOTFIX F3+F2) · f0ac1ee/4d6cc29/096fedf (wrap su
   invariant §15 giữ · deviation LAB có sổ (MIN-via D-68c — LAB re-sync upstream đã relay user).
 
 ## Sổ ngoại lệ / nợ ghi nhận
-- income_override chưa re-test trên PROD (PASS local đầy đủ, code path y hệt — rủi ro thấp,
-  tester + architect chấp) — xét lại nếu ca lương-lệch lỗi trên prod.
 - Phiếu `exec_failed` chưa mang reason (chốt (a) — nâng (b) nếu demo lòi nhu cầu đọc-phiếu).
 - products/ops chưa có `SKILL.present.md` provisional (D-36) — card canvas 2 role do MAIN trình thay.
 - sqlite IntegrityError map trong OpsConnProxy: defensive-unexercised (khai thật).
