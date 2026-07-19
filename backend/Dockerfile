@@ -29,7 +29,10 @@ WORKDIR /app
 # ── deps trước (cache layer) — chỉ copy manifest, uv sync ──
 COPY backend/pyproject.toml backend/uv.lock* ./backend/
 WORKDIR /app/backend
-RUN uv sync --frozen --no-dev 2>/dev/null || uv sync --no-dev
+# T12-5: +extra `embed` (sentence-transformers + pyvi + CPU-torch pin qua tool.uv.sources) — tầng
+# vector notes_search chạy THẬT trên prod. CPU-torch ~200MB (KHÔNG CUDA). Bỏ embed → notes_search
+# degrade env_missing 4-field sạch (3 tầng kia sống) — đường lùi nếu VM không kham.
+RUN uv sync --frozen --no-dev --extra embed 2>/dev/null || uv sync --no-dev --extra embed
 
 # ── code (backend + roles labpack — mount_role đọc roles/ ở REPO_ROOT) ──
 WORKDIR /app

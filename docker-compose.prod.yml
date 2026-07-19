@@ -59,6 +59,8 @@ services:
       # SỐNG CÒN (ROADMAP S10): ~/.claude SDK (auth/resume state) + transcript neo per-conv.
       - claude_home:/home/appuser/.claude
       - conv_data:/app/backend/data/conversations
+      # T12-5: HF model cache (bkai bi-encoder ~500MB tải lần đầu) — volume để KHÔNG tải lại mỗi recreate.
+      - hf_cache:/home/appuser/.cache
       # SEED: D-62 snapshot `deploy/seed/shb-132.db` ĐÃ trong image (COPY qua Dockerfile) → repo
       # tự chứa, KHÔNG cần mount LAB sibling. seed_from_lab fallback: LAB path (không có trong
       # container) → snapshot. Deploy VM clone-trần chạy được ngay.
@@ -82,6 +84,7 @@ services:
     networks: [shb132]
 
 volumes:
+  hf_cache:
   shb132_pg_data:
   claude_home:
   conv_data:
