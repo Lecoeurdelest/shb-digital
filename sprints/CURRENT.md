@@ -58,9 +58,18 @@ default + compose-đè-.env D-66) · composer ModelSelect kiểu Claude + switch
 conversation (rename + delete 1-tx giữ audit D-67) · markdown spacing. 549 test (369+180).
 PROD 4/4. Sự cố tree-chung + :8000×3 → luật mới (soát --cached; D-38 graceful-5s).
 
-**Hàng đợi:** S12 ĐANG CHẠY (T12-1 xong chờ smoke · T12-2 BE 2 blocker đã chốt · T12-3 porter
-worktree · T12-4 spec sẵn) · S16 FE T16-3 đang chạy, BE-part sau S12 · rehearsal tay giờ G
-(+ hard-refresh §4b + badge 10s + 1 click Google chính chủ) · B-05 chờ gu user.
+**Sprint 12 — ĐÓNG** (2026-07-19): port LAB drop trọn — retrieval 4 tầng SỐNG prod (semantic PASS
+xuất sắc, trap phả hệ + trần nhóm đúng) · 4/4 chuyên gia CERTIFIED thật (ops_disburse dưới phanh,
+2 lớp idempotency) · SKILL merges D-65a · world-swap 8bf6b4 giữ app-data · 5 FAIL thật bắt trước
+demo (F3 disburse-mất-mount, wrap-haiku 502 giả-thuyết-trước-15'...). 6/6 mục prod PASS.
+
+**Sprint 16 — ĐÓNG** (2026-07-19): tracing/cost — instrument tokens/duration/model (nợ T15-2 trả)
++ /api/stats/cost z-score + Tổng quan chart (spark/breakdown/donut/anomaly→audit) + trace per-ca.
+Contract-first 2 chiều ráp 0 lệch. Chart số THẬT prod PASS.
+
+**Hàng đợi:** S17 Phase 2 RUN đang chạy (multi 15/15 ✓, single đang cày) → REPORT + đánh giá ·
+rebuild chót (panel-phải + amount-required) · gỡ sub_model-tạm sau bench · rehearsal tay giờ G ·
+B-05 + t9go1 chờ gu user.
 
 **Golden path:** `sprints/ROADMAP.md`. **Plan:** (chờ sprint kế — S12 khi LAB drop).
 
@@ -82,3 +91,5 @@ worktree · T12-4 spec sẵn) · S16 FE T16-3 đang chạy, BE-part sau S12 · r
 | 13 | 39e7deb, 9ea0335, fb8cec2 + đóng | Admin thống kê: /api/stats+assessments + Tower tab Tổng quan (7 KPI) + Hồ sơ-lý-do-AI. Tester 8/8. 497 test. |
 | 14 | 58d3774→2940295 + đóng | LOOP DOGFOOD 2 persona: 16 finding, 14 fixed CHỐT PROD (7🔴) + cache-fix §4b + D-64. Double-evidence B-01/07, race A-07 thật. 514 test. Prod về baseline sạch. |
 | 15 | af8782b, 1068300, 4e59331 + đóng | UX wave: fix switch zai↔wrap + ModelSelect per-turn + CRUD conv (D-67) + markdown. 549 test. PROD 4/4. D-66. |
+| 12 | 52ea649→a0f918c + đóng | Port LAB: retrieval 4 tầng + 4/4 chuyên gia thật + ops_disburse-phanh + world 8bf6b4. 5 FAIL bắt trước demo. 6/6 prod. |
+| 16 | 45968cb, 81b69cc, c2f8221, 6356f78 + đóng | Tracing/cost: instrument + cost API z-score + chart Tổng quan + trace per-ca. 637 test (410+227). |
