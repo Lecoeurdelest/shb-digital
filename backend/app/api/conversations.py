@@ -30,6 +30,69 @@ class ChatBody(BaseModel):
     content: str
 
 
+class PatchConvBody(BaseModel):
+    """PATCH partial — mọi field optional. title (rename) · provider/model (switch per-turn T15-2)."""
+
+    title: str | None = None
+    provider: str | None = None
+    model: str | None = None
+
+
+def _validate_provider_model(provider: str | None, model: str | None, current_provider: str | None) -> None:
+    """T15-2: provider ∈ providers khả dụng (public_view — đã loại disabled); model ∈ models của
+    provider KẾT QUẢ. model-only → validate theo provider HIỆN TẠI của conv (hoặc effective default nếu
+    null) — không phải luôn provider mới (advisor). Lệch → 400 4-field (fail LOUD, không lưu sai)."""
+    from app.orch.providers import providers as _providers
+
+    view = _providers.public_view()
+    names = {p["name"] for p in view}
+    if provider is not None and provider not in names:
+        raise ApiError(
+            400, "bad_provider", f"provider '{provider}' không có/đã tắt.", "Xem GET /api/models.", retryable=False
+        )
+    if model is not None:
+        # provider hiệu lực cho việc validate model = provider MỚI nếu có, else provider hiện tại, else effective
+        eff_provider = provider or current_provider or _providers.effective_default()
+        pv = next((p for p in view if p["name"] == eff_provider), None)
+        allowed = set(pv["models"]) if pv else set()
+        if model not in allowed:
+            raise ApiError(
+                400,
+                "bad_model",
+                f"model '{model}' không thuộc provider '{eff_provider}'.",
+                f"Model hợp lệ: {sorted(allowed)}." if allowed else "Xem GET /api/models.",
+                retryable=False,
+            )
+
+
+def _conv_is_running(conv: dict[str, Any]) -> bool:
+    """Ca đang chạy = MAIN turn active (registry.is_busy — in-process, chuẩn nhất) HOẶC còn sub
+    queued/running (fire-and-forget sống ngoài room-busy). KHÔNG tin conv.status='running' đơn lẻ
+    (stale sau crash — cleanup_orphans tồn tại vì thế). Mục đích: tránh mồ côi task giữa chừng (D-67)."""
+    from app.orch import registry
+
+    conv_id = conv["id"]
+    if registry.is_busy(conv_id):
+        return True
+    import psycopg2
+
+    from app.db.config import DATABASE_URL
+
+    try:
+        c = psycopg2.connect(DATABASE_URL)
+        try:
+            with c.cursor() as cur:
+                cur.execute(
+                    "SELECT 1 FROM tasks WHERE conv_id=%s AND status IN ('queued','running') LIMIT 1",
+                    (conv_id,),
+                )
+                return cur.fetchone() is not None
+        finally:
+            c.close()
+    except psycopg2.Error:
+        return False  # DB lỗi → không chặn delete/patch vì lý do hạ tầng (router khác sẽ bắt)
+
+
 @router.post("")
 async def create_conversation(body: CreateConvBody, claims: dict = Depends(require_user)) -> JSONResponse:
     """Create a conversation → 201. (Vietnamese detail below.)
@@ -73,6 +136,69 @@ async def get_conversation(conv_id: str, claims: dict = Depends(require_user)) -
     tasks = await store.list_tasks(conv_id)
     cards = await store.list_cards(conv_id)  # canvas reload (canvas-present §4)
     return {"conversation": conv, "messages": messages, "tasks": tasks, "cards": cards}
+
+
+@router.patch("/{conv_id}")
+async def patch_conversation(conv_id: str, body: PatchConvBody, claims: dict = Depends(require_user)) -> dict[str, Any]:
+    """Rename (title) và/hoặc switch provider/model per-turn (T15-2/T15-3).
+
+    Chủ ca hoặc admin (can_access_conv — ca người khác → 404-hide Fix E). Body partial: title? provider?
+    model?. Provider/model validate (400 nếu lệch). Switch provider/model khi ca đang chạy → 409 (tránh
+    lẫn giữa lượt); rename title khi chạy → OK (không mồ côi gì). Lượt chat KẾ dùng provider/model mới
+    (main_session đọc conv FRESH mỗi lượt — không cache)."""
+    conv = await store.get_conversation(conv_id)
+    if conv is None or not can_access_conv(conv, claims):
+        raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
+    if body.title is None and body.provider is None and body.model is None:
+        raise ApiError(
+            400, "empty_patch", "Không có field nào để cập nhật.", "Truyền title, provider hoặc model.", retryable=False
+        )
+    # switch provider/model đổi HÀNH VI lượt sau → chặn khi đang chạy (rename title thì không).
+    if (body.provider is not None or body.model is not None) and _conv_is_running(conv):
+        raise ApiError(
+            409,
+            "conv_running",
+            "Ca đang chạy — không đổi provider/model giữa lượt.",
+            "Đợi lượt hiện tại xong rồi đổi.",
+            retryable=True,
+        )
+    _validate_provider_model(body.provider, body.model, conv.get("provider"))
+    updated = await store.update_conversation(conv_id, body.title, body.provider, body.model)
+    if updated is None:  # race: ca bị xoá giữa chừng
+        raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Ca có thể vừa bị xoá.", retryable=False)
+    return updated
+
+
+@router.delete("/{conv_id}")
+async def delete_conversation(conv_id: str, claims: dict = Depends(require_user)) -> dict[str, Any]:
+    """Hard delete ca + nội dung (cards/tasks/messages) — GIỮ audit (tool_calls + phiếu đã quyết, D-67).
+
+    Chủ ca/admin (404-hide). Chặn 409 'conv_running' khi đang chạy (tránh mồ côi task); chặn 409
+    'has_pending_approval' khi còn phiếu pending (quyết phiếu trước). Ca không tồn tại → 404 (idempotent
+    contract dispatch — KHÔNG 204)."""
+    conv = await store.get_conversation(conv_id)
+    if conv is None or not can_access_conv(conv, claims):
+        raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
+    if _conv_is_running(conv):
+        raise ApiError(
+            409,
+            "conv_running",
+            "Ca đang chạy — không thể xoá giữa chừng.",
+            "Đợi ca chạy xong rồi xoá.",
+            retryable=True,
+        )
+    result = await store.delete_conversation(conv_id)
+    if result == "pending":
+        raise ApiError(
+            409,
+            "has_pending_approval",
+            "Ca còn phiếu chờ duyệt — không thể xoá.",
+            "Quyết phiếu (duyệt/từ chối) trước khi xoá ca.",
+            retryable=True,
+        )
+    if result == "not_found":  # race: xoá giữa 2 lần đọc
+        raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Ca có thể vừa bị xoá.", retryable=False)
+    return {"deleted": True, "id": conv_id}
 
 
 @router.post("/{conv_id}/chat")

@@ -298,6 +298,72 @@ def _set_conv_status_sync(conv_id: str, status: str) -> None:
         conn.close()
 
 
+# ── T15-2/T15-3: rename + switch provider/model + hard delete ────────────────
+def _update_conversation_sync(
+    conv_id: str, title: str | None, provider: str | None, model: str | None
+) -> dict[str, Any] | None:
+    """PATCH partial: chỉ set field TRUYỀN (None = không đổi). Trả conv mới, None nếu ca không tồn tại.
+    Validate provider/model là việc của caller (router) — store chỉ ghi. id::text so khớp (conv_id text)."""
+    sets: list[str] = []
+    vals: list[Any] = []
+    if title is not None:
+        sets.append("title=%s")
+        vals.append(title)
+    if provider is not None:
+        sets.append("provider=%s")
+        vals.append(provider)
+    if model is not None:
+        sets.append("model=%s")
+        vals.append(model)
+    if not sets:  # không field nào → chỉ trả conv hiện tại (router đã chặn body rỗng, defensive)
+        return _get_conversation_sync(conv_id)
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                f"UPDATE conversations SET {', '.join(sets)} WHERE id::text=%s "  # noqa: S608 — sets là literal cột, không phải input
+                "RETURNING id, user_id, title, status, sdk_session_id, provider, model, created_at",
+                (*vals, conv_id),
+            )
+            row = cur.fetchone()
+        conn.commit()
+        return _conv_to_dict(dict(row)) if row else None
+    finally:
+        conn.close()
+
+
+def _delete_conversation_sync(conv_id: str) -> str:
+    """HARD delete ca trong 1 TX: chặn nếu còn phiếu pending → 'pending'; chặn nếu đang chạy →
+    'running'; ok → xoá messages+cards+tasks+conv (D-67: nội dung ca), GIỮ tool_calls + approvals
+    ĐÃ QUYẾT (audit append-only) → 'deleted'. Ca không tồn tại → 'not_found'.
+    1 TX (advisor): check-pending + mọi DELETE cùng conn — không nửa-xoá, không check-then-delete hở."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT status FROM conversations WHERE id::text=%s", (conv_id,))
+            row = cur.fetchone()
+            if row is None:
+                conn.rollback()
+                return "not_found"
+            # còn phiếu pending → chặn (quyết phiếu trước). Trong TX → không đua với decide.
+            cur.execute("SELECT 1 FROM approvals WHERE conv_id=%s AND status='pending' LIMIT 1", (conv_id,))
+            if cur.fetchone():
+                conn.rollback()
+                return "pending"
+            # xoá NỘI DUNG ca (D-67). approvals ĐÃ QUYẾT + tool_calls KHÔNG xoá (audit append-only §11).
+            cur.execute("DELETE FROM messages WHERE conv_id=%s", (conv_id,))
+            cur.execute("DELETE FROM cards WHERE conv_id=%s", (conv_id,))
+            cur.execute("DELETE FROM tasks WHERE conv_id=%s", (conv_id,))
+            cur.execute("DELETE FROM conversations WHERE id::text=%s", (conv_id,))
+        conn.commit()
+        return "deleted"
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def _add_message_sync(conv_id: str, sender: str, content: str, meta: dict | None = None) -> dict[str, Any]:
     conn = psycopg2.connect(DATABASE_URL)
     try:
@@ -425,6 +491,18 @@ async def list_all_conversations() -> list[dict[str, Any]]:
 
 async def set_conv_status(conv_id: str, status: str) -> None:
     await asyncio.to_thread(_set_conv_status_sync, conv_id, status)
+
+
+async def update_conversation(
+    conv_id: str, title: str | None = None, provider: str | None = None, model: str | None = None
+) -> dict[str, Any] | None:
+    """T15-2/T15-3: PATCH partial (title/provider/model). None = không đổi. None-return = ca không tồn tại."""
+    return await asyncio.to_thread(_update_conversation_sync, conv_id, title, provider, model)
+
+
+async def delete_conversation(conv_id: str) -> str:
+    """T15-3 hard delete → 'deleted'|'pending'|'not_found' (running-check ở router qua registry)."""
+    return await asyncio.to_thread(_delete_conversation_sync, conv_id)
 
 
 async def add_message(conv_id: str, sender: str, content: str, meta: dict | None = None) -> dict[str, Any]:

@@ -36,6 +36,22 @@ def test_models_returns_providers_and_default():
     assert body["default"] in names  # default phải là 1 provider tồn tại
 
 
+def test_models_default_is_effective_not_disabled(monkeypatch):
+    """T15-4 (BUG prod): PROVIDERS_DISABLED=claude-cli → top-level default KHÔNG được là claude-cli
+    (đã disable, không nằm trong list) mà phải là effective (zai). Invariant: default LUÔN ∈ providers."""
+    monkeypatch.setenv("SHB_PROVIDERS_DISABLED", "claude-cli")
+    r = client.get("/api/models", cookies=_user_cookie())
+    assert r.status_code == 200
+    body = r.json()
+    names = [p["name"] for p in body["providers"]]
+    assert "claude-cli" not in names  # disabled → ẩn khỏi list
+    assert body["default"] != "claude-cli"  # top-level default KHÔNG trỏ provider ẩn (bug cũ)
+    assert body["default"] in names  # INVARIANT: default luôn nằm trong providers khả dụng
+    # per-provider default flag phải KHỚP top-level (1 nguồn sự thật)
+    flagged = [p["name"] for p in body["providers"] if p["default"]]
+    assert flagged == [body["default"]]
+
+
 def test_models_never_leaks_key():
     """SỐNG CÒN: raw response body KHÔNG chứa key nào + không field api_key."""
     cookies = _user_cookie()

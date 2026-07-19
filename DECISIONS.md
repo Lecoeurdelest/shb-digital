@@ -4,6 +4,13 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-67 · DELETE ca (T15-3): xoá cả `messages` cùng cards/tasks — audit (tool_calls + approvals
+  đã-quyết) GIỮ** (backend decide-and-log ② 19/7) — dispatch liệt kê "conv row + cards + tasks"
+  không nhắc messages; nhưng hard-delete để lại messages = row mồ côi mâu thuẫn ý "xoá ca". Phân
+  loại: NỘI DUNG ca (cards/tasks/messages) → xoá; DẤU VẾT KIỂM TOÁN (tool_calls, approvals đã
+  quyết) → append-only GIỮ. Cả cascade + check-pending trong 1 TX (không nửa-xoá). — cách đổi:
+  muốn giữ messages làm lịch sử → bỏ 1 dòng DELETE messages.
+
 - **D-65 · S12 port LAB drop — 4 chốt của USER (19/7, bàn-plan-trước)** — (a) phần VỎ đã có
   (legal/credit SKILL, main_skill) = MERGE-COMPARE có cân nhắc, không port đè: legal v3 VỎ giữ
   brand D-61 ⊕ đoạn SÁCH-TRA-CỨU LAB; **deviation ghi nhận: LAB bơm retrieval vào legal SKILL
@@ -21,12 +28,6 @@
   không phải đường demo. Prod: thêm `local` vào SHB_PROVIDERS_DISABLED ở deploy kế (giấu khỏi
   picker — container không có Ollama). — cách đổi: bỏ khỏi disabled + cài Ollama trên VM.
 
-- **D-65 · DELETE ca (T15-3): xoá cả `messages` cùng cards/tasks — audit (tool_calls + approvals
-  đã-quyết) GIỮ** (backend decide-and-log ② 19/7) — dispatch liệt kê "conv row + cards + tasks"
-  không nhắc messages; nhưng hard-delete để lại messages = row mồ côi mâu thuẫn ý "xoá ca". Phân
-  loại: NỘI DUNG ca (cards/tasks/messages) → xoá; DẤU VẾT KIỂM TOÁN (tool_calls, approvals đã
-  quyết) → append-only GIỮ. Cả cascade + check-pending trong 1 TX (không nửa-xoá). — cách đổi:
-  muốn giữ messages làm lịch sử → bỏ 1 dòng DELETE messages.
 
 - **D-64 · Credential demo trên bề mặt PUBLIC — ✅ ÁP DỤNG phương án (2): che admin/user-RM**
   (lead decide-and-log §7 19/7 sau 1 nhịp treo: đổi-wording đảo được, để admin lộ trên prod

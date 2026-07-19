@@ -22,8 +22,11 @@ async def list_models(claims: dict = Depends(require_user)) -> dict[str, Any]:
 
     Provider + model cho FE dropdown. reload() bắt .env mới (điền key runtime → has_key đổi).
 
-    Trả {providers: [...], default: <name>}. KHÔNG key (public_view). default = provider mặc định
-    (FE chọn sẵn). Mỗi provider: {name, kind, base_url, models[], default, has_key, note}.
+    Trả {providers: [...], default: <name>}. KHÔNG key (public_view). default = EFFECTIVE default
+    (T15-4 fix: dùng effective_default, KHÔNG default_name — default_name có thể trỏ provider ĐÃ BỊ
+    DISABLE (vd claude-cli), FE key theo top-level default → kẹt switch. effective_default LUÔN nằm
+    trong providers list khả dụng — 1 nguồn sự thật với per-provider `default` flag của public_view).
+    Mỗi provider: {name, kind, base_url, models[], default, has_key, note}.
     """
     providers.reload()
-    return {"providers": providers.public_view(), "default": providers.default_name()}
+    return {"providers": providers.public_view(), "default": providers.effective_default()}
