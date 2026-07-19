@@ -73,10 +73,15 @@ def test_f2_income_override_shifts_income_and_dscr():
 
 
 def test_f2_credit_section_byte_identical_lab():
-    """D-58: đoạn credit.py (từ LAB) trong VỎ byte-identical (0 hunk logic) — re-sync đúng nghi thức."""
+    """D-58: đoạn credit.py (từ LAB) trong VỎ byte-identical (0 hunk logic) — re-sync đúng nghi thức.
+    Skip khi LAB sibling không có (CI runner) — cùng tiền lệ test_products_ops_port skipif."""
     from pathlib import Path
 
+    import pytest
+
     repo = Path(__file__).resolve().parents[2]
+    if not (repo.parent / "shb-digital-experts").exists():
+        pytest.skip("LAB sibling repo không có trên máy này (CI)")
     lab = (
         repo.parent / "shb-digital-experts" / "missions" / "shb-132" / "tools" / "functions" / "credit.py"
     ).read_text()
