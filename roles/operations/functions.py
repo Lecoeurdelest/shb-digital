@@ -262,3 +262,29 @@ SCHEMAS: dict[str, Any] = {
                             "desc": "bên thụ hưởng — bỏ trống = chủ hồ sơ"},
         }},
 }
+
+
+# ── HOTFIX F3 (T12-3 regression): mount lại tool `disburse` cũ (loans-based) — đường DEMO CHÍNH ──
+# T12-3 thay stub vỏ bằng LAB ops → REGISTRY mất `disburse` → MAIN brief "gọi tool disburse" chết
+# (sub không thấy tool). `disburse` là GATED (app/orch/gated.GATED_WHITELIST) — REGISTRY entry CHỈ để
+# mount thấy tên+schema; gated wrapper (mount_role name-match) chặn + tự chạy GATED_TOOLS['disburse']
+# (fn dưới KHÔNG được gọi trực tiếp). fn+schema COPY từ stub vỏ cũ (git e075f37~1 — byte-identical).
+def disburse(conn: sqlite3.Connection, loan_id: str, amount: float = 0) -> dict[str, Any]:
+    """[GATED — vỏ, T3-1] Giải ngân khoản vay. CÓ PHANH: gọi đầu → chờ người duyệt → duyệt →
+    chạy (ghi loans.status='disbursed'). Logic thật ở app/orch/gated.disburse (wrapper thread-conn
+    tự chạy — REGISTRY entry này chỉ để mount thấy tên+schema; gated wrapper KHÔNG gọi fn này).
+    D-18: phanh là của VỎ. GATED_WHITELIST={disburse}."""
+    # KHÔNG chạy trực tiếp — gated wrapper (mount) chặn + tự chạy GATED_TOOLS['disburse'].
+    raise RuntimeError("disburse phải qua gated wrapper (T3-1) — không gọi trực tiếp")
+
+
+REGISTRY["disburse"] = disburse
+ANNOTATIONS["disburse"] = {"destructiveHint": True}  # gated (§4.4) — harness policy máy-đọc
+SCHEMAS["disburse"] = {
+    "mô tả": ("GIẢI NGÂN khoản vay (CÓ PHANH — cần người duyệt). Gọi lần đầu → hệ thống CHẶN, "
+              "tạo phiếu chờ duyệt; báo main kết thúc lượt. Sau khi được DUYỆT, gọi lại đúng "
+              "tham số → giải ngân chạy thật. KHÔNG tự nhẩm/bỏ qua phanh."),
+    "params": {
+        "loan_id": {"type": "str", "required": True, "desc": "id khoản vay, vd 'L001'"},
+        "amount": {"type": "float", "default": 0, "desc": "số tiền giải ngân (VND)"},
+    }}

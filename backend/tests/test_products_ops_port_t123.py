@@ -113,7 +113,9 @@ def test_mount_operations_exposes_three_tools_v1_skill_branded():
 
     skill, _server, allowed = mount_role("operations")
     tool_names = {a.rsplit("__", 1)[-1] for a in allowed}
-    assert tool_names == {"ops_app_get", "ops_plan", "ops_disburse"}, f"phải đủ 3 tool CERTIFIED: {tool_names}"
+    # HOTFIX F3: +disburse (loans-based, đường demo chính) re-mount cạnh 3 ops CERTIFIED. Đổi 3→4
+    # CÓ CHỦ ĐÍCH (T12-3 làm mất disburse khỏi mount → demo money-path L001 gãy).
+    assert tool_names == {"ops_app_get", "ops_plan", "ops_disburse", "disburse"}, f"phải đủ 4 tool: {tool_names}"
     assert "v1" in skill[:200], "SKILL phải là bản v1 (LAB certify version)"
     _assert_no_shb_outside_d61_comment(skill)
     assert "BANK Digital" in skill, "D-61: danh xưng phải là 'BANK Digital'"

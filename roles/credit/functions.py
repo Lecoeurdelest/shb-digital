@@ -71,7 +71,8 @@ def credit_cic_get(conn: sqlite3.Connection, owner_id: str) -> dict[str, Any]:
 
 def credit_assess(conn: sqlite3.Connection, owner_id: str, loan_amount_vnd: float = 0,
                   collateral_id: str | None = None, loan_type: str | None = None,
-                  term_months: int | None = None) -> dict[str, Any]:
+                  term_months: int | None = None,
+                  income_override_vnd: float | None = None) -> dict[str, Any]:
     """Thẩm định trọn gói: DSCR + LTV + CIC + trần + verdict. loan_amount_vnd=0 → chỉ hiện trạng.
     loan_type 'consumer'|'secured' — bỏ trống thì suy: có collateral_id = secured, không = consumer.
     rate/term lấy từ assumptions THEO LOẠI (công thức khoá SEED-REPORT §1)."""
@@ -87,6 +88,16 @@ def credit_assess(conn: sqlite3.Connection, owner_id: str, loan_amount_vnd: floa
         return {"code": "bad_enum", "message": f"loan_type '{loan_type}' không hợp lệ",
                 "hint": "Dùng 'consumer' | 'secured', hoặc bỏ trống để server tự suy.",
                 "retryable": False, "asOf": _now()}
+    # QĐ-I-1 (additive, thi hành QĐ-L6): vòng lặp lương-lệch — Legal xác minh lương thật → Credit
+    # tính lại theo verified_income. None = hành vi y cũ (key/certify cũ không đụng).
+    if income_override_vnd is not None:
+        income_override_vnd = float(income_override_vnd)
+        import math as _math
+        if not _math.isfinite(income_override_vnd) or income_override_vnd <= 0:
+            return {"code": "invalid_param",
+                    "message": f"income_override_vnd={income_override_vnd} phải là số hữu hạn >0",
+                    "hint": "Truyền lương xác minh từ legal_verify_employment (verifiedIncomeVnd).",
+                    "retryable": False, "asOf": _now()}
 
     a = _assumptions(conn)
     dscr_min = a.get("dscr_min", 1.2)
@@ -115,6 +126,10 @@ def credit_assess(conn: sqlite3.Connection, owner_id: str, loan_amount_vnd: floa
         return {"found": False, "asOf": _now(), "hint": f"Không có owner '{owner_id}'. Lấy id: cust_search(q=...)."}
 
     monthly_income = float(ent["income"] or 0)
+    income_source = "declared (customers.monthly_income)"
+    if income_override_vnd is not None:
+        monthly_income = income_override_vnd
+        income_source = "OVERRIDE (lương xác minh từ Legal — vòng lặp lương-lệch)"
     pay_row = conn.execute(
         "SELECT COALESCE(SUM(monthly_payment),0) FROM loans WHERE owner_id=? AND status='active'", (owner_id,)
     ).fetchone()
@@ -189,7 +204,8 @@ def credit_assess(conn: sqlite3.Connection, owner_id: str, loan_amount_vnd: floa
                         "debtTotalOutstandingVnd": debt_total,
                         "monthlyPaymentTotalVnd": round(total_payment)},
             "reasons": reasons, "missing": missing, "warnings": warnings,
-            "inputs": {"monthlyIncomeVnd": monthly_income, "existingMonthlyPaymentVnd": existing_payment,
+            "inputs": {"monthlyIncomeVnd": monthly_income, "incomeSource": income_source,
+                       "existingMonthlyPaymentVnd": existing_payment,
                        "newLoanMonthlyPaymentVnd": round(new_payment), "loanAmountVnd": loan_amount_vnd,
                        "loanType": loan_type, "termMonths": term if loan_amount_vnd > 0 else None,
                        "collateralAppraisedVnd": (collateral or {}).get("appraised_value")},
@@ -313,6 +329,8 @@ SCHEMAS: dict[str, Any] = {
                           "desc": "loại vay — bỏ trống server tự suy: có collateral=secured, không=consumer"},
             "term_months": {"type": "int", "default": None,
                             "desc": "kỳ hạn tháng — bỏ trống dùng chuẩn theo loại (consumer 60 / secured 180)"},
+            "income_override_vnd": {"type": "float", "default": None,
+                                    "desc": "lương XÁC MINH từ Legal (vòng lặp lương-lệch) — chỉ truyền khi Legal flag income_mismatch; bỏ trống dùng lương kê khai"},
         }},
     "credit_cic_get": {
         "mô tả": ("Tra cứu CIC (lịch sử tín dụng) MỘT khách/DN: nhóm nợ 1-5 + ghi chú. Nhóm ≥3 = nợ xấu."

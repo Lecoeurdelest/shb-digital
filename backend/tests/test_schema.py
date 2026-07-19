@@ -50,10 +50,18 @@ def test_default_in_schema_not_only_desc():
 
 
 def test_credit_assess_schema_valid():
-    # credit_assess: 1 required (owner_id) + 4 optional — chứng minh không dính shorthand
+    # credit_assess: 1 required (owner_id) + 5 optional (HOTFIX F2: +income_override_vnd — vòng lặp
+    # hoà-giải lương-lệch, re-sync LAB D-58) — chứng minh không dính shorthand
     out = schema_to_input(SCHEMAS["credit_assess"]["params"])
     assert out["required"] == ["owner_id"]
-    assert set(out["properties"]) == {"owner_id", "loan_amount_vnd", "collateral_id", "loan_type", "term_months"}
+    assert set(out["properties"]) == {
+        "owner_id",
+        "loan_amount_vnd",
+        "collateral_id",
+        "loan_type",
+        "term_months",
+        "income_override_vnd",
+    }
     assert out["properties"]["loan_type"]["enum"] == ["consumer", "secured"]
 
 
