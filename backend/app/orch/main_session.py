@@ -125,7 +125,20 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
                         if info is not None:
                             await _audit_tool_call(task, info["tool"], info["input"], block.content)
             elif isinstance(msg, ResultMessage):
-                pass  # sub không resume → không cần giữ session_id
+                # T16-1: bóc chỉ số THẬT (token/duration/model/cost) — trước đây vứt. Lưu task row +
+                # log per-turn có cấu trúc (base_url từ penv RESOLVED — bằng chứng T15-2). Best-effort.
+                from app.orch import instrument
+
+                _m = instrument.extract_metrics(msg)
+                await store.save_task_metrics(task.id, _m)
+                instrument.log_turn(
+                    conv_id=task.conv_id,
+                    actor=f"sub:{task.role}",
+                    provider=_cprov,
+                    model=smodel,
+                    base_url=penv.get("ANTHROPIC_BASE_URL") if penv else None,
+                    metrics=_m,
+                )
     finally:
         # flush tool_use chưa có result (output null) — append-only, vẫn ghi audit (§10).
         for info in pending.values():
@@ -225,6 +238,7 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
     text_parts: list[str] = []
     session_id: str | None = None
     is_error = False
+    main_metrics: dict[str, Any] = {}  # T16-1: chỉ số MAIN turn (ResultMessage) → messages.meta
     pending: dict[str, dict[str, Any]] = {}  # T4-1 audit: tool_use theo id chờ match result
     try:
         await client.query(prompt)
@@ -249,6 +263,19 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
             elif isinstance(msg, ResultMessage):
                 session_id = getattr(msg, "session_id", None)
                 is_error = bool(getattr(msg, "is_error", False))
+                # T16-1: bóc chỉ số MAIN turn (token/duration/model/cost). Trả về caller → gắn vào
+                # messages.meta (main không có task row — nguồn stats T16-2 nhánh 'main'). + log per-turn.
+                from app.orch import instrument
+
+                main_metrics = instrument.extract_metrics(msg)
+                instrument.log_turn(
+                    conv_id=conv_id,
+                    actor="main",
+                    provider=_conv.get("provider") if _conv else None,
+                    model=cmodel,
+                    base_url=penv.get("ANTHROPIC_BASE_URL") if penv else None,
+                    metrics=main_metrics,
+                )
     finally:
         # flush tool_use chưa match result (output null) — append-only audit (§10).
         for info in pending.values():
@@ -263,7 +290,7 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
         # bắt id mới (kể cả lượt đầu expected=None). Lệch khi expected có → resume nghi hỏng,
         # nhưng vẫn lưu id mới để lượt sau resume (session.py giữ id gốc; ở đây S1 đơn giản: lưu mới)
         await store.set_conv_session_id(conv_id, session_id)
-    return {"text": "".join(text_parts), "session_id": session_id, "is_error": is_error}
+    return {"text": "".join(text_parts), "session_id": session_id, "is_error": is_error, "metrics": main_metrics}
 
 
 async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
@@ -385,7 +412,9 @@ async def _turn_runner(conv_id: str, event: str, data: dict) -> None:
             emit_conversation_status(conv_id, "failed")
         else:
             if text:
-                await store.add_message(conv_id, "assistant", text)  # persist TRƯỚC done (§5)
+                # T16-1: gắn chỉ số MAIN turn vào messages.meta.metrics (nguồn stats T16-2 nhánh main).
+                _meta = {"metrics": result.get("metrics")} if result.get("metrics") else None
+                await store.add_message(conv_id, "assistant", text, meta=_meta)  # persist TRƯỚC done (§5)
             emit_chat_done(conv_id, turn_id, text)  # Gap1: MỌI kết lượt bắn done
             await store.set_conv_status(conv_id, "idle")
             emit_conversation_status(conv_id, "idle")

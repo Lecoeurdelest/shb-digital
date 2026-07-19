@@ -493,6 +493,42 @@ async def set_conv_status(conv_id: str, status: str) -> None:
     await asyncio.to_thread(_set_conv_status_sync, conv_id, status)
 
 
+def _save_task_metrics_sync(task_id: str, m: dict[str, Any]) -> None:
+    """T16-1: UPDATE task với chỉ số THẬT từ ResultMessage (token/duration/model + cost jsonb).
+    Best-effort: id sai/lỗi → nuốt (không vỡ flow sub). Field None → cột NULL sạch (ADDITIVE)."""
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE tasks SET input_tokens=%s, output_tokens=%s, cache_read_tokens=%s, "
+                "cache_create_tokens=%s, duration_ms=%s, model=%s, "
+                "cost=COALESCE(%s::jsonb, cost) WHERE id=%s",
+                (
+                    m.get("input_tokens"),
+                    m.get("output_tokens"),
+                    m.get("cache_read_tokens"),
+                    m.get("cache_create_tokens"),
+                    m.get("duration_ms"),
+                    m.get("model"),
+                    json.dumps({"cost_usd": m["cost_usd"]}) if m.get("cost_usd") is not None else None,
+                    task_id,
+                ),
+            )
+        conn.commit()
+    except psycopg2.Error as e:
+        import logging
+
+        conn.rollback()
+        logging.getLogger("orch").warning("save_task_metrics task=%s lỗi (bỏ qua): %s", task_id, e)
+    finally:
+        conn.close()
+
+
+async def save_task_metrics(task_id: str, metrics: dict[str, Any]) -> None:
+    """T16-1: lưu chỉ số ResultMessage vào task row. Best-effort (không vỡ sub nếu lỗi)."""
+    await asyncio.to_thread(_save_task_metrics_sync, task_id, metrics)
+
+
 async def update_conversation(
     conv_id: str, title: str | None = None, provider: str | None = None, model: str | None = None
 ) -> dict[str, Any] | None:
