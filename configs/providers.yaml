@@ -11,6 +11,7 @@ providers:
     kind: subscription          # KHÔNG set env — SDK dùng auth Claude CLI (bundle, không API key)
     default: true
     models: [haiku, sonnet, opus]
+    sub_model: sonnet           # ⚠ TẠM cho S17 bench Phase 2 (fairness: cả 2 bên sonnet) — GỠ sau RUN
     note: "đường chính khi máy CÓ Claude CLI login (~/.claude); standalone không login → chọn zai"
 
   - name: zai
@@ -33,6 +34,8 @@ providers:
     base_url: http://cli-8.psa.team:8317
     api_key: ${WRAP_API_KEY}
     models: [gpt-5.5, gpt-5.6-sol, gpt-5.6-luna, gpt-5.6-terra, gpt-5.4, gpt-5.4-mini]
+    sub_model: gpt-5.4-mini   # sub KHÔNG dùng alias haiku (wrapper GPT không map tên claude → 502);
+                              # dùng model rẻ nhất trong models. (tester T12-5 PROD: wrap=default → sub chết câm)
     note: "GPT qua wrapper psa.team — so sánh ngoài nhà Claude; cost_usd SDK KHÔNG TIN với provider ngoài"
 
   - name: local
