@@ -23,7 +23,7 @@
 - Gõ: **"Công ty tôi muốn vay 5 tỷ MỞ RỘNG SẢN XUẤT, thế chấp nhà xưởng (COL06) — khảo sát
   nhanh giúp tôi: sức khoẻ tín dụng, pháp lý hồ sơ thế chấp, gói vay phù hợp. Chưa phải hồ sơ
   chính thức."** ("khảo sát... chưa chính thức" = tín hiệu FAN-OUT.)
-- CHỈ constellation: Main giữa, đường nối CHẢY XANH tới các sub SONG SONG — "điều phối viên tự
+- CHỈ lobby 3D (chi nhánh số): các chuyên gia SÁNG ĐÈN chạy SONG SONG — "điều phối viên tự
   phân rã việc" (#2). MAIN xưng "anh/chị" với khách — chỉ cho giám khảo thấy nó ĐANG nói
   chuyện với khách hàng, không phải nhân viên.
 - Mở khối "Diễn tiến đội" (F1): 🧠 suy nghĩ + 🔧 tool call sống. Click 1 sub → SubAgentView.
@@ -94,7 +94,7 @@ form trước giờ G, trên sân khấu kể từ bước THẨM ĐỊNH (~4') 
 - "Khách không bao giờ thấy màn này — đây là phía ngân hàng."
 - **Nhật ký tool**: filter theo ca vừa chạy — TỪNG tool call input/output theo thời gian,
   append-only — "truy vết 100% hành vi agent, kể cả 2 phiếu vừa nãy (1 auto-rule, 1 admin)."
-- **Thống kê**: trạng thái đội + cost meter per-ca. **Hàng chờ duyệt**: giờ trống — vì vừa xử hết.
+- **Thống kê**: KPI ngày + trạng thái đội + hồ sơ thẩm định. **Hàng chờ duyệt**: giờ trống — vì vừa xử hết.
 
 ### CẢNH 4 — 1 LLM vs CẢ ĐỘI (deliverable #5) — ~90s (PHẢI, tab So sánh)
 - Gõ "Khách C001 vay 500 triệu được không?" → Chạy. Trong lúc chờ (~70s): kể kiến trúc
