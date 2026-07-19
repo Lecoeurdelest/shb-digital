@@ -1,5 +1,7 @@
 # DEMO SCRIPT v9 — SYSTEM #132 "BANK Digital — Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ + 3 TRỤ + KHÁCH MỚI (D-56/D-52/D-57/D-61)
 
+> Tài khoản demo (KHÁCH-DN · KHÁCH-CN · ADMIN) đã gửi riêng BTC — repo không chứa credential.
+
 > Kể 5 deliverable đề #132 trong 1 mạch chuyện ~10-13 phút, THEO HƯỚNG D-56: app là CỬA KHÁCH
 > HÀNG — khách tự chat với đội chuyên gia số, khoản nhỏ agent TỰ DUYỆT theo ma trận, khoản lớn
 > bắn về NGÂN HÀNG duyệt. **Sân khấu = 2 cửa sổ Chrome cạnh nhau: TRÁI = khách (b001) ·
@@ -9,14 +11,14 @@
 > Setup trước MỖI lần chạy: `cd backend && uv run python -m app.db.reset_demo` (users KHÔNG bị
 > wipe — seed_users riêng) + server `uv run uvicorn app.main:app --port 8000` với
 > **`DEV_SKIP_AUTH=0`** (BẮT BUỘC — demo persona cần login thật; khác script cũ).
-> Standalone không CLI-auth: `SHB_PROVIDER=zai`. Account: **b001/b001** (khách DN — Cty TNHH
-> Cơ khí Xưởng X, B001) · **c001/c001** (khách cá nhân — Nguyễn Văn An, C001) · **admin/admin**
+> Standalone không CLI-auth: `SHB_PROVIDER=zai`. Account: **[KHÁCH-DN b001]** (khách DN — Cty TNHH
+> Cơ khí Xưởng X, B001) · **[KHÁCH-CN c001]** (khách cá nhân — Nguyễn Văn An, C001) · **[ADMIN]**
 > (ngân hàng).
 
 ## Mạch chuyện: "Doanh nghiệp tự đến chi nhánh số — vay, được thẩm định, giải ngân"
 
 ### CẢNH 1 — Khách tự chat với ĐỘI CHUYÊN GIA (deliverable #1 + #2) — ~3 phút
-- Cửa sổ TRÁI: login **b001/b001** → "b001 · Khách hàng". CHỈ RA: khách KHÔNG thấy Control
+- Cửa sổ TRÁI: login **[KHÁCH-DN b001]** → "b001 · Khách hàng". CHỈ RA: khách KHÔNG thấy Control
   Tower, không thấy nút duyệt — "đây là cửa khách, như app ngân hàng thật".
 - ⚠️ Hệ TỰ BIẾT khách là ai (MAIN inject B001) — khách không cần khai mã. NHƯNG vẫn nêu
   MỤC ĐÍCH + TÀI SẢN (luật Pháp chế #3/#6 — thiếu là nó dừng hỏi, đúng nghề nhưng tốn nhịp).
@@ -33,15 +35,15 @@
   — bàn giao thật giữa phòng ban" (D-52) — cả hai đường đều điểm cộng.*
 
 ### CẢNH 2 — PHANH PHÂN TẦNG 2 CỬA SỔ: khoản nhỏ TỰ DUYỆT, khoản lớn BAY về ngân hàng (deliverable #3 — CẢNH ĂN TIỀN) — ~3 phút
-**Chuẩn bị:** cửa sổ PHẢI đã login **admin/admin**, để ở Workspace (thấy nút 🗼 Control Tower).
+**Chuẩn bị:** cửa sổ PHẢI đã login **[ADMIN]**, để ở Workspace (thấy nút 🗼 Control Tower).
 **Nhịp A — khoản nhỏ, ma trận cho tự duyệt (⚠️ v9 sửa theo SEED THẬT + Fix-A cross-owner:
 khách CHỈ giải ngân được loan CỦA MÌNH — L006 là của C003, b001 gõ sẽ bị từ chối đúng luật!):**
-- TRÁI: login **c001/c001** → gõ: **"Giải ngân khoản vay L001 số tiền 340 triệu."** (L001 CỦA
+- TRÁI: login **[KHÁCH-CN c001]** → gõ: **"Giải ngân khoản vay L001 số tiền 340 triệu."** (L001 CỦA
   C001, 340tr < 500tr) → ~15-45s: card **"✅ Tự động duyệt & thực thi"** + biên nhận LUÔN —
   "dưới ngưỡng 500 triệu, ma trận thẩm quyền cho agent tự duyệt. Nhưng NHÌN: phiếu vẫn ghi
   `decided_by='auto-rule'` + lý do — tự động CÓ KIỂM SOÁT, audit đủ."
 **Nhịp B — khoản lớn: phiếu BAY sang ngân hàng:**
-- TRÁI: login lại **b001/b001** → gõ: **"Giải ngân khoản vay L007 số tiền 3 tỷ đồng."** (L007
+- TRÁI: login lại **[KHÁCH-DN b001]** → gõ: **"Giải ngân khoản vay L007 số tiền 3 tỷ đồng."** (L007
   CỦA B001, dư nợ 3 tỷ — v9 sửa: script cũ ghi "1 tỷ" lệch seed) → ~5-10s: card
   **"⏳ Đang chờ ngân hàng phê duyệt"** — KHÔNG có nút duyệt phía khách. "Vượt ngưỡng → agent bị
   CHẶN ở tầng tool. Khách không tự duyệt được, dụ agent cũng không mở được — luật nằm ở cái két."
@@ -53,7 +55,7 @@ khách CHỈ giải ngân được loan CỦA MÌNH — L006 là của C003, b00
   "resume tự động, đúng MỘT lần; gọi lại chỉ trả biên nhận cũ."
 **Nhịp C — HỒ SƠ XANH: pháp lý 3 TRỤ chấm xanh → agent tự duyệt CẢ KHOẢN TRÊN NGƯỠNG (S7 —
 pain người ra đề):**
-- TRÁI: login **c019/c019** (khách cá nhân lịch sử sạch). Gõ: **"Tôi muốn vay 594 triệu MUA
+- TRÁI: login **[KHÁCH-CN c019]** (khách cá nhân lịch sử sạch). Gõ: **"Tôi muốn vay 594 triệu MUA
   NHÀ Ở, vay tín chấp không thế chấp — thẩm định hồ sơ giúp tôi theo quy trình."**
   (⚠️ PHẢI đủ: mục đích MUA NHÀ Ở — `residential_purchase` not_restricted → green; nói
   "mở rộng kinh doanh" là dính `business_expansion` conditional → YELLOW → mất cảnh tự duyệt.
@@ -119,7 +121,7 @@ khoản lớn con người ngân hàng giữ chìa — 5 deliverable chạy live
 | Main chọn tuần-tự thay song-song (hoặc ngược) | CẢ HAI đều điểm cộng — kể theo đường nó chọn |
 | Legal dừng hỏi lại | "Agent không đoán bừa — nó đối chiếu hồ sơ và hỏi. Đây là kiểm soát rủi ro." → trả lời rồi tiếp |
 | Lúng túng 2 cửa sổ | FALLBACK: đóng cửa sổ khách, làm hết trên 1 cửa sổ admin (admin thấy mọi ca + duyệt tại card — flow v4 cũ vẫn nguyên) |
-| Login lỗi/quên pass | password = username (b001/b001, admin/admin) |
+| Login lỗi/quên pass | dùng tài khoản demo đã gửi BTC (KHÁCH-DN · KHÁCH-CN · ADMIN) — không đăng trong repo |
 | Compare timeout | cột single vẫn hiện — kể "single không đủ" luôn |
 | Mất mạng provider | đổi SHB_PROVIDER (claude-cli/zai dự phòng) |
 | DB bẩn giữa buổi | reset_demo 1 lệnh (~5s) — users giữ nguyên |

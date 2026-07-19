@@ -11,6 +11,8 @@
 | [`patterns/00-INDEX.md`](patterns/00-INDEX.md) | Mục lục 5 pattern build: `claude-sdk` · `multi-agent` · `streaming-sse` · `canvas-present` · `lab-joint` | Trước khi build/sửa phần tương ứng — đọc đúng file theo task |
 | [`demo-script.md`](demo-script.md) | Kịch bản demo thi ~10-13 phút, 2 cửa sổ (khách ‖ ngân hàng), kèm đường thoát hiểm | Chuẩn bị demo / muốn hiểu happy-path end-to-end |
 | [`deploy.md`](deploy.md) | Deploy production: Docker compose + cloudflared → `digital.tinhdev.com`, seed snapshot, reset demo, rollback | Deploy / vận hành server |
+| [`business-case.md`](business-case.md) | Khả thi kinh doanh + pilot 3 pha + trách nhiệm pháp lý | Hỏi về triển khai thực tế / giá trị nghiệp vụ |
+| [`ux-design.md`](ux-design.md) | Tư duy thiết kế UX AI-native — lập luận đằng sau từng lựa chọn UI | Muốn hiểu vì sao UI bố cục như hiện tại |
 | `assets/` | Ảnh chụp sản phẩm dùng cho README | — |
 
 Tài liệu cấp repo (ngoài `docs/`):

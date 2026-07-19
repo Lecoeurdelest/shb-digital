@@ -8,9 +8,9 @@
 > **Seed THẬT đã verify trực tiếp bằng SQL (2026-07-19, local DB tham chiếu schema — giá trị
 > loan lấy từ LAB nên PROD có thể lệch, đã đối chiếu riêng khi chạy) — bài học script v3/v7:
 > đừng tin câu mẫu trong demo-script.md có số tiền khớp seed, luôn query lại.**
-> Account login-able (customer role, có mật khẩu demo=username): **c001/c001** (C001 — Nguyễn
-> Văn An, cá nhân, thu nhập khai 30tr/tháng) · **b001/b001** (B001 — Công ty TNHH Cơ khí Xưởng
-> X, DN) · **c019/c019** (C019 — Huỳnh Văn Phong, cá nhân, lane-green tổ hợp DUY NHẤT theo
+> Account login-able (customer role; mật khẩu demo đã gửi riêng BTC, không đăng repo): **[KHÁCH-CN c001]** (C001 — Nguyễn
+> Văn An, cá nhân, thu nhập khai 30tr/tháng) · **[KHÁCH-DN b001]** (B001 — Công ty TNHH Cơ khí Xưởng
+> X, DN) · **[KHÁCH-CN c019]** (C019 — Huỳnh Văn Phong, cá nhân, lane-green tổ hợp DUY NHẤT theo
 > comment `seed_users.py` dòng 24-26).
 > Loan sở hữu bởi 3 account trên: **L001** (C001, 340.000.000, active) · **L007** (B001,
 > 3.000.000.000, active) · **L108** (C019, 594.000.000, active). Loan khác (L002-L006, L101-...)
@@ -43,10 +43,10 @@ tool-call gốc (SPEC §6 — "mọi con số nên kèm source"), không phải 
 đã proven; KHÔNG cần khoản vay lớn thật để trigger — chỉ cần câu hỏi đủ tín hiệu "khảo sát...
 chưa chính thức").
 
-**Tiền điều kiện**: DB PROD hiện tại (không cần reset) — b001/B001 đã tồn tại từ seed gốc.
+**Tiền điều kiện**: DB PROD hiện tại (không cần reset) — account b001 (khách B001) đã tồn tại từ seed gốc.
 
 **Các bước**:
-1. Login `b001/b001` trên `https://digital.tinhdev.com`.
+1. Login `[KHÁCH-DN b001]` trên `https://digital.tinhdev.com`.
 2. Mở ca mới, gõ nguyên văn (câu đã proven trong demo-script.md CẢNH 1, không đổi vì đây không
    liên quan số tiền loan-seed):
    `"Công ty tôi muốn vay 5 tỷ mở rộng sản xuất, thế chấp nhà xưởng — khảo sát nhanh giúp tôi:
@@ -65,7 +65,7 @@ chưa chính thức").
 **Kết quả kỳ vọng**: ≥3 sub dispatch song song hoặc tuần tự (D-52 — cả 2 cách đều đạt), mọi card
 có source, case thiếu info → hỏi lại, case honest-null → "chưa xác minh được" không bịa.
 
-**Kết quả CHẠY THẬT — PASS.** Chạy 19/7, b001/b001 trên PROD, câu chat NGUYÊN VĂN đúng bước 2.
+**Kết quả CHẠY THẬT — PASS.** Chạy 19/7, [KHÁCH-DN b001] trên PROD, câu chat NGUYÊN VĂN đúng bước 2.
 - **1 finding hạ tầng thoáng qua (không FAIL luồng)**: lần gõ đầu tiên (~00:xx) gặp `HTTP 502`
   từ `/api/health` VÀ khi gửi câu hỏi — trang lỗi Cloudflare gateway, không phải app. Retry
   `/api/health` 10s sau → 200 sạch. Login lại + gõ lại câu → chạy trọn vẹn không lỗi. Đây là
@@ -134,7 +134,7 @@ hoạt động đúng 3 nhánh, nhánh xanh phải dẫn `assessment #id` cụ t
 **Các bước (chạy MỚI — luồng này dispatch yêu cầu cover trọn cả 3 tầng)**:
 
 ### 3a — Tầng 1 (<500tr, auto)
-1. Login `c001/c001`.
+1. Login `[KHÁCH-CN c001]`.
 2. Gõ: `"Giải ngân khoản vay L001 số tiền 340 triệu đồng."`
 3. Kỳ vọng: card tự động duyệt trong ~15s, KHÔNG cần admin, phiếu `decided_by='auto-rule'` +
    lý do "dưới ngưỡng 500 triệu".
@@ -143,7 +143,7 @@ hoạt động đúng 3 nhánh, nhánh xanh phải dẫn `assessment #id` cụ t
    tầng 1, không cần xanh).
 
 ### 3b — Tầng 2 xanh (500tr-2 tỷ, auto SAU KHI xanh, dẫn assessment #id)
-1. Login `c019/c019`.
+1. Login `[KHÁCH-CN c019]`.
 2. Gõ: `"Tôi muốn vay 594 triệu mua nhà ở, vay tín chấp không thế chấp — thẩm định hồ sơ giúp
    tôi theo quy trình."` (đúng nguyên văn demo-script CẢNH 2 Nhịp C — mục đích + loại vay rõ để
    Legal không dừng hỏi thêm).
@@ -165,7 +165,7 @@ fresh → phiếu CHỜ NGƯỜI đúng ma trận (không auto dù cùng khoản
 **Kết quả**: PASS (tái dẫn).
 
 ### 3d — Tầng 3 (>2 tỷ, luôn người bất kể lane)
-1. Login `b001/b001`.
+1. Login `[KHÁCH-DN b001]`.
 2. Gõ: `"Giải ngân khoản vay L007 số tiền 3 tỷ đồng."`
 3. Kỳ vọng: phiếu CHỜ NGƯỜI ngay cả khi (giả định) DN đạt lane xanh — thực tế DN luôn yellow
    (ÁN-L-F2) nên đây là double-guard; ghi rõ trong evidence nhánh nào chặn (ngưỡng hay lane).
@@ -174,11 +174,11 @@ fresh → phiếu CHỜ NGƯỜI đúng ma trận (không auto dù cùng khoản
    nhưng nếu B001 cần dùng lại cho Luồng 1 fan-out demo sau, ghi chú trạng thái cuối).
 
 **Kết quả CHẠY THẬT**:
-- **3a PASS** (chạy 19/7, c001/c001 trên PROD): gõ "Giải ngân khoản vay L001 số tiền 340 triệu
+- **3a PASS** (chạy 19/7, [KHÁCH-CN c001] trên PROD): gõ "Giải ngân khoản vay L001 số tiền 340 triệu
   đồng." → auto duyệt trong ~10s, biên nhận DOCUMENT card xác nhận `Tự động (auto-rule)` +
   "Tự động duyệt theo rule: số tiền dưới ngưỡng 500,000,000 VND", timestamp
   `18/07/2026 17:36:44 (UTC)`. Không cần admin can thiệp.
-- **3d PASS** (chạy 19/7, b001/b001 trên PROD): gõ "Giải ngân khoản vay L007 số tiền 3 tỷ đồng."
+- **3d PASS** (chạy 19/7, [KHÁCH-DN b001] trên PROD): gõ "Giải ngân khoản vay L007 số tiền 3 tỷ đồng."
   → ngay lập tức "Đã gửi chờ duyệt" (KHÔNG auto dù bất kỳ lane nào — đúng tầng 3 luôn human) →
   phiếu Tower `af299c95-2...` `{"amount":3000000000,"loan_id":"L007"}` → admin duyệt → resume
   tự động → "GIẢI NGÂN THÀNH CÔNG" 18/07/2026 17:43:19 (UTC), mỗi dòng kết quả đều có
@@ -306,7 +306,7 @@ tra lại quyền thật khi chạy vì đây là điểm CHƯA verify).
 5. Case biên — nếu 1-LLM-trần vô tình bịa số cụ thể (hallucination) → đây CHÍNH LÀ điểm giá trị
    của demo, ghi lại nguyên văn làm bằng chứng đối lập.
 
-**Kết quả CHẠY THẬT — PASS** (chạy 19/7, admin/admin trên PROD, tab Control Tower → "So sánh 1
+**Kết quả CHẠY THẬT — PASS** (chạy 19/7, [ADMIN] trên PROD, tab Control Tower → "So sánh 1
 vs đội"):
 - **Authz xác nhận đúng chuẩn ngay từ lần thử đầu**: tab So sánh CHỈ nằm trong Control Tower
   (admin/bank), KHÔNG có ở workspace khách — đúng script.
