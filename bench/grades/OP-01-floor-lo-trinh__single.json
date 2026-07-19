@@ -1,0 +1,28 @@
+{
+  "case_id": "OP-01-floor-lo-trinh",
+  "runner": "single",
+  "category": "single-dept",
+  "layer1": {
+    "coverage_facts": 0.4,
+    "facts_hit": [
+      "human_approval=not_required",
+      "owner_id=C004"
+    ],
+    "facts_missed": [
+      "status=ready_to_disburse",
+      "product_id=P004",
+      "loan_amount_vnd=400000000"
+    ],
+    "tools_expected": [
+      "ops_app_get"
+    ],
+    "tools_missing": [],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (6736 bytes) — không mất công soạn lại."
+  }
+}

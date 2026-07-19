@@ -1,0 +1,31 @@
+{
+  "case_id": "LG-01-floor-auto",
+  "runner": "single",
+  "category": "single-dept",
+  "layer1": {
+    "coverage_facts": 0.5,
+    "facts_hit": [
+      "lane=green",
+      "decision=auto_approve_eligible",
+      "cic_group=1",
+      "income_mismatch_pct=0"
+    ],
+    "facts_missed": [
+      "criminal_status=clean",
+      "docs[0]=cccd valid",
+      "docs[1]=proof_income valid",
+      "dscr=1.385 (credit sub-check bên trong classify)"
+    ],
+    "tools_expected": [
+      "legal_classify_profile"
+    ],
+    "tools_missing": [],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (7169 bytes) — không mất công soạn lại."
+  }
+}

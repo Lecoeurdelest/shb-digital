@@ -1,0 +1,37 @@
+{
+  "case_id": "TRAP-01-tran-nhom-C013",
+  "runner": "multi",
+  "category": "trap",
+  "layer1": {
+    "coverage_facts": 0.36,
+    "facts_hit": [
+      "group_members[0].id=B002",
+      "group_members[0].also=chairman",
+      "group_members[1].id=B004",
+      "group_members[1].also=chairman",
+      "own_outstanding_vnd=0"
+    ],
+    "facts_missed": [
+      "group_members[0].relation=owns",
+      "group_members[0].pct=70",
+      "group_members[1].relation=owns",
+      "group_members[1].pct=55",
+      "group_outstanding_vnd=8000000000000",
+      "new_loan_vnd=5000000000000",
+      "single_cap_vnd=7500000000000",
+      "group_cap_vnd=12500000000000",
+      "verdict_expected=TỪ CHỐI/trình cấp cao — vỡ trần NHÓM dù trần ĐƠN của chính C013 vẫn đạt. Đây chính là 'Ví dụ điển hình phải bắt' trong wiki nhom-khach-lien-quan.md: DN xin vay sạch hồ sơ (ở đây là cá nhân C013 sạch) NHƯNG chủ tịch đồng thời sở hữu DN khác đang dư nợ lớn (B004 8000 tỷ) → cộng nhóm vượt trần → từ chối/trình cấp cao dù khoản riêng lẻ (của C013) đạt."
+    ],
+    "tools_expected": [
+      "legal_related_exposure"
+    ],
+    "tools_missing": [],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (11221 bytes) — không mất công soạn lại."
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case_id": "CR-02-trap-bien",
+  "runner": "multi",
+  "category": "single-dept",
+  "layer1": {
+    "coverage_facts": 0.0,
+    "facts_hit": [],
+    "facts_missed": [
+      "dscr=1.152",
+      "verdict=ineligible",
+      "reasons[0]=dscr_below_min: DSCR 1.152 < ngưỡng 1.2",
+      "monthly_income_vnd=20000000",
+      "new_loan_monthly_payment_vnd=17366649"
+    ],
+    "tools_expected": [
+      "credit_assess"
+    ],
+    "tools_missing": [],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (3036 bytes) — không mất công soạn lại."
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "case_id": "PR-02-trap-tet-het-han",
+  "runner": "single",
+  "category": "single-dept",
+  "layer1": {
+    "coverage_facts": 0.67,
+    "facts_hit": [
+      "product_id=P005",
+      "status=expired",
+      "replaced_by=qd-2026-laisuat",
+      "legal_basis_cu=qd-2025-tet"
+    ],
+    "facts_missed": [
+      "effective_to=2026-02-28",
+      "rule=Khách hỏi gói 6.8% → trả lời rõ đã hết hạn, KHÔNG hứa theo thông tin cũ, chào gói active thay thế phù hợp trong goi-tieu-dung (danh mục P001-P004, P013)."
+    ],
+    "tools_expected": [
+      "wiki_lookup hoặc wiki_search",
+      "product_list optional"
+    ],
+    "tools_missing": [
+      "wiki_lookup hoặc wiki_search",
+      "product_list optional"
+    ],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (6621 bytes) — không mất công soạn lại."
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "case_id": "LG-02-trap-combo",
+  "runner": "multi",
+  "category": "single-dept",
+  "layer1": {
+    "coverage_facts": 0.0,
+    "facts_hit": [],
+    "facts_missed": [
+      "employment_declared_vnd=19000000",
+      "employment_verified_vnd=16000000",
+      "mismatch_pct=18.8",
+      "mismatch_flag=income_mismatch",
+      "threshold_pct=10"
+    ],
+    "tools_expected": [
+      "legal_check_police",
+      "legal_verify_employment"
+    ],
+    "tools_missing": [
+      "legal_check_police",
+      "legal_verify_employment"
+    ],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (3382 bytes) — không mất công soạn lại."
+  }
+}

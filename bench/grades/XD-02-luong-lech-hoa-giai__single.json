@@ -1,0 +1,17 @@
+{
+  "case_id": "XD-02-luong-lech-hoa-giai",
+  "runner": "single",
+  "category": "cross-dept",
+  "layer1": {
+    "coverage_facts": null,
+    "facts_hit": [],
+    "facts_missed": [],
+    "tools_expected": [],
+    "tools_missing": [],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": null
+  },
+  "layer2": null,
+  "note": "layer1 đủ tự tin (coverage cao + không thiếu tool + không số lạ) — KHÔNG cần layer2 (Phase 2 vẫn NÊN chạy layer2 cho toàn bộ để có verdict LLM đối kháng nhất quán, đây chỉ là tối ưu chi phí Phase 1)"
+}

@@ -1,10 +1,10 @@
 # CR-01-floor — run_single (1 agent sonnet, TẤT CẢ tool + TẤT CẢ hướng dẫn)
 
-- conv_id (synthetic): `bench-single-CR-01-floor-628156e5`
+- conv_id (synthetic): `bench-single-CR-01-floor-0c4acb1f`
 - model: `sonnet`
 - is_error: `False`
-- thời gian: 29.4s
-- usage/cost (ResultMessage): `{"cost_usd": 0.0759543, "duration_ms": 27947, "num_turns": 4, "usage": {"input_tokens": 8, "cache_creation_input_tokens": 3706, "cache_read_input_tokens": 88221, "output_tokens": 1766, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 3706, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 2, "output_tokens": 525, "cache_read_input_tokens": 23250, "cache_creation_input_tokens": 1438, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 1438}, "type": "message"}], "speed": "standard"}}`
+- thời gian: 38.1s
+- usage/cost (ResultMessage): `{"cost_usd": 0.0855204, "duration_ms": 36843, "num_turns": 6, "usage": {"input_tokens": 8, "cache_creation_input_tokens": 4199, "cache_read_input_tokens": 92348, "output_tokens": 2124, "server_tool_use": {"web_search_requests": 0, "web_fetch_requests": 0}, "service_tier": "standard", "cache_creation": {"ephemeral_1h_input_tokens": 4199, "ephemeral_5m_input_tokens": 0}, "inference_geo": "not_available", "iterations": [{"input_tokens": 2, "output_tokens": 686, "cache_read_input_tokens": 24475, "cache_creation_input_tokens": 1830, "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 1830}, "type": "message"}], "speed": "standard"}}`
 
 ## Prompt
 
@@ -12,22 +12,37 @@
 
 ## Câu trả lời cuối
 
-Tín dụng đã có kết quả eligible (DSCR 5.044). Giờ chuyển sang thẩm định pháp lý với ngữ cảnh này.Đã có kết quả cả 2 phòng, tổng hợp tờ trình.**Tóm tắt cho anh/chị:**
+## Kết quả thẩm định — Tạ Thị Quỳnh (C012), vay tiêu dùng 500 triệu
 
-**Tín dụng (Credit) — eligible:** DSCR = **5.044** (ngưỡng ≥1.2), rất dư khả năng trả nợ. Trả nợ hàng tháng khoản mới ước ~11,9 triệu/60 triệu thu nhập. Nhóm CIC: **2** (nợ cần chú ý, chưa phải nợ xấu — nợ xấu từ nhóm 3). *(nguồn: credit_assess)*
+**Tín dụng (credit_assess): ĐỦ điều kiện**
+- Verdict: **eligible**
+- DSCR = **5.044** (ngưỡng tối thiểu 1.2) → khả năng trả rất dư dả
+- Trả góp mới ước tính: 11.894.965đ/tháng trên thu nhập khai báo 60tr/tháng, kỳ hạn mặc định 60 tháng
+- Nợ hiện tại: 0đ
 
-**Pháp lý (Legal) — lane VÀNG, decision `human_review_required`:** Các trụ nhân thân, tiền án, lương xác minh, giấy tờ, credit đều **pass**. Riêng **CIC nhóm 2** khiến hồ sơ bị gắn cờ vàng → **không tự động duyệt**, cần người có thẩm quyền xét duyệt thủ công. *(nguồn: legal_classify_profile, assessmentId 137 — đã ghi sổ)*
+**CIC (credit_cic_get): nhóm 2**
+- "Từng chậm trả 1 kỳ thẻ tín dụng, nhóm 2 — nợ cần chú ý" (chưa phải nợ xấu nhóm ≥3, nhưng là điểm cần lưu ý)
 
-**Kết luận:** Khả năng trả nợ của chị Quỳnh rất tốt, nhưng hồ sơ **chưa đủ điều kiện tự động duyệt** do CIC nhóm 2 — cần chuyển cấp thẩm quyền xem xét (human review), chưa phải là quyết định phê duyệt/từ chối cuối cùng. Khi có kết quả duyệt, có thể tiếp tục bước lộ trình/giải ngân qua Operations.
+**Pháp lý — chốt cuối (legal_classify_profile #168):**
+- **Lane: VÀNG (yellow)** — **Decision: human_review_required**
+- Tiêu chí: identity=pass, criminal=pass (không tiền án), **cic=yellow** (chính là nhóm 2 nêu trên), employment=pass (lương xác minh khớp kê khai, lệch 0.0%), docs=pass (giấy tờ clear), credit=pass
 
-## Tool-call list (3 lời gọi, thứ tự thời gian)
+**Kết luận:** Hồ sơ tín dụng rất tốt và pháp lý các mặt khác đều pass, nhưng vì CIC nhóm 2 nên hệ thống xếp lane **vàng** → **không tự động duyệt**, cần **người có thẩm quyền xem xét & phê duyệt** (dù số tiền 500tr vẫn dưới ngưỡng auto-approve 2 tỷ, nhưng lane vàng chặn auto). Đây là đề xuất, chưa phải quyết định cuối cùng — cần chuyển hồ sơ lên cấp phê duyệt.
+
+## Tool-call list (5 lời gọi, thứ tự thời gian)
 
 1. **credit_assess**
    - input: `{"owner_id": "C012", "loan_amount_vnd": 500000000, "loan_type": "consumer"}`
-   - output: `[{"type": "text", "text": "{\"found\": true, \"asOf\": \"2026-07-19T01:55:22+00:00\", \"item\": {\"ownerId\": \"C012\", \"kind\": \"customer\", \"name\": \"Tạ Thị Quỳnh\", \"verdict\": \"eligible\", \"metrics\": {\"dscr\": 5.044, \"ltv\": null, \"cicGroup\": 2, \"debtTotalOutstandingVnd\": 0.0, \"monthlyPaymentTotalVnd\": 11894965}, \"reasons\": [], \"missing\": [], \"warnings\": [], \"inputs\": {\"monthlyIncomeVnd\": 60000000.0, \"existingMonthlyPaymentVnd\": 0.0, \"newLoanMonthlyPaymentVnd\": 11894965, \"loanAmountVnd\": 500000000.0, \"loanType\": \"consumer\", \"termMonths\": 60, \"collateralAppraisedVnd\": null}, \"assumptionsUsed\": {\"dscr_min\": 1.2, \"ltv_max\": 0.7, \"single_customer_cap_pct\": 0.15, \"annual_rate\": 0.15, \"formula\": \"annuity (SEED-REPORT §1)\", \"source\": \"a`
-2. **legal_classify_profile**
+   - output: `[{"type": "text", "text": "{\"found\": true, \"asOf\": \"2026-07-19T03:00:51+00:00\", \"item\": {\"ownerId\": \"C012\", \"kind\": \"customer\", \"name\": \"Tạ Thị Quỳnh\", \"verdict\": \"eligible\", \"metrics\": {\"dscr\": 5.044, \"ltv\": null, \"cicGroup\": 2, \"debtTotalOutstandingVnd\": 0.0, \"monthlyPaymentTotalVnd\": 11894965}, \"reasons\": [], \"missing\": [], \"warnings\": [], \"inputs\": {\"monthlyIncomeVnd\": 60000000.0, \"incomeSource\": \"declared (customers.monthly_income)\", \"existingMonthlyPaymentVnd\": 0.0, \"newLoanMonthlyPaymentVnd\": 11894965, \"loanAmountVnd\": 500000000.0, \"loanType\": \"consumer\", \"termMonths\": 60, \"collateralAppraisedVnd\": null}, \"assumptionsUsed\": {\"dscr_min\": 1.2, \"ltv_max\": 0.7, \"single_customer_cap_pct\": 0.15, \"annual_rate\": 0.15,`
+2. **credit_cic_get**
+   - input: `{"owner_id": "C012"}`
+   - output: `[{"type": "text", "text": "{\"found\": true, \"item\": {\"owner_id\": \"C012\", \"cic_group\": 2, \"history_note\": \"Từng chậm trả 1 kỳ thẻ tín dụng, nhóm 2 — nợ cần chú ý\"}, \"asOf\": \"2026-07-19T03:00:51+00:00\", \"hint\": \"CIC nhóm 2 — CẢNH BÁO nợ cần chú ý. Đưa thông tin này vào thẩm định, không bỏ qua.\"}"}]`
+3. **cust_get**
+   - input: `{"id": "C012"}`
+   - output: `[{"type": "text", "text": "{\"found\": true, \"item\": {\"kind\": \"customer\", \"profile\": {\"id\": \"C012\", \"full_name\": \"Tạ Thị Quỳnh\", \"age\": 48, \"occupation\": \"Bác sĩ\", \"monthly_income\": 60000000, \"region\": \"Hà Nội\", \"id_number\": \"001092101644\", \"address\": \"Số 94 Trần Hưng Đạo, Hà Nội\", \"segment\": \"vip\"}, \"loans\": [{\"loan_id\": \"L005\", \"principal\": 500000000, \"outstanding\": 0, \"monthly_payment\": 0, \"status\": \"closed\"}], \"debtTotalOutstandingVnd\": 0, \"monthlyPaymentTotalVnd\": 0, \"activeLoans\": 0, \"collaterals\": [{\"id\": \"COL05\", \"type\": \"land\", \"appraised_value\": 5000000000, \"docs_status\": \"complete\"}]}, \"asOf\": \"2026-07-19T03:00:51+00:00\", \"hint\": \"Totals do server tính từ khoản active — dùng thẳng, không tự cộng`
+4. **legal_classify_profile**
    - input: `{"owner_id": "C012", "loan_amount_vnd": 500000000, "loan_type": "consumer"}`
-   - output: `[{"type": "text", "text": "{\"found\": true, \"asOf\": \"2026-07-19T01:55:26+00:00\", \"item\": {\"assessmentId\": 137, \"ownerId\": \"C012\", \"loanType\": \"consumer\", \"loanAmountVnd\": 500000000.0, \"lane\": \"yellow\", \"decision\": \"human_review_required\", \"criteria\": [{\"key\": \"identity\", \"level\": \"pass\", \"detail\": \"nhân thân khớp bản công an\"}, {\"key\": \"criminal\", \"level\": \"pass\", \"detail\": \"không tiền án\"}, {\"key\": \"cic\", \"level\": \"yellow\", \"detail\": \"CIC nhóm 2 — nợ cần chú ý, người xem thêm\"}, {\"key\": \"employment\", \"level\": \"pass\", \"detail\": \"lương xác minh khớp kê khai (lệch 0.0%)\"}, {\"key\": \"docs\", \"level\": \"pass\", \"detail\": \"legal_check_docs: clear\"}, {\"key\": \"credit\", \"level\": \"pass\", \"detail\": \"credi`
-3. **present**
-   - input: `{"type": "document", "title": "Thẩm định vay tiêu dùng — Tạ Thị Quỳnh (C012), 500 triệu VND", "items": [{"section": "Tín dụng (Credit)", "content": "Verdict: eligible. DSCR = 5.044 (ngưỡng tối thiểu 1.2) — khả năng trả nợ rất tốt. LTV: không áp dụng (vay tín chấp). Nhóm CIC: 2. Trả nợ hàng tháng khoản mới ước tính 11.894.965 VND/tháng trên thu nhập 60.000.000 VND/tháng. Kỳ hạn mặc định 60 tháng, lãi suất giả định 15%/năm (annuity). Nguồn: credit_assess."}, {"section": "Pháp lý (Legal)", "content": "Lane: yellow. Decision: human_review_required (assessmentId 137, đã ghi sổ). Chi tiết tiêu chí: nhân thân khớp công an (pass), không tiền án (pass), CIC nhóm 2 — nợ cần chú ý (yellow), lương xác minh khớp kê khai lệch 0.0% (pass), giấy tờ: clear (pass), credit_assess: eligible (pass). Nguồn: legal_classify_profile."}, {"section": "Kết luận đề xuất", "content": "Hồ sơ đủ điều kiện về mặt khả năng trả nợ (Credit eligible) nhưng do CIC nhóm 2 nên lane pháp lý xếp VÀNG, quyết định là human_review_required — cần người có thẩm quyền xem xét, KHÔNG tự động duyệt. Đây là bước ĐỀ XUẤT, chưa phải phê duyệt cuối cùng."}]}`
+   - output: `[{"type": "text", "text": "{\"found\": true, \"asOf\": \"2026-07-19T03:00:54+00:00\", \"item\": {\"assessmentId\": 168, \"ownerId\": \"C012\", \"loanType\": \"consumer\", \"loanAmountVnd\": 500000000.0, \"lane\": \"yellow\", \"decision\": \"human_review_required\", \"criteria\": [{\"key\": \"identity\", \"level\": \"pass\", \"detail\": \"nhân thân khớp bản công an\"}, {\"key\": \"criminal\", \"level\": \"pass\", \"detail\": \"không tiền án\"}, {\"key\": \"cic\", \"level\": \"yellow\", \"detail\": \"CIC nhóm 2 — nợ cần chú ý, người xem thêm\"}, {\"key\": \"employment\", \"level\": \"pass\", \"detail\": \"lương xác minh khớp kê khai (lệch 0.0%)\"}, {\"key\": \"docs\", \"level\": \"pass\", \"detail\": \"legal_check_docs: clear\"}, {\"key\": \"credit\", \"level\": \"pass\", \"detail\": \"credi`
+5. **present**
+   - input: `{"type": "document", "title": "Thẩm định vay tiêu dùng 500 triệu — Tạ Thị Quỳnh (C012)", "items": [{"section": "Tín dụng (credit_assess)", "content": "Verdict: eligible. DSCR = 5.044 (ngưỡng tối thiểu 1.2) — dư khả năng trả rất tốt. LTV: null (vay tiêu dùng, không thế chấp). Nợ hiện tại: 0đ. Trả góp mới ước tính: 11.894.965đ/tháng trên thu nhập khai báo 60.000.000đ/tháng. Kỳ hạn mặc định 60 tháng, lãi giả định 15%/năm (annuity)."}, {"section": "CIC (credit_cic_get)", "content": "Nhóm 2 — 'Từng chậm trả 1 kỳ thẻ tín dụng, nhóm 2 — nợ cần chú ý'. Không phải nợ xấu (nhóm ≥3) nhưng là điểm cần lưu ý, không bỏ qua."}, {"section": "Pháp lý — chốt cuối (legal_classify_profile #168)", "content": "Lane: YELLOW. Decision: human_review_required. Tiêu chí: identity=pass (khớp công an), criminal=pass (không tiền án), cic=yellow (nhóm 2 — nợ cần chú ý), employment=pass (lương xác minh khớp kê khai, lệch 0.0%), docs=pass (legal_check_docs: clear), credit=pass (credit_assess: eligible). Ngưỡng auto-approve tối đa 2 tỷ VND — khoản 500tr nằm trong ngưỡng số tiền, nhưng lane vàng do CIC nên KHÔNG auto, cần người có thẩm quyền duyệt."}, {"section": "Kết luận", "content": "Tín dụng ĐỦ điều kiện (eligible, DSCR rất tốt). Pháp lý xếp lane VÀNG do CIC nhóm 2 → decision chính thức là human_review_required, tức CẦN người có thẩm quyền xem xét & duyệt, KHÔNG tự động phê duyệt. Đây là ĐỀ XUẤT, chưa phải quyết định cuối."}]}`
    - output: `[{"type": "text", "text": "{\"rendered\": true, \"hint\": \"card document đã lên canvas — tiếp tục việc, xong hết thì trả lời text.\"}"}]`

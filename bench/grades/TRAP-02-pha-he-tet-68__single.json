@@ -1,0 +1,32 @@
+{
+  "case_id": "TRAP-02-pha-he-tet-68",
+  "runner": "single",
+  "category": "trap",
+  "layer1": {
+    "coverage_facts": 0.12,
+    "facts_hit": [
+      "product_id=P005"
+    ],
+    "facts_missed": [
+      "matched_page=uu-dai-tet-68",
+      "legal_basis_cu=qd-2025-tet",
+      "status=expired",
+      "effective_to=2026-02-28",
+      "replaced_by=qd-2026-laisuat",
+      "graph_edge=qd-2025-tet --[replaced_by]--> qd-2026-laisuat",
+      "rule=Căn cứ ban hành qd-2025-tet ĐÃ BỊ qd-2026-laisuat THAY THẾ TOÀN BỘ — văn bản gốc khách cầm (tờ rơi) không còn hiệu lực pháp lý để căn cứ."
+    ],
+    "tools_expected": [
+      "wiki_search",
+      "wiki_related_docs"
+    ],
+    "tools_missing": [],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (9525 bytes) — không mất công soạn lại."
+  }
+}

@@ -103,6 +103,17 @@ def _team_settled(conv: dict[str, Any]) -> bool:
     tasks = conv.get("tasks") or []
     if any(t.get("status") in ("queued", "running") for t in tasks):
         return False
+    # FIX capture-bug (scorer-opus S17 bắt): task `failed` cũng thoả điều kiện trên nhưng MAIN có
+    # thể ĐANG retry/tổng hợp → chụp non 5/15 case (DB cho thấy đội hoàn tất SAU mốc capture).
+    # Settled THẬT = thêm điều kiện: message CUỐI là assistant VÀ nó sinh SAU ended_at của task
+    # muộn nhất (MAIN đã nói lời cuối sau khi đội xong việc — kể cả nhánh retry-sau-failed).
+    msgs = conv.get("messages") or []
+    if not msgs or msgs[-1].get("sender") not in ("assistant", "main"):
+        return False
+    last_task_end = max((t.get("ended_at") or "" for t in tasks), default="")
+    last_msg_ts = msgs[-1].get("ts") or msgs[-1].get("created_at") or ""
+    if last_task_end and last_msg_ts and last_msg_ts < last_task_end:
+        return False
     return True
 
 
