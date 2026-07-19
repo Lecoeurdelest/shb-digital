@@ -52,9 +52,25 @@ curl https://digital.tinhdev.com/api/conversations  # → 401 {"code":"unauthori
 
 ---
 
+## 🎬 Video demo
+
+<!-- HƯỚNG DẪN GẮN VIDEO (GitHub chỉ render player với link user-attachments):
+     mở README này trên github.com → Edit → KÉO-THẢ file .mp4 vào đúng 2 dòng dưới →
+     GitHub tự sinh link dạng https://github.com/user-attachments/assets/... → Commit.
+     (File video commit thẳng vào repo sẽ KHÔNG hiện player — chỉ ra link tải.) -->
+
+**Video 1 — Hành trình khách vay** (chat → đội chuyên gia → canvas → phanh giải ngân):
+
+_[dán link video 1 vào đây]_
+
+**Video 2 — Bàn ngân hàng** (Control Tower → duyệt phiếu → audit → thống kê chi phí → so sánh 1-vs-đội):
+
+_[dán link video 2 vào đây]_
+
 ## Mục lục
 
 - [Dành cho giám khảo — chấm nhanh trong 10 phút](#dành-cho-giám-khảo--chấm-nhanh-trong-10-phút)
+- [🎬 Video demo](#-video-demo)
 - [Tính năng chính](#tính-năng-chính)
 - [Thế mạnh nổi bật](#thế-mạnh-nổi-bật-mỗi-gạch-có-biên-lai-trong-repo)
 - [Đáp ứng đề bài (5 deliverables)](#đáp-ứng-đề-bài-5-deliverables)
@@ -188,10 +204,13 @@ flowchart LR
   API --> MAIN[MAIN — điều phối viên<br/>phiên bền, resume từ disk]
   MAIN -->|orch_dispatch<br/>fire-and-forget · idempotent| SUB[4 SUB chuyên gia<br/>Tín dụng · Pháp chế · Sản phẩm · Vận hành]
   SUB -->|tool nghiệp vụ| PG[(Postgres 15<br/>nghiệp vụ + render + audit)]
+  SUB -->|tra cứu| RAG[Retrieval 4 tầng<br/>wiki · phả hệ văn bản · vector notes · trần NHÓM]
+  RAG --> PG
   SUB -->|present card| FE
   SUB -->|disburse| GATE{{PHANH tầng tool<br/>phiếu payload-hash · single-use}}
-  GATE -->|"≤ 500tr (ma trận)"| AUTO[Tự duyệt auto-rule<br/>+ biên nhận]
-  GATE -->|"> 500tr"| BANK[Bàn duyệt ngân hàng<br/>Control Tower]
+  GATE -->|"≤ 500tr"| AUTO[Tự duyệt auto-rule<br/>+ biên nhận]
+  GATE -->|"500tr–2 tỷ, hồ sơ XANH<br/>dẫn biên bản thẩm định #id"| AUTO
+  GATE -->|"khoản lớn / lane vàng-đỏ"| BANK[Bàn duyệt ngân hàng<br/>Control Tower]
   BANK -->|approved / rejected| MAIN
 ```
 
@@ -226,7 +245,7 @@ Các thành phần chính:
 | Thành phần | Vai trò | Code |
 |---|---|---|
 | **MAIN** | Điều phối viên: phân rã yêu cầu, giao việc, hòa giải mâu thuẫn, tổng hợp trả lời. Phiên bền — server restart vẫn resume đúng hội thoại | `backend/app/orch/main_session.py` |
-| **SUB** (×4) | Chuyên gia domain, client tươi mỗi lượt: nhận brief → dùng tool → `present` card → trả kết quả. Tín dụng + Pháp chế: tool thật; Sản phẩm + Vận hành: stub `isMock` cùng contract | `backend/app/orch/sub_runner.py` |
+| **SUB** (×4) | Chuyên gia domain, client tươi mỗi lượt: nhận brief → dùng tool → `present` card → trả kết quả. 4/4 chuyên gia tool thật trên Postgres (Sản phẩm + Vận hành port bản CERTIFIED ở S12) | `backend/app/orch/sub_runner.py` |
 | **Orchestrator (vỏ)** | Dispatch nền idempotent, hàng đợi event, đánh thức MAIN khi sub xong — vỏ **không** ép logic "đợi đủ N sub" (điều phối là suy nghĩ của model) | `backend/app/orch/` |
 | **Phanh (approval gate)** | Wrapper tầng tool cho hành động nhạy cảm: phiếu `(conversation, action, payload_hash)` single-use, claim atomic, biên nhận trong cùng transaction — retry không thực thi đôi | `backend/app/orch/gated.py` |
 | **Mount tool LAB** | Nạp tool nghiệp vụ + SKILL per chuyên gia từ `roles/` (labpack) — vỏ cấp connection, không sửa logic nghiệp vụ | `backend/app/mount/` |
