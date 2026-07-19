@@ -39,7 +39,8 @@ curl https://digital.tinhdev.com/api/conversations  # → 401 {"code":"unauthori
    giải ngân → khoản lớn dừng ở **"chờ ngân hàng duyệt"** (phanh tầng tool, không phải lời hứa).
 4. **Vai ngân hàng (3 phút):** Control Tower → hàng đợi phiếu → Duyệt → hệ đánh thức đúng ca,
    giải ngân **đúng một lần** (bấm lại trả biên nhận cũ) → tab Audit soi từng tool call →
-   tab So sánh chạy single-agent vs cả đội trên cùng câu hỏi.
+   tab Thống kê xem KPI + chi phí LLM per-turn → tab So sánh chạy single-agent vs cả đội
+   trên cùng câu hỏi.
 5. **Không có key LLM vẫn chấm được:** quickstart Docker 60 giây (dưới) — UI/DB/audit/canvas
    xem đủ, chat cần key provider.
 6. **Đọc gì tiếp:** bảng [5 deliverables](#đáp-ứng-đề-bài-5-deliverables) →
@@ -85,12 +86,17 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 - Yêu cầu giải ngân: **≤ 500 triệu** — agent tự duyệt theo ma trận thẩm quyền (phiếu vẫn ghi
   `decided_by=auto-rule` + lý do, audit đầy đủ); **> 500 triệu** — tạo phiếu chờ ngân hàng duyệt,
   khách thấy trạng thái "chờ ngân hàng".
+- **Chọn model từng lượt** ngay trong ô chat (đổi provider/model per-turn, không phải tạo ca
+  mới) · sidebar quản lý hội thoại (đổi tên, xoá — xoá vẫn giữ audit) · theme sáng/tối.
 
 **Bàn ngân hàng (admin)** — giám sát và cầm quyền quyết:
 
 - Thấy mọi ca của mọi khách + **Control Tower**: hàng đợi phiếu duyệt (badge real-time),
   audit log append-only từng LLM call/tool call (input/output — ghi cả call đứt giữa chừng),
   trace timeline.
+- **Tab Thống kê**: 7 KPI ngày + hồ sơ thẩm định + **chi phí LLM theo lượt** (token/cost/model
+  bóc từ từng turn thật — biểu đồ cost theo ngày, phân bổ theo model, bảng ca chi phí bất
+  thường bằng z-score).
 - Duyệt / từ chối phiếu giải ngân — hệ đánh thức đúng ca, đội thực thi tiếp **đúng một lần**
   (biên nhận chống thực-thi-đôi; bấm lại trả biên nhận cũ).
 - Click từng chuyên gia xem brief/trace/kết quả; hủy một sub đang chạy không ảnh hưởng sub khác.
@@ -102,11 +108,11 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 
 | # | Đề #132 yêu cầu | Sản phẩm trả bằng |
 |---|---|---|
-| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **Tín dụng + Pháp chế chạy end-to-end** (tool SQL đọc/ghi Postgres thật, bàn giao ngữ cảnh tuần tự — vượt mức "2–3 experts" đề đòi); **Sản phẩm + Vận hành: code CERTIFIED đã port trọn S12, chờ migration bảng (T12-2)**. Khung **labpack cắm-là-chạy** đã tự chứng minh: đẻ chuyên gia = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa (commit e075f37); card đổ về canvas |
+| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **Tín dụng + Pháp chế chạy end-to-end** (tool SQL đọc/ghi Postgres thật, bàn giao ngữ cảnh tuần tự — vượt mức "2–3 experts" đề đòi); **Vận hành: đường giải ngân THẬT** (phanh + biên nhận); tra cứu hồ sơ Vận hành + **Sản phẩm: code CERTIFIED đã port trọn S12, chờ migration bảng (T12-2)**. Khung **labpack cắm-là-chạy** đã tự chứng minh: đẻ chuyên gia = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa; card đổ về canvas |
 | 2 | Cơ chế orchestration: planner phân rã → executor | MAIN (planner, phiên bền — resume qua restart) + `orch_dispatch` giao việc nền + event đánh thức khi sub xong |
 | 3 | Tool use thật — hành động cụ thể, không chỉ text | Tool đọc/ghi Postgres thật (DSCR, CIC, pháp lý…); `disburse` bị **chặn ở tầng tool** bằng phiếu phê duyệt |
 | 4 | Dashboard traces, task status, decisions, collaboration flows | Control Tower + SSE trace (thinking/toolcall) + audit append-only + lobby/task map |
-| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | `POST /api/compare` — chạy cùng câu hỏi 2 chế độ, render đối chiếu 2 cột. Cột multi chạy **luồng đội thật** (dispatch → poll tới khi mọi sub xong → tổng hợp), không phải số dựng sẵn |
+| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | Hai lớp: `POST /api/compare` — cùng câu hỏi chạy 2 chế độ, đối chiếu 2 cột (cột multi chạy **luồng đội thật**, không phải số dựng sẵn); + **bench harness** (`bench/` — 15 case đơn-phòng/liên-phòng/bẫy/phanh, ground-truth re-verify trên DB sống, 2 runner + grader; vòng chạy full đang tới) |
 
 ## An toàn khi AI chạm tiền (phanh tầng tool)
 
@@ -261,10 +267,12 @@ shb-digital/
 │       ├── api/                  # cổng duy nhất gọi backend (client thật + mock theo cờ env)
 │       └── types.ts              # shape khớp docs/CONTRACT.md
 ├── roles/                        # labpack per chuyên gia: SKILL.md + functions.py (tool nghiệp vụ)
-├── docs/                         # đề bài · CONTRACT · patterns/ · demo-script · deploy (+ mục lục docs/README.md)
+│   └── _retrieval/               # tool tra cứu 4 tầng dùng chung: wiki · document-graph · entity-graph · vector
+├── bench/                        # bench single-agent vs hệ: 15 case YAML + 2 runner + grader
+├── docs/                         # đề bài · CONTRACT · methodology/ · patterns/ · demo-script · deploy (+ mục lục docs/README.md)
 ├── sprints/                      # ROADMAP + plan/end từng sprint (số liệu thật, gate, waiver)
 ├── design/                       # mock look-and-feel (Claude Design) — tham khảo, scope theo SPEC
-└── deploy/seed/                  # snapshot seed để deploy tự chứa (D-62)
+└── deploy/seed/                  # snapshot seed tự chứa (D-62) + wiki/ 82 trang chính sách-pháp luật (nguồn tầng retrieval)
 ```
 
 ## Cài đặt & chạy local
@@ -319,13 +327,12 @@ Ghi chú:
 ## Kiểm thử
 
 ```bash
-# Backend — ~420 passed / 14 skipped (skip = live-SDK + embed, opt-in bằng RUN_LIVE_SDK=1)
+# Backend — 445 passed / 14 skipped (skip = live-SDK + embed, opt-in bằng RUN_LIVE_SDK=1)
 cd backend
-uv run python -m app.db.seed_from_lab        # test retrieval cần seed wiki trước
 TEST_DATABASE_URL=postgresql://shb:shb@localhost:5432/shb_test uv run pytest
 uv run ruff check . && uv run ruff format --check .
 
-# Frontend — 209 test / 24 file (vitest) + typecheck (tsc 0 lỗi)
+# Frontend — 227 test / 26 file (vitest) + typecheck (tsc 0 lỗi)
 cd frontend
 npm run test
 npm run typecheck
@@ -356,8 +363,11 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 | POST | `/api/conversations/{id}/interrupt` | Hủy một sub đang chạy |
 | GET | `/api/approvals?status=pending` | Hàng đợi phiếu duyệt (admin) |
 | POST | `/api/approvals/{id}/decide` | Duyệt/từ chối phiếu — đánh thức đúng ca (idempotent, 409 nếu đã quyết) |
+| PATCH/DELETE | `/api/conversations/{id}` | Đổi tên / xoá hội thoại (xoá 1 transaction, giữ audit) |
 | GET | `/api/audit` | Audit log tool-call (filter theo ca/task) |
-| GET | `/api/models` | Provider + model khả dụng |
+| GET | `/api/stats` · `/api/stats/assessments` | KPI ngày + hồ sơ thẩm định (admin) |
+| GET | `/api/stats/cost` · `/api/stats/cost-trend` | Chi phí LLM per-turn: tổng theo ngày/model + ca bất thường z-score (admin) |
+| GET | `/api/models` | Provider + model khả dụng (đổi được per-conversation, per-turn) |
 | POST | `/api/compare` | Chạy so sánh single-agent vs multi-agent |
 
 ## Tài liệu
@@ -390,7 +400,9 @@ Repo này được xây bởi **đội AI agent** (điều phối bởi con ngư
   credential do chính đội tự phát hiện và vá ngay** (D-64, `sprints/end_sprint_14.md`).
   Sổ lỗi công khai, kể cả lỗi bảo mật của mình, là một phần của sản phẩm.
 
-**Trạng thái hiện tại:** Sprint 1–9, 10 (deploy), 11 (docs/CI), 13 (stats admin), 14 (dogfood + vá)
-**đã đóng** — sổ chi tiết tại `sprints/end_sprint_*.md` · Sprint 12 (retrieval 4 tầng từ LAB)
-**đang ráp nốt** — retrieval 4 tầng + Products/Ops certified ĐÃ vào master (T12-1..4, chờ wave verify cuối + deploy) · Sprint 15 **đã đóng** (549 test, PROD 4/4) · Sprint 16 (tracing/cost + chart) đang chạy.
+**Trạng thái hiện tại:** Sprint 1–11, 13–15 **đã đóng** (sổ chi tiết `sprints/end_sprint_*.md`)
+· Sprint 12 (retrieval 4 tầng + port Products/Ops từ LAB) **đang ráp nốt** — retrieval + code
+4 chuyên gia đã vào master, còn migration bảng nghiệp vụ Products/Ops · Sprint 16 (đo
+token/cost per-turn + biểu đồ thống kê) phần lớn đã vào · Sprint 17 (bench harness single vs
+multi, 15 case) đã dựng xong khung, chờ vòng chạy full.
 Chi tiết: [`sprints/ROADMAP.md`](sprints/ROADMAP.md).
