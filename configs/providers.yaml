@@ -11,7 +11,6 @@ providers:
     kind: subscription          # KHÔNG set env — SDK dùng auth Claude CLI (bundle, không API key)
     default: true
     models: [haiku, sonnet, opus]
-    sub_model: sonnet           # ⚠ TẠM cho S17 bench Phase 2 (fairness: cả 2 bên sonnet) — GỠ sau RUN
     note: "đường chính khi máy CÓ Claude CLI login (~/.claude); standalone không login → chọn zai"
 
   - name: zai
