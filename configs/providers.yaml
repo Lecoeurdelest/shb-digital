@@ -33,7 +33,9 @@ providers:
     # → base_url BỎ /v1. Key: WRAP_API_KEY trong .env (copy từ battle/.env).
     base_url: http://cli-8.psa.team:8317
     api_key: ${WRAP_API_KEY}
-    models: [gpt-5.5, gpt-5.6-sol, gpt-5.6-luna, gpt-5.6-terra, gpt-5.4, gpt-5.4-mini]
+    # models[0] = FE pre-select ca mới (ModelSelect fallback) — gpt-5.4 ĐẦU cho khớp MAIN_MODEL
+    # prod (FAIL#1 vòng prod 19/7: UI hiện gpt-5.5 trong khi MAIN chạy gpt-5.4).
+    models: [gpt-5.4, gpt-5.5, gpt-5.6-sol, gpt-5.6-luna, gpt-5.6-terra, gpt-5.4-mini]
     sub_model: gpt-5.4-mini   # sub KHÔNG dùng alias haiku (wrapper GPT không map tên claude → 502);
                               # dùng model rẻ nhất trong models. (tester T12-5 PROD: wrap=default → sub chết câm)
     note: "GPT qua wrapper psa.team — so sánh ngoài nhà Claude; cost_usd SDK KHÔNG TIN với provider ngoài"
