@@ -19,7 +19,6 @@ import { TaskBadge } from './components/TaskBadge';
 import { Canvas } from './components/Canvas';
 import { TraceBlock } from './components/TraceBlock';
 import { SubAgentView } from './components/SubAgentView';
-import { ConvMetricsPanel } from './components/stats/ConvMetricsPanel';
 import { roleLabel } from './roles';
 import { taskReason } from './workspaceUtil';
 import type { AuthUser, ConversationStatus } from './types';
@@ -148,9 +147,6 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
                   </div>
                 )}
 
-                {/* T16-4: metrics TỔNG cả ca (tasks + main-turn) — conv-wide data ở đây. has_any
-                    false (ca cũ chưa metrics) → panel tự ẩn (backward). */}
-                <ConvMetricsPanel tasks={tasks} messages={messages} trace={trace} />
               </div>
 
               <Composer
@@ -184,7 +180,7 @@ export function Workspace({ user, onAuthExpired, onOpenTower }: Props) {
             onBack={() => setFocusSub(null)}
           />
         ) : (
-          <Canvas cards={cards} tasks={tasks} onDecide={handleDecide} canDecide={user.role === 'admin'} onFormSubmit={handleFormSubmit}
+          <Canvas cards={cards} tasks={tasks} messages={messages} trace={trace} onDecide={handleDecide} canDecide={user.role === 'admin'} onFormSubmit={handleFormSubmit}
             formDrafts={formDrafts} onFormDraftChange={handleFormDraftChange} onSelectSub={setFocusSub} />
         )}
       </div>

@@ -2,12 +2,13 @@
 // Lobby 3D (D-24 ĐÓNG — thay constellation D-53, người chốt 18/7): three.js, scene tĩnh render-on-demand,
 // agent 'run' → icon nhấp nháy trên đầu. Card từ SSE/full-state, render defensive. Look-and-feel: design/ (D-13).
 import { useState } from 'react';
-import type { Card, OrchTask } from '../types';
+import type { Card, Message, OrchTask, TraceItem } from '../types';
 import { CardRenderer } from './cards/CardRenderer';
 import type { DecideFn } from './cards/ApprovalPanel';
 import type { FormSubmitFn } from './cards/FormCard';
 import { TaskBadge } from './TaskBadge';
 import { Lobby3D, type LobbyStatus } from './Lobby3D';
+import { ConvMetricsPanel } from './stats/ConvMetricsPanel';
 import './Canvas.css';
 
 // 4 phòng ban sub. Main không nằm trong grid sub (là điều phối).
@@ -16,6 +17,8 @@ const SUB_ROLES = ['credit', 'legal', 'products', 'ops'] as const;
 interface Props {
   cards: Card[];
   tasks: OrchTask[];
+  messages?: Message[]; // S16 T16-4 (polish): conv-wide data cho ConvMetricsPanel (dời từ cột chat sang đây)
+  trace?: TraceItem[];
   onDecide?: DecideFn;
   canDecide?: boolean; // D-56 — chỉ admin (ngân hàng) quyết phiếu; customer thấy "chờ ngân hàng"
   onFormSubmit?: FormSubmitFn; // T9-3 — khách nộp hồ sơ (card type 'form')
@@ -35,7 +38,7 @@ function latestTaskOfRole(tasks: OrchTask[], role: string): OrchTask | undefined
   return tasks.filter((t) => t.role === role).at(-1);
 }
 
-export function Canvas({ cards, tasks, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange, onSelectSub }: Props) {
+export function Canvas({ cards, tasks, messages = [], trace = [], onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange, onSelectSub }: Props) {
   const [tab, setTab] = useState<'lobby' | 'work'>('lobby');
   // citation chip bấm — S2: hiện banner tên tool (tooltip đã có). Trace view mở tool-call = S4.
   const [cited, setCited] = useState<string | null>(null);
@@ -125,6 +128,11 @@ export function Canvas({ cards, tasks, onDecide, canDecide, onFormSubmit, formDr
               ))}
             </div>
           )}
+
+          {/* S16 T16-4 (polish, user chốt): metrics TỔNG cả ca — dời khỏi cột chat sang đây (cột phải),
+              CUỐI tab Công việc, dưới cards, cùng dòng cuộn → không chiếm chỗ hội thoại, không che card.
+              has_any=false (ca cũ) → panel tự ẩn (backward). */}
+          <ConvMetricsPanel tasks={tasks} messages={messages} trace={trace} />
         </div>
       )}
     </section>
