@@ -108,7 +108,7 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 
 | # | Đề #132 yêu cầu | Sản phẩm trả bằng |
 |---|---|---|
-| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **Tín dụng + Pháp chế chạy end-to-end** (tool SQL đọc/ghi Postgres thật, bàn giao ngữ cảnh tuần tự — vượt mức "2–3 experts" đề đòi); **Vận hành: đường giải ngân THẬT** (phanh + biên nhận); tra cứu hồ sơ Vận hành + **Sản phẩm: code CERTIFIED đã port trọn S12, chờ migration bảng (T12-2)**. Khung **labpack cắm-là-chạy** đã tự chứng minh: đẻ chuyên gia = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa; card đổ về canvas |
+| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **4/4 chuyên gia tool SQL thật trên bảng thật** — Tín dụng + Pháp chế end-to-end từ S1/S7; Sản phẩm + Vận hành port bản CERTIFIED S12, migration + seed bảng nghiệp vụ đã vào (bảng `products`/`applications`/`disbursements`; đường giải ngân qua phanh + biên nhận), wave verify e2e cuối đang chạy. Khung **labpack cắm-là-chạy** tự chứng minh: đẻ chuyên gia = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa; card đổ về canvas |
 | 2 | Cơ chế orchestration: planner phân rã → executor | MAIN (planner, phiên bền — resume qua restart) + `orch_dispatch` giao việc nền + event đánh thức khi sub xong |
 | 3 | Tool use thật — hành động cụ thể, không chỉ text | Tool đọc/ghi Postgres thật (DSCR, CIC, pháp lý…); `disburse` bị **chặn ở tầng tool** bằng phiếu phê duyệt |
 | 4 | Dashboard traces, task status, decisions, collaboration flows | Control Tower + SSE trace (thinking/toolcall) + audit append-only + lobby/task map |
@@ -401,8 +401,8 @@ Repo này được xây bởi **đội AI agent** (điều phối bởi con ngư
   Sổ lỗi công khai, kể cả lỗi bảo mật của mình, là một phần của sản phẩm.
 
 **Trạng thái hiện tại:** Sprint 1–11, 13–15 **đã đóng** (sổ chi tiết `sprints/end_sprint_*.md`)
-· Sprint 12 (retrieval 4 tầng + port Products/Ops từ LAB) **đang ráp nốt** — retrieval + code
-4 chuyên gia đã vào master, còn migration bảng nghiệp vụ Products/Ops · Sprint 16 (đo
-token/cost per-turn + biểu đồ thống kê) phần lớn đã vào · Sprint 17 (bench harness single vs
-multi, 15 case) đã dựng xong khung, chờ vòng chạy full.
+· Sprint 12 (retrieval 4 tầng + port Products/Ops từ LAB) **đang ráp nốt** — retrieval, code
+4 chuyên gia, migration + seed bảng nghiệp vụ đều đã vào master; còn wave verify e2e cuối +
+deploy · Sprint 16 (đo token/cost per-turn + biểu đồ thống kê) phần lớn đã vào · Sprint 17
+(bench harness single vs multi, 15 case) đã dựng xong khung, chờ vòng chạy full.
 Chi tiết: [`sprints/ROADMAP.md`](sprints/ROADMAP.md).

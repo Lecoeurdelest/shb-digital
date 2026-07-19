@@ -30,9 +30,11 @@ số hoá trung thực cách ngân hàng buộc phải tổ chức, không phả
 **Trạng thái SYSTEM (khai đúng):** 4 chuyên gia mount cùng một cơ chế labpack. **Credit +
 Legal chạy end-to-end** (tool LAB byte-identical, D-55/D-58, bảng dữ liệu đầy đủ). **Products
 + Operations: code CERTIFIED đã port trọn ở S12** (vỏ 0 sửa — đẻ chuyên gia = thay đúng
-`functions.py` + `SKILL.md`), **còn chờ migration bảng** `products`/`applications`/… (seam
-T12-2; test T123 kiểm cả nhánh thiếu-bảng fail sạch 4-field) — tới lúc đó 2 role này trả lời
-từ wiki/procedure, chưa query bảng riêng. Ca "DN X vay 5 tỷ" dispatch ≥2 sub song song, canvas
+`functions.py` + `SKILL.md`); **migration + seed bảng** `products`/`applications`/`disbursements`/
+`procedure_steps` **đã vào** (head Alembic `a3f7e1d92b40`; `seed_from_lab.py` nạp cả 4 + cột
+`customers.segment`) — 2 role query bảng riêng THẬT, MAIN dispatch được cả 4 role (`main_skill.py`
+liệt kê `credit`/`legal`/`products`/`operations`); tool vẫn fail sạch 4-field khi thiếu bảng.
+Ca "DN X vay 5 tỷ" dispatch ≥2 sub song song, canvas
 render real-sub card (gate S2, browser evidence conv 17fe336a).
 
 **Trade-off:** điều phối phức tạp hơn, bàn giao có thể rơi thông tin — chỉ đáng trả khi bài đủ
@@ -108,7 +110,7 @@ wiki), không phải xây mới.
 (`bkai-foundation-models/vietnamese-bi-encoder` 768-dim + pyvi word-segmentation, CPU, không
 mạng — benchmark chọn bằng số: precision@5 11/15, phổ điểm rộng so với 3 model đối chứng
 8-9/15 dính chùm). Lý do đổi: z.ai + gateway nội bộ KHÔNG có embedding endpoint (API là phụ
-thuộc không sẵn có); 544 notes brute-force cosine <1ms nên pgvector là hạ tầng thừa ở quy mô
+thuộc không sẵn có); 2.215 notes brute-force cosine <1ms nên pgvector là hạ tầng thừa ở quy mô
 này; quan trọng hơn — giữ tool SQL PORTABLE tuyệt đối (SQLite lab ↔ Postgres system không đổi
 một dòng). pgvector ghi nhận là đường mở khi notes lên quy mô triệu dòng, không build trước.
 
@@ -238,9 +240,9 @@ logic, đổi lấy ít vòng gọi, ít cơ hội sai.
 
 Nguyên tắc xuyên suốt: số không tự chạy lại được = lời khai, không phải bằng chứng. Vì vậy:
 
-- **Suite tự chạy lại được: ~420 backend passed / 14 skipped (seed trước khi chạy — lệnh ở
-  README §Kiểm thử; skip = live-SDK + embed opt-in) + 209 frontend, ruff + tsc sạch** (số đo
-  bởi giám khảo độc lập chạy lại 19/7; suite còn tăng theo sprint). CI
+- **Suite tự chạy lại được: 445 backend passed / 14 skipped (skip = live-SDK + embed opt-in)
+  + 227 frontend / 26 file, ruff + tsc sạch** (lệnh ở README §Kiểm thử — chạy được trên DB
+  trống, suite tự chuẩn bị data; số đo lại 19/7, còn tăng theo sprint). CI
   (GitHub Actions) chạy đủ 4 job trên mỗi push/PR. Test đo hành vi quan sát được trên DB
   (set → gọi handler thật → query lại row), không phải assert-lại-chính-output: test race 2
   lệnh đồng thời → đúng 1 `used`/0 phiếu rác · inner-throw → rollback không để phiếu rác ·
