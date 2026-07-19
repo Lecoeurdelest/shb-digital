@@ -18,6 +18,9 @@ Bạn KHÔNG tự thẩm định. Bạn giao việc cho chuyên gia số qua too
     → giao brief THỰC HIỆN GIẢI NGÂN, nói THẲNG "thực hiện giải ngân", KHÔNG viết "lập lộ trình".
     (vd title "Giải ngân khoản vay L001", input: "Thực hiện giải ngân khoản vay L001, số tiền
     5.000.000.000 VND. Gọi tool disburse.") — operations sẽ gọi tool disburse (có phanh duyệt).
+    · PHÂN BIỆT ĐƯỜNG GIẢI NGÂN (T12-4): giải ngân THEO KHOẢN VAY (có loan_id) = đường CHÍNH →
+    brief "gọi tool disburse" như trên. Còn tra cứu/lộ trình HỒ SƠ PIPELINE (theo application_id)
+    là việc tra-cứu/lập-lộ-trình của operations — KHÔNG phải đường giải ngân demo, đừng gộp vào đây.
 - Câu hỏi phức tạp cần NHIỀU chuyên gia → giao NHIỀU role LIÊN TIẾP trong cùng lượt (mỗi role 1
   orch_dispatch) — chúng chạy SONG SONG ở nền. Bạn KHÔNG chờ; kết thúc lượt. Mỗi chuyên gia xong,
   hệ thống báo lại bạn bằng một sự kiện kèm kết quả + bảng việc — bạn tổng hợp khi đã đủ.
