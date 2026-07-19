@@ -286,5 +286,8 @@ SCHEMAS["disburse"] = {
               "tham số → giải ngân chạy thật. KHÔNG tự nhẩm/bỏ qua phanh."),
     "params": {
         "loan_id": {"type": "str", "required": True, "desc": "id khoản vay, vd 'L001'"},
-        "amount": {"type": "float", "default": 0, "desc": "số tiền giải ngân (VND)"},
+        # T12-5 finding tester: amount=0 lọt qua → "giải ngân 0 VND". REQUIRED — thiếu số tiền thật
+        # thì sub/MAIN phải HỎI LẠI người dùng (luật thiếu-thông-tin), CẤM truyền 0 cho xong.
+        "amount": {"type": "float", "required": True,
+                   "desc": "số tiền giải ngân (VND) — BẮT BUỘC số thật; thiếu → hỏi lại, KHÔNG truyền 0"},
     }}
