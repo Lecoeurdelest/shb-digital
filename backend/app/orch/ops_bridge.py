@@ -37,8 +37,16 @@ _BLOCKED_CODES = {"disburse_blocked", "invalid_param"}
 
 
 class OpsDisburseBlocked(Exception):
-    """Bridge raise khi ops_disburse trả block/not-found — gated rollback (phiếu retryable).
-    message = nguyên văn LAB (gated wrapper → gated_error 4-field, giữ lý do chặn cho agent)."""
+    """Bridge raise khi ops_disburse trả block/not-found — gated rollback (phiếu về approved, retryable).
+
+    CARRY payload 4-field NGUYÊN VĂN của LAB (`.payload`) → gated wrapper trả THẲNG payload này (không
+    generic gated_error) → agent + MAIN nhận đúng code/message/hint/blockers "vì sao chặn", biết đường
+    xử (reject tay / bổ sung thủ tục). LƯU Ý (D-68/T12-3b): dưới rollback, approvals row về 'approved'
+    KHÔNG ghi được reason vào phiếu — reason tới AGENT (tool return) + MAIN (result), KHÔNG tới row phiếu."""
+
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.payload = payload
+        super().__init__(str(payload.get("message") or "ops_disburse bị chặn"))
 
 
 _Q = re.compile(r"\?")
@@ -106,7 +114,20 @@ def run_ops_disburse(pg_conn: Any, **args: Any) -> dict[str, Any]:
 
     proxy = OpsConnProxy(pg_conn)
     out = ops_disburse(proxy, **args)
-    # KHÔNG giải ngân thật (block/param sai/không tìm thấy app) → RAISE để gated undo claim.
-    if out.get("code") in _BLOCKED_CODES or out.get("found") is False:
-        raise OpsDisburseBlocked(out.get("message") or "ops_disburse bị chặn")
+    # KHÔNG giải ngân thật → RAISE (carry payload 4-field) để gated undo claim.
+    # (1) block/param-sai: LAB đã trả 4-field {code,message,hint,retryable} → carry nguyên văn.
+    if out.get("code") in _BLOCKED_CODES:
+        raise OpsDisburseBlocked(out)
+    # (2) app không tồn tại: LAB trả {found:False, hint} (KHÔNG có code/message/retryable) → CHUẨN HOÁ
+    #     thành 4-field disburse_blocked để giữ hợp đồng envelope (agent luôn nhận đủ 4-field).
+    if out.get("found") is False:
+        raise OpsDisburseBlocked(
+            {
+                "code": "disburse_blocked",
+                "message": "Không tìm thấy hồ sơ để giải ngân.",
+                "hint": out.get("hint") or "Kiểm application_id.",
+                "retryable": False,
+                "blockers": ["application_not_found"],
+            }
+        )
     return out  # found:True + item.disbursementId — disbursement THẬT, để gated commit + save receipt

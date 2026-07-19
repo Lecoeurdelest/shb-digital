@@ -203,9 +203,11 @@ async def test_ops_disburse_first_call_creates_pending_no_write_even_without_app
 @requires_db
 @pytest.mark.asyncio
 async def test_ops_disburse_claim_fails_clean_4field_when_applications_table_missing():
-    """SAU khi phiếu approved, claim → inner (LAB ops_disburse thật) chạy trên bảng applications
-    CHƯA TỒN TẠI (T12-2 chưa port) → psycopg2 lỗi "relation does not exist" → gated bắt ở except
-    cửa-cuối → gated_error 4-field SẠCH (KHÔNG traceback lộ ra agent, KHÔNG crash, KHÔNG ghi lỡ)."""
+    """[CẬP NHẬT T12-3b] Tiền đề CŨ (bảng applications chưa tồn tại T12-2) ĐÃ HẾT: T12-3b tạo bảng
+    + bridge OpsConnProxy. Giờ app KHÔNG TỒN TẠI (APP-PORT-CLAIM không seed) → LAB ops_disburse trả
+    found:False → bridge RAISE OpsDisburseBlocked → wrapper trả `disburse_blocked` 4-field SẠCH
+    (KHÔNG traceback, KHÔNG crash, KHÔNG ghi lỡ — vẫn đúng guarantee gốc, chỉ đổi code từ gated_error
+    → disburse_blocked vì nay bridge phân loại được). Đổi-hành-vi CÓ CHỦ ĐÍCH T12-3b, ghi rõ."""
     import json
     from uuid import uuid4
 
@@ -237,11 +239,19 @@ async def test_ops_disburse_claim_fails_clean_4field_when_applications_table_mis
     finally:
         conn.close()
 
-    env = await h(args)  # claim → inner (bảng thiếu) → lỗi
+    env = await h(args)  # claim → inner (app không tồn tại) → found:False → bridge raise → rollback
     body = env["content"][0]["text"] if "content" in env else env
     payload = json.loads(body) if isinstance(body, str) else body
-    assert payload.get("code") == "gated_error", f"bảng applications thiếu phải ra gated_error sạch: {payload}"
+    # T12-3b: app-not-found → disburse_blocked 4-field SẠCH (KHÔNG gated_error nữa — bridge phân loại)
+    assert payload.get("code") == "disburse_blocked", f"app không tồn tại phải ra disburse_blocked sạch: {payload}"
     assert set(payload.keys()) >= {"code", "message", "hint", "retryable"}, f"phải đủ 4-field: {payload}"
 
-    # KHÔNG có bảng disbursements để kiểm tra (chưa migrate) — bằng chứng "không ghi lỡ" là gated_error
-    # (nếu ghi được thì sẽ KHÔNG lỗi, vì bảng applications còn không có để SELECT ra app đầu tiên).
+    # "không ghi lỡ": phiếu rollback về 'approved' (KHÔNG 'used'), 0 disbursement (app còn không có)
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT status FROM approvals WHERE conv_id=%s AND payload_hash=%s", (conv, ph))
+        assert cur.fetchone()[0] == "approved", "block → phiếu KHÔNG 'used' (money-invariant)"
+        cur.close()
+    finally:
+        conn.close()

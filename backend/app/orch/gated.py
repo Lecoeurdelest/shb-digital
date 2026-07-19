@@ -33,6 +33,9 @@ from app.db.config import DATABASE_URL
 from app.orch import registry
 from app.orch.disburse_guard import cross_owner_refusal
 from app.orch.gated_types import ConnLike, Receipt
+
+# T12-3b: block payload passthrough (ops_bridge lazy-import roles → không cycle với gated)
+from app.orch.ops_bridge import OpsDisburseBlocked
 from app.orch.verdict import disburse_decision
 
 log = logging.getLogger("orch.gated")
@@ -331,6 +334,11 @@ def gated(action: str, inner_read_handler: Callable) -> Callable:
         task_id = registry.CTX_TASK.get() or None  # Ops sub task (đúng — không leak, inside sub)
         try:
             result: _GatedResult = await asyncio.to_thread(_gated_txn, action, conv_id, task_id, args)
+        except OpsDisburseBlocked as e:
+            # T12-3b: block ops_disburse (LAB verify chặn) — _gated_txn ĐÃ rollback (except cửa-cuối
+            # chạy TRƯỚC ở đây → phiếu về 'approved'). Trả THẲNG payload 4-field NGUYÊN VĂN của LAB
+            # (code/message/hint/blockers) — agent + MAIN biết đúng "vì sao chặn", KHÔNG generic gated_error.
+            return _text(e.payload)
         except Exception as e:  # noqa: BLE001 — cửa cuối: agent thấy error 4-field, không traceback
             log.exception("gated %s lỗi", action)  # T11-2: full traceback vào log (debug), 4-field cho agent
             return _text(

@@ -147,14 +147,18 @@ async def test_ops_disburse_blocked_app_phieu_not_used_retryable(_reset_sse):
     try:
         await h(args)  # pending
         _approve(conv, ph)  # admin lỡ duyệt phiếu (nhưng app vẫn rejected)
-        out = _payload(await h(args))  # claim → inner block → RAISE → rollback
-        assert out["code"] == "gated_error"  # raise → wrapper 4-field (message = lý do chặn)
-        assert out["retryable"] is True
-        # phiếu KHÔNG bị consume (rollback → về 'approved'), 0 disbursement
+        out = _payload(await h(args))  # claim → inner block → RAISE (carry payload) → rollback
+        # point 2: payload NGUYÊN VĂN LAB (KHÔNG generic gated_error) — agent biết "vì sao chặn"
+        assert out["code"] == "disburse_blocked"
+        assert "blockers" in out and out["blockers"]  # danh sách chặn cụ thể (credit/legal/human...)
+        # phiếu KHÔNG bị consume (rollback → về 'approved', rơi vào loop-bound T4-0 sau)
         appr = _raw("SELECT status FROM approvals WHERE conv_id=%s AND payload_hash=%s", (conv, ph))
         assert appr[0]["status"] == "approved"  # KHÔNG 'used' — money-invariant giữ
+        # point 3: đối chiếu QUERY (không tin return) — 0 disbursement + applications KHÔNG đổi
         dsb = _raw("SELECT * FROM disbursements WHERE application_id=%s", (app_id,))
-        assert len(dsb) == 0  # KHÔNG ghi gì
+        assert len(dsb) == 0
+        app_row = _raw("SELECT status FROM applications WHERE id=%s", (app_id,))
+        assert app_row[0]["status"] == "rejected"  # applications.status KHÔNG đổi (không tiền chạy)
     finally:
         _rm_app(app_id, conv)
 
@@ -184,14 +188,57 @@ async def test_ops_disburse_dup_check_fires_through_proxy_no_double_pay(_reset_s
     try:
         await h(args)  # pending (conv này chưa có receipt → không replay)
         _approve(conv, ph)
-        out = _payload(await h(args))  # claim → inner dup-check fire → raise → rollback
-        assert out["code"] == "gated_error"  # raise (already_disbursed) → 4-field
+        out = _payload(await h(args))  # claim → inner dup-check fire → raise (payload) → rollback
+        assert out["code"] == "disburse_blocked"  # already_disbursed → payload nguyên văn LAB
         # KHÔNG ghi row MỚI (vẫn đúng 1 = row pre-insert), phiếu KHÔNG 'used'
         dsb = _raw("SELECT * FROM disbursements WHERE application_id=%s AND status='executed'", (app_id,))
         assert len(dsb) == 1  # chỉ row pre-insert, KHÔNG chi đôi
         appr = _raw("SELECT status FROM approvals WHERE conv_id=%s AND payload_hash=%s", (conv, ph))
         assert appr[0]["status"] == "approved"  # phiếu KHÔNG consume → không double-pay
     finally:
+        _rm_app(app_id, conv)
+
+
+# ── loop-bound T4-0: ops_disburse blocked lặp → exec_failed (KHÔNG treo vô hạn) ──
+
+
+@requires_test_db
+@pytest.mark.asyncio
+async def test_ops_disburse_blocked_loop_falls_into_t40_exec_failed(monkeypatch):
+    """point 1 (architect bắt buộc): ops_disburse blocked lặp → guard-B T4-0 CÓ SẴN đếm exec_attempts
+    → vượt MAX → phiếu 'exec_failed', KHÔNG treo 'approved' vĩnh viễn / KHÔNG loop vô hạn.
+    Drive `_resume_dispatch_guard` trực tiếp (KHÔNG live SDK): mock dispatch + role-free; grant
+    ops_disburse approved-unused → mỗi task_done increment → tại MAX → mark_exec_failed."""
+    from app.orch import main_session, registry, store_approvals
+
+    conv = str(uuid4())
+    app_id = f"APPL{uuid4().hex[:6]}"
+    _mk_app(app_id, status="rejected", credit=0, legal=0, human="denied")  # luôn blocked
+    # seed grant approved-unused cho ops_disburse (như thể admin đã duyệt)
+    ph = payload_hash("ops_disburse", {"application_id": app_id, "amount_vnd": 200_000_000})
+    grant = _raw(
+        "INSERT INTO approvals (conv_id, action, payload, payload_hash, status, decided_by, decided_at) "
+        "VALUES (%s,'ops_disburse',%s,%s,'approved','admin',now()) RETURNING id",
+        (conv, json.dumps({"application_id": app_id, "amount_vnd": 200_000_000}), ph),
+    )
+    gid = grant[0]["id"]
+    # role operations FREE (không running) + mock dispatch (không spawn sub thật)
+    monkeypatch.setattr(registry, "get_running_task_id", lambda c, r: None)
+
+    async def _fake_dispatch(*a, **k):
+        return None
+
+    monkeypatch.setattr("app.orch.dispatch.orch_dispatch_impl", _fake_dispatch)
+    try:
+        # fire task_done(role=operations) MAX+1 lần — mỗi lần guard-B re-dispatch + increment
+        for _ in range(store_approvals.MAX_EXEC_ATTEMPTS + 1):
+            await main_session._resume_dispatch_guard(conv, "task_done", {"role": "operations"})
+        # tại/quá MAX → phiếu exec_failed (KHÔNG còn approved treo)
+        row = _raw("SELECT status, exec_attempts FROM approvals WHERE id=%s", (gid,))
+        assert row[0]["status"] == "exec_failed", f"phải exec_failed sau MAX lần, thấy {row[0]}"
+        assert row[0]["exec_attempts"] >= store_approvals.MAX_EXEC_ATTEMPTS
+    finally:
+        _raw("DELETE FROM approvals WHERE id=%s", (gid,))
         _rm_app(app_id, conv)
 
 
