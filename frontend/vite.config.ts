@@ -24,5 +24,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // .archive/ giữ code bỏ đi (CLAUDE.md §2 mv thay rm) — KHÔNG chạy test/không tính coverage.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.archive/**'],
   },
 })
