@@ -38,11 +38,27 @@ def _strip_module_docstring(src: str) -> str:
 
 
 def _functions_ast_equal(port_path: Path, lab_path: Path) -> bool:
-    """AST-equal SAU khi bỏ module docstring — bắt hunk logic thật, bỏ qua khác biệt comment/
-    docstring/whitespace (port thêm docstring seam T12-3, LAB không có)."""
-    port_src = port_path.read_text()
-    lab_src = lab_path.read_text()
-    return _strip_module_docstring(port_src) == _strip_module_docstring(lab_src)
+    """[CHECK SỬA 19/7 — architect §6b] Bản cũ so text/AST CẢ MODULE → FALSE-FAIL: port có khối
+    REGISTRY/SCHEMAS append HỢP LỆ (pattern legal T7-2) mà LAB không có → module lệch dù logic 0 đổi
+    (test này chưa từng chạy thật trên worktree vì LAB ngoài tầm — skip). Bản mới: so AST TỪNG HÀM
+    (bỏ docstring hàm) — mọi hàm LAB phải tồn tại trong port với body Y HỆT; port THÊM gì ở
+    module-level là việc của test mount riêng, không phải việc check này."""
+    import ast
+
+    def defs(path: Path) -> dict[str, str]:
+        out: dict[str, str] = {}
+        for n in ast.parse(path.read_text()).body:
+            if isinstance(n, ast.FunctionDef):
+                body = (
+                    n.body[1:]
+                    if (n.body and isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant))
+                    else n.body
+                )
+                out[n.name] = ast.dump(ast.Module(body=body, type_ignores=[]))
+        return out
+
+    lab, port = defs(lab_path), defs(port_path)
+    return all(name in port and port[name] == lab[name] for name in lab)
 
 
 # ── 1. Byte/AST-identical vs LAB (0 hunk logic) ──────────────────────────────
