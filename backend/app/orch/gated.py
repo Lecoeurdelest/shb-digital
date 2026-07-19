@@ -39,7 +39,17 @@ log = logging.getLogger("orch.gated")
 
 # Tool nào gated = whitelist config (khởi điểm: disburse). Ranh gate (§4.4): chỉ irreversible +
 # ảnh-hưởng-ngoài; write reversible → write-through (không gate, friction giết tự trị).
-GATED_WHITELIST = {"disburse"}
+# T12-3: + ops_disburse (LAB operations port, roles/operations/functions.py) — GATED THỨ HAI,
+# ĐỘC LẬP với "disburse" (action-key khác nhau trong payload_hash/approvals/GATED_TOOLS) — KHÔNG
+# đụng đường "disburse"/loans/loan_id/amount hiện có (30 money-test neo vào đó, xem test_gated.py
+# + test_gate_s3_gated_disburse_tester.py). Verdict matrix (disburse_decision) đọc args["amount"]
+# + args["loan_id"] — ops_disburse mang args["amount_vnd"]/["application_id"] (khác key) →
+# disburse_decision tự nhiên rơi ('human', None) (amount thiếu/parse lỗi, xem verdict.py docstring)
+# → ops_disburse LUÔN qua _branch_human (chờ người), KHÔNG qua tầng auto — cố ý, KHÔNG phải bug
+# (verdict matrix chưa hiểu schema applications, siết chặt an toàn hơn nới lỏng). cross_owner_refusal
+# cũng chỉ áp action=="disburse" → ops_disburse chưa có owner-scope khách (bảng applications chưa
+# tồn tại T12-2 — ghi seam, KHÔNG tự vá ở đây).
+GATED_WHITELIST = {"disburse", "ops_disburse"}
 
 # Field phi-nghiệp-vụ bỏ khỏi payload_hash (ts/ghi chú không đổi danh tính hành động).
 NON_BIZ_FIELDS = {"ts", "timestamp", "note", "ghi_chu", "ghi_chú", "_meta"}
@@ -86,12 +96,28 @@ def disburse(conn: ConnLike, loan_id: str, amount: float = 0) -> Receipt:
     return {"disbursed": True, "loan_id": loan_id, "amount": amount, "asOf": _now()}
 
 
-# REGISTRY tool gated (vỏ viết). inner(conn, **args) — nhận conn wrapper cấp (SAME tx).
-GATED_TOOLS: dict[str, Callable[..., Receipt]] = {"disburse": disburse}
+def _ops_disburse_inner(conn: ConnLike, **args: Any) -> Receipt:
+    """[T12-3] Cầu nối GATED_TOOLS["ops_disburse"] → LAB `roles.operations.functions.ops_disburse`
+    nguyên trạng (N1 — 0 sửa logic LAB). Lazy import (tránh vòng import module-level app.orch↔roles).
 
-# action → role sở hữu tool đó (dùng cho re-dispatch sau duyệt — T3-4 race fix). disburse=operations.
+    KHÔNG cast/convert conn — LAB fn nhận `conn` gated cấp (ConnLike, `.cursor()`/`.commit()`/
+    `.rollback()`), gọi y hệt interface D-18 `fn(conn, **kwargs)`. Bảng applications/disbursements
+    CHƯA tồn tại (T12-2) → psycopg2 raise "relation does not exist" ngay câu SELECT applications
+    ĐẦU TIÊN (TRƯỚC khi chạm BEGIN IMMEDIATE/commit nội bộ LAB) → gated._gated_txn bắt ở except
+    cửa-cuối → rollback + gated_error 4-field. KHÔNG bypass phanh (xem seam note trong
+    roles/operations/functions.py — LAB tx-model cần T12-2 portable-hoá trước khi chạy THẬT)."""
+    from roles.operations.functions import ops_disburse
+
+    return ops_disburse(conn, **args)  # type: ignore[return-value]
+
+
+# REGISTRY tool gated (vỏ viết + T12-3 cầu nối LAB). inner(conn, **args) — nhận conn wrapper cấp (SAME tx).
+GATED_TOOLS: dict[str, Callable[..., Receipt]] = {"disburse": disburse, "ops_disburse": _ops_disburse_inner}
+
+# action → role sở hữu tool đó (dùng cho re-dispatch sau duyệt — T3-4 race fix). disburse=operations,
+# ops_disburse=operations (T12-3, cùng role — LAB port).
 # Khi phiếu approved cần gọi lại tool để claim bước 2, VỎ re-dispatch đúng role này.
-GATED_ROLE: dict[str, str] = {"disburse": "operations"}
+GATED_ROLE: dict[str, str] = {"disburse": "operations", "ops_disburse": "operations"}
 
 
 class _GatedResult:
