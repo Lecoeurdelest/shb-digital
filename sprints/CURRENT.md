@@ -53,8 +53,14 @@ badge first-tick, từ-chối-không-lý-do đứt-mạch-BE, bell-dropdown-clip
 runbook §4b. 514 test (352+162). Prod dọn về baseline demo nguyên văn (biên lai theo số).
 B-05 deferred (gu user).
 
-**Hàng đợi:** S12 retrieval (⏸ D-63 chờ LAB drop) · rehearsal 2-cửa-sổ tay trước giờ G
-(+ hard-refresh §4b + liếc badge 10s) · B-05 chờ gu user.
+**Sprint 15 — ĐÓNG** (2026-07-19): UX wave user chốt — fix bug switch zai↔wrap prod (effective_
+default + compose-đè-.env D-66) · composer ModelSelect kiểu Claude + switch PER-TURN · CRUD
+conversation (rename + delete 1-tx giữ audit D-67) · markdown spacing. 549 test (369+180).
+PROD 4/4. Sự cố tree-chung + :8000×3 → luật mới (soát --cached; D-38 graceful-5s).
+
+**Hàng đợi:** S12 ĐANG CHẠY (T12-1 xong chờ smoke · T12-2 BE 2 blocker đã chốt · T12-3 porter
+worktree · T12-4 spec sẵn) · S16 FE T16-3 đang chạy, BE-part sau S12 · rehearsal tay giờ G
+(+ hard-refresh §4b + badge 10s + 1 click Google chính chủ) · B-05 chờ gu user.
 
 **Golden path:** `sprints/ROADMAP.md`. **Plan:** (chờ sprint kế — S12 khi LAB drop).
 
@@ -75,3 +81,4 @@ B-05 deferred (gu user).
 | 11 | f7e9332→32d88af + đóng | CI badge + refactor gated 0-đổi + METHODOLOGY/README + google LIVE + flaky gap=0 + dark/light LIGHT + logout thật + scenarios 7/7 prod + script v9. 477 test. |
 | 13 | 39e7deb, 9ea0335, fb8cec2 + đóng | Admin thống kê: /api/stats+assessments + Tower tab Tổng quan (7 KPI) + Hồ sơ-lý-do-AI. Tester 8/8. 497 test. |
 | 14 | 58d3774→2940295 + đóng | LOOP DOGFOOD 2 persona: 16 finding, 14 fixed CHỐT PROD (7🔴) + cache-fix §4b + D-64. Double-evidence B-01/07, race A-07 thật. 514 test. Prod về baseline sạch. |
+| 15 | af8782b, 1068300, 4e59331 + đóng | UX wave: fix switch zai↔wrap + ModelSelect per-turn + CRUD conv (D-67) + markdown. 549 test. PROD 4/4. D-66. |
