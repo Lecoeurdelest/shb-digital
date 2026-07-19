@@ -245,16 +245,18 @@ giới đang trôi.
 
 ---
 
-## Repo này đã ứng dụng thế nào (overview — mỗi dòng tự kiểm được)
+## Cách phương pháp này được áp dụng (overview)
 
-Vòng train chạy tại LAB (môi trường huấn luyện riêng); repo này là **hệ tiêu thụ bản
-certified** và giữ trọn các kỷ luật ở trên:
+Vòng huấn luyện của các chuyên gia trong hệ chạy tại **môi trường train riêng (LAB), ngoài
+repo sản phẩm** — repo là hệ tiêu thụ bản đã nghiệm thu. Cách áp dụng, ở mức tổng quan:
 
-| Nguyên lý (§) | Trong repo này |
-|---|---|
-| Skill = trọng số đã distill (§1, §9) | `roles/<role>/SKILL.md` per chuyên gia — luật hành nghề + khối "SÁCH TRA CỨU" append nguyên văn từ bản certify (D-65a) |
-| Bản certified cấm vá tay, kiểm bằng máy (§9) | `backend/tests/test_legal_port_t72.py` (đối chiếu bản port ↔ certify) + check AST-identical per-function cho đợt port Products/Ops; sổ D-55/D-58 trong `DECISIONS.md` |
-| Trap làm-ẩu-thì-fail chạy được bằng pytest (§5) | `backend/tests/test_retrieval_seed_t122.py` — bẫy văn-bản-hết-hiệu-lực bắt bằng cạnh đồ thị, trần dư nợ NHÓM khách liên quan |
-| Seed pathology có chủ đích (§6) | `deploy/seed/` — hồ sơ null/trùng tên/nợ xấu/ca vượt trần + wiki 82 trang chính sách làm nguồn retrieval |
-| Không port bản trôi (§9) | D-63: hoãn port retrieval tới khi LAB khoá bản certified — vết quyết định có ngày trong `DECISIONS.md` |
-| Shadow-mode = re-certify trên phân bố thật (§11) | Lộ trình pilot Pha 0 tại [`../business-case.md`](../business-case.md) §3 |
+- Mỗi chuyên gia (thẩm định tín dụng, pháp lý, sản phẩm, vận hành) đi trọn vòng ở trên tại
+  LAB: scaffold từ phiên làm thật → epoch với đề có bẫy → chấm nhiều tầng → gate → certify.
+- Sản phẩm bàn giao là **bản certified**: SKILL đã distill (luật hành nghề + sách tra cứu
+  nén) + toolpack + bộ đề đã chấm. Repo chỉ nhận bản này — và giữ kỷ luật §9: bản certified
+  không vá tay, mọi lần port đều so bằng máy với bản gốc; bản LAB chưa khoá thì hoãn port,
+  không nhận bản trôi.
+- Data demo của hệ được seed theo đúng §6 — có pathology chủ đích (hồ sơ null, trùng tên,
+  nợ xấu, ca vượt trần) để các bẫy làm-ẩu-thì-fail có ca kích hoạt thật khi kiểm.
+- Đường đưa vào vận hành theo §11: certify tại LAB chỉ là tạm ứng — lộ trình pilot bắt đầu
+  bằng shadow-mode để re-certify trên phân bố người dùng thật trước khi cấp thẩm quyền.
