@@ -21,7 +21,7 @@ Ráp mock→thật xong. Auth seam (architect cảnh báo) ĐÃ LỘ + ĐÓNG:
   (chưa login→Login, login→Workspace) + `Workspace.tsx` (tách từ App, nhận user + onAuthExpired 401→logout).
   `client.ts login()` POST /api/auth/login → server set cookie httponly `shb_token` → mọi call sau +
   EventSource `withCredentials` authenticated. `mock.login()` = accept mọi cred (mock không auth).
-- **Verified API thật**: login (user/user) → Workspace → ca "Probe ca DSCR" full-state render **DSCR=3.709
+- **Verified API thật**: login (<tài khoản RM demo>) → Workspace → ca "Probe ca DSCR" full-state render **DSCR=3.709
   THẬT** + nguồn credit_assess + badge credit done (Chrome). SSE live: chat POST 202 → chat.delta seq
   per-turn + task.created credit + conversation.status, shape khớp CONTRACT (curl verify).
 - **Deviation S1**: F5 reload mất user-state (cookie httponly FE không đọc được) → về Login. Chấp nhận

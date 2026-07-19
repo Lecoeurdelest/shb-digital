@@ -31,7 +31,7 @@ hợp đồng & giải ngân → giám sát sau vay. Trạng thái phủ của h
 | Thẩm định năng lực trả nợ (DSCR/LTV/CIC) | ✅ chạy — chuyên gia Tín dụng, tool SQL thật |
 | Soát pháp lý 3 trụ + trần nhóm liên quan | ✅ chạy — chuyên gia Pháp chế + entity-graph |
 | Quyết định & phê duyệt phân cấp | ✅ chạy — ma trận thẩm quyền 3 tầng + phanh tầng tool + bàn duyệt |
-| Gói sản phẩm & lộ trình giải ngân | 🔧 code CERTIFIED đã port S12 — migration + seed bảng `products`/`applications` đã vào, role query bảng thật + MAIN dispatch được; chờ verify e2e demo |
+| Gói sản phẩm & lộ trình giải ngân | 🔧 code CERTIFIED đã port S12 — migration + seed bảng `products`/`applications` đã vào, role query bảng thật + MAIN dispatch được; **e2e prod VERIFIED** (phiếu→duyệt→DSB03+receipt, T12-5) |
 | eKYC/OCR chứng từ · fraud · giám sát sau vay · thu hồi nợ | 🗺 lộ trình — mỗi mảng = **một thư mục `roles/<role>/` mới** (SKILL + functions), vỏ mount tự động, không sửa core |
 
 Điểm kiến trúc ăn tiền cho lộ trình: **thêm một nghiệp vụ = thêm một labpack**, đã tự chứng

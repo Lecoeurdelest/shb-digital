@@ -9,7 +9,7 @@
 
 ### T1-1 — done (scaffold nền: PG + adapter D-27 + mount credit + auth)
 - **Bằng chứng:** `alembic upgrade head` → 9 bảng; `assumptions`=8 (D-28 lọc), customers=30, businesses=5,
-  collaterals=7. `REGISTRY['credit_assess'](PGConnAdapter,'C001')` → dscr==3.709. Auth: login user/user→200
+  collaterals=7. `REGISTRY['credit_assess'](PGConnAdapter,'C001')` → dscr==3.709. Auth: login <tài khoản RM demo>→200
   cookie httponly, sai→401 4-field. Tester PASS độc lập.
 - **Deviation:** D-28b (seed businesses/collaterals thật — query vô điều kiện), D-28c (server_default uuid).
 
