@@ -56,6 +56,7 @@ curl https://digital.tinhdev.com/api/conversations  # → 401 {"code":"unauthori
 
 - [Dành cho giám khảo — chấm nhanh trong 10 phút](#dành-cho-giám-khảo--chấm-nhanh-trong-10-phút)
 - [Tính năng chính](#tính-năng-chính)
+- [Thế mạnh nổi bật](#thế-mạnh-nổi-bật-mỗi-gạch-có-biên-lai-trong-repo)
 - [Đáp ứng đề bài (5 deliverables)](#đáp-ứng-đề-bài-5-deliverables)
 - [An toàn khi AI chạm tiền](#an-toàn-khi-ai-chạm-tiền-phanh-tầng-tool)
 - [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
@@ -104,15 +105,38 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 
 ![Lobby 3D — chi nhánh ngân hàng số](docs/assets/lobby-3d.png)
 
+## Thế mạnh nổi bật (mỗi gạch có biên lai trong repo)
+
+- **Phanh tiền là BẤT BIẾN KIẾN TRÚC, không phải lời hứa prompt** — hành động đụng tiền bị chặn
+  ở tầng tool server-side (phiếu + advisory-lock + claim atomic 1-tx). Benchmark chứng minh: kể
+  cả single-agent full-tool bị prompt dụ lách cũng bị chặn y hệt — 0 vụ vượt phanh/bịa biên nhận
+  trên cả 2 kiến trúc ([`bench/REPORT.md`](bench/REPORT.md)).
+- **Tri thức 4 tầng chạy LOCAL, có trích nguồn**: wiki 82 trang (citation bắt buộc) · document-graph
+  soát phả hệ hiệu lực (văn bản bị thay thế → cảnh báo, không dùng làm căn cứ) · vector 2.215 ghi
+  chú khách (bi-encoder tiếng Việt, CPU, không API ngoài) · entity-graph soát **trần dư nợ NHÓM
+  khách liên quan** — nghiệp vụ ngân hàng thật, không phải RAG trình diễn.
+- **Labpack cắm-là-chạy đã tự chứng minh**: đẻ 2 chuyên gia cuối (Sản phẩm + Vận hành bản
+  CERTIFIED) = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa — kiến trúc mở rộng bằng file,
+  không bằng refactor.
+- **Phiên bền + mọi con số truy được nguồn**: MAIN resume qua restart server; audit tool-call
+  append-only tách theo vai; chi phí/token/độ trễ đo per-turn (kể cả bằng chứng model nào THẬT
+  SỰ chạy mỗi lượt) — dashboard + trace per-ca đọc số thật, không số dựng.
+- **Hai persona đúng ngân hàng**: khách chỉ thấy hồ sơ của mình (404-hide + read-scope tầng
+  tool), dữ liệu nội bộ (ghi chú RM, tiền án) không rò ra lời thoại khách — verify bằng kịch
+  bản hỏi-dồn trong benchmark (TRAP disclosure: 0 rò).
+- **Kỷ luật bằng chứng xuyên suốt**: 679 test (448 BE + 231 FE) + CI mỗi push · dogfood 2 persona
+  tự tố 16 finding trước giám khảo · benchmark tự bắt 2 regression của chính hệ trước demo ·
+  mọi claim trong docs dẫn file/test/commit — "số không tự chạy lại được chỉ là lời khai".
+
 ## Đáp ứng đề bài (5 deliverables)
 
 | # | Đề #132 yêu cầu | Sản phẩm trả bằng |
 |---|---|---|
-| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **4/4 chuyên gia tool SQL thật trên bảng thật** — Tín dụng + Pháp chế end-to-end từ S1/S7; Sản phẩm + Vận hành port bản CERTIFIED S12, migration + seed bảng nghiệp vụ đã vào (bảng `products`/`applications`/`disbursements`; đường giải ngân qua phanh + biên nhận), wave verify e2e cuối đang chạy. Khung **labpack cắm-là-chạy** tự chứng minh: đẻ chuyên gia = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa; card đổ về canvas |
+| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **4/4 chuyên gia tool SQL thật trên bảng thật** — Tín dụng + Pháp chế end-to-end từ S1/S7; Sản phẩm + Vận hành port bản CERTIFIED S12 — **e2e prod đã verify** (phiếu→người duyệt→giải ngân đúng-1-lần, biên nhận `DSB03`/`RC-2026-100003` thật). Khung **labpack cắm-là-chạy** tự chứng minh: đẻ chuyên gia = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa; card đổ về canvas |
 | 2 | Cơ chế orchestration: planner phân rã → executor | MAIN (planner, phiên bền — resume qua restart) + `orch_dispatch` giao việc nền + event đánh thức khi sub xong |
 | 3 | Tool use thật — hành động cụ thể, không chỉ text | Tool đọc/ghi Postgres thật (DSCR, CIC, pháp lý…); `disburse` bị **chặn ở tầng tool** bằng phiếu phê duyệt |
 | 4 | Dashboard traces, task status, decisions, collaboration flows | Control Tower + SSE trace (thinking/toolcall) + audit append-only + lobby/task map |
-| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | Hai lớp: `POST /api/compare` — cùng câu hỏi chạy 2 chế độ, đối chiếu 2 cột (cột multi chạy **luồng đội thật**, không phải số dựng sẵn); + **bench harness** (`bench/` — 15 case đơn-phòng/liên-phòng/bẫy/phanh, ground-truth re-verify trên DB sống, 2 runner + grader; vòng chạy full đang tới) |
+| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | Hai lớp: `POST /api/compare` — cùng câu hỏi chạy 2 chế độ, đối chiếu 2 cột (cột multi chạy **luồng đội thật**, không phải số dựng sẵn); + **benchmark ĐÃ CHẠY FULL** ([`bench/REPORT.md`](bench/REPORT.md)): 15 case × 2 bên cùng sonnet, single nhận trọn 22 tool + SKILL ghép — kết quả **Multi 5 · Single 5 · Hoà 5**, phát hiện chính: *phanh là bất biến tầng tool* (0 vượt/0 bịa số/0 rò nhạy cảm trên CẢ 2 kiến trúc); multi thắng đúng lớp việc liên-phòng tuần tự; report khai thật cả sự cố đo lường |
 
 ## An toàn khi AI chạm tiền (phanh tầng tool)
 
@@ -327,12 +351,12 @@ Ghi chú:
 ## Kiểm thử
 
 ```bash
-# Backend — 445 passed / 14 skipped (skip = live-SDK + embed, opt-in bằng RUN_LIVE_SDK=1)
+# Backend — 448 passed / 13 skipped (skip = live-SDK + embed, opt-in bằng RUN_LIVE_SDK=1)
 cd backend
 TEST_DATABASE_URL=postgresql://shb:shb@localhost:5432/shb_test uv run pytest
 uv run ruff check . && uv run ruff format --check .
 
-# Frontend — 227 test / 26 file (vitest) + typecheck (tsc 0 lỗi)
+# Frontend — 231 test / 27 file (vitest) + typecheck (tsc 0 lỗi)
 cd frontend
 npm run test
 npm run typecheck
@@ -381,6 +405,8 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 | [`docs/demo-script.md`](docs/demo-script.md) | Kịch bản demo ~10-13 phút, 2 cửa sổ khách ‖ ngân hàng |
 | [`docs/deploy.md`](docs/deploy.md) | Deploy + vận hành + rollback |
 | [`DECISIONS.md`](DECISIONS.md) | Sổ quyết định — mỗi entry ghi *quyết gì / vì sao / cách đổi* (human-wins) |
+| [`bench/REPORT.md`](bench/REPORT.md) | Benchmark single-agent vs đội: 15 case, 5 trục chấm, số liệu + đánh giá + sự cố đo khai thật |
+| [`docs/methodology/README.md`](docs/methodology/README.md) | Phương pháp luận: vì sao chọn từng công nghệ (8 mục) |
 | [`sprints/ROADMAP.md`](sprints/ROADMAP.md) | Lộ trình + trạng thái từng sprint |
 | [`AGENTS.md`](AGENTS.md) | Hướng dẫn cho AI coding agent làm việc trên repo |
 

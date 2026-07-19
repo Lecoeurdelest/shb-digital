@@ -23,3 +23,4 @@ Tài liệu cấp repo (ngoài `docs/`):
 - [`../SPEC.md`](../SPEC.md) — đặc tả sản phẩm (nguyên lý → cơ chế → rule, §14 KHÔNG-làm).
 - [`../DECISIONS.md`](../DECISIONS.md) — sổ quyết định sống (human-wins).
 - [`../sprints/`](../sprints/ROADMAP.md) — ROADMAP + nhật ký sprint (plan/end, số liệu thật).
+- [`../bench/REPORT.md`](../bench/REPORT.md) — benchmark single vs đội (15 case, số liệu + đánh giá)
