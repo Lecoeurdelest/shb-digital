@@ -37,7 +37,9 @@ services:
       DATABASE_URL: postgresql://shb:shb@db:5432/shb
       SHB_PROVIDER: zai      # container KHÔNG có CLI login máy → provider keyed (zai)
       # FIX C: container KHÔNG có CLI auth → claude-cli = nút chết → ẩn khỏi picker (public_view lọc).
-      SHB_PROVIDERS_DISABLED: claude-cli
+      # D-66: local (Ollama) chỉ-trong-repo, prod không có Ollama → disable khỏi picker.
+      # LƯU Ý: dòng environment này ĐÈ .env (env_file) — sửa ở ĐÂY, đừng sửa .env rồi thắc mắc.
+      SHB_PROVIDERS_DISABLED: claude-cli,local
       # Runtime KHÔNG được cần mạng: uv run mặc định re-sync (kéo cả dev-deps như pytest) →
       # DNS chớp trong container = crash-loop (sự cố deploy 18/7). Env đã sync đủ lúc build.
       UV_NO_SYNC: "1"
