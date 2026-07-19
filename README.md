@@ -3,16 +3,22 @@
 [![CI](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml/badge.svg)](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml)
 
 Hệ thống **chi nhánh ngân hàng số vận hành bằng đội multi-agent AI**: khách hàng chat một câu
-tiếng Việt, đội chuyên gia số (Tín dụng · Pháp chế · Sản phẩm · Vận hành) tự lập kế hoạch, dùng
-tool truy vấn dữ liệu thật, phối hợp với nhau và **thực thi hành động có kiểm soát** — khoản nhỏ
-tự duyệt theo ma trận thẩm quyền, khoản lớn dừng lại chờ người của ngân hàng duyệt. Mọi bước có
-vết, mọi con số có nguồn.
+tiếng Việt, đội chuyên gia số (nòng cốt **Tín dụng · Pháp chế** với tool SQL thật; Sản phẩm ·
+Vận hành minh hoạ cùng cơ chế) tự lập kế hoạch, dùng tool truy vấn dữ liệu thật, phối hợp với
+nhau và **thực thi hành động có kiểm soát** — khoản nhỏ tự duyệt theo ma trận thẩm quyền, khoản
+lớn dừng lại chờ người của ngân hàng duyệt. Mọi bước có vết, mọi con số có nguồn.
 
 Sản phẩm dự thi đề **#132 — Digital Expert Agents** (Vietnam AI Innovation Challenge 2026 /
 Hack CX Together 2026 · SHB). Đề bài: [`docs/problem-statement.md`](docs/problem-statement.md) ·
 PDF gốc: [`docs/132-SHB-agents.pdf`](docs/132-SHB-agents.pdf).
 
-**Demo trực tuyến:** https://digital.tinhdev.com
+**Demo trực tuyến:** https://digital.tinhdev.com — thử ngay không cần login:
+
+```bash
+curl https://digital.tinhdev.com/api/health         # → {"ok":true}
+curl https://digital.tinhdev.com/api/conversations  # → 401 {"code":"unauthorized",...}
+# mọi API siết auth thật; error toàn hệ một shape 4-field {code, message, hint, retryable}
+```
 
 ![Landing page](docs/assets/landing.png)
 
@@ -25,6 +31,7 @@ PDF gốc: [`docs/132-SHB-agents.pdf`](docs/132-SHB-agents.pdf).
 
 - [Tính năng chính](#tính-năng-chính)
 - [Đáp ứng đề bài (5 deliverables)](#đáp-ứng-đề-bài-5-deliverables)
+- [An toàn khi AI chạm tiền](#an-toàn-khi-ai-chạm-tiền-phanh-tầng-tool)
 - [Kiến trúc hệ thống](#kiến-trúc-hệ-thống)
 - [Công nghệ sử dụng](#công-nghệ-sử-dụng)
 - [Cấu trúc thư mục](#cấu-trúc-thư-mục)
@@ -57,7 +64,8 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 **Bàn ngân hàng (admin)** — giám sát và cầm quyền quyết:
 
 - Thấy mọi ca của mọi khách + **Control Tower**: hàng đợi phiếu duyệt (badge real-time),
-  audit log append-only từng LLM call/tool call kèm chi phí, trace timeline.
+  audit log append-only từng LLM call/tool call (input/output — ghi cả call đứt giữa chừng),
+  trace timeline.
 - Duyệt / từ chối phiếu giải ngân — hệ đánh thức đúng ca, đội thực thi tiếp **đúng một lần**
   (biên nhận chống thực-thi-đôi; bấm lại trả biên nhận cũ).
 - Click từng chuyên gia xem brief/trace/kết quả; hủy một sub đang chạy không ảnh hưởng sub khác.
@@ -69,11 +77,52 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 
 | # | Đề #132 yêu cầu | Sản phẩm trả bằng |
 |---|---|---|
-| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": Tín dụng + Pháp chế + Sản phẩm + Vận hành chạy song song, card đổ về canvas |
+| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **Tín dụng + Pháp chế — 2 chuyên gia ruột thật** (tool SQL đọc/ghi Postgres, bàn giao ngữ cảnh tuần tự credit→legal→ops); Sản phẩm + Vận hành hiện là **stub minh hoạ** cùng contract (mọi return khai `isMock:true` — không giả làm thật), card đổ về canvas |
 | 2 | Cơ chế orchestration: planner phân rã → executor | MAIN (planner, phiên bền — resume qua restart) + `orch_dispatch` giao việc nền + event đánh thức khi sub xong |
 | 3 | Tool use thật — hành động cụ thể, không chỉ text | Tool đọc/ghi Postgres thật (DSCR, CIC, pháp lý…); `disburse` bị **chặn ở tầng tool** bằng phiếu phê duyệt |
 | 4 | Dashboard traces, task status, decisions, collaboration flows | Control Tower + SSE trace (thinking/toolcall) + audit append-only + lobby/task map |
-| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | `POST /api/compare` — chạy cùng câu hỏi 2 chế độ, render đối chiếu 2 cột |
+| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | `POST /api/compare` — chạy cùng câu hỏi 2 chế độ, render đối chiếu 2 cột. Cột multi chạy **luồng đội thật** (dispatch → poll tới khi mọi sub xong → tổng hợp), không phải số dựng sẵn |
+
+## An toàn khi AI chạm tiền (phanh tầng tool)
+
+Thứ tách hệ này khỏi "chatbot gọi API": hành động đụng tiền đi qua **phiếu phê duyệt cưỡng chế
+ở tầng tool** — invariant giữ bằng database transaction, không phải lời dặn trong prompt.
+
+```python
+# backend/app/orch/gated.py — claim atomic: 1 phiếu = đúng 1 lần thực thi
+cur.execute(
+    "UPDATE approvals SET status='used', used_at=now() "
+    "WHERE conv_id=%s AND action=%s AND payload_hash=%s AND status='approved' RETURNING id", ...)
+...
+out = GATED_TOOLS[ctx["action"]](conn, **ctx["args"])       # ghi loans.status — CÙNG transaction
+_save_receipt(cur, out, claimed["id"], set_used_at=False)
+conn.commit()  # claim + inner-write + receipt cùng COMMIT
+```
+
+**Invariant tiền:** `status='used'` ⟺ có biên nhận, trong **cùng một transaction** — lỗi giữa
+chừng thì rollback phiếu về `approved`, retry sạch, không tồn tại cửa sổ "tiền đi hai lần".
+Chứng minh bằng test hành vi thật (`backend/tests/test_gated.py`): 2 lệnh đồng thời → đúng 1
+`used` / 0 phiếu rác (`test_concurrent_claim_no_spurious_ticket`) · inner throw → rollback không
+để phiếu rác (`test_tiered_auto_inner_throw_rollback_no_ticket`) · gọi lại sau khi đã thực thi →
+trả biên nhận cũ, không chạy lần 2 (`test_branch1_receipt_no_double_execute`).
+
+**5 lớp phòng thủ độc lập:**
+
+| Lớp | Cơ chế | Code |
+|---|---|---|
+| Chống thực-thi-đôi | claim atomic `UPDATE…WHERE status='approved' RETURNING` + `pg_advisory_xact_lock` serialize per-key | `backend/app/orch/gated.py` |
+| Chống né phiếu bằng đổi format | phiếu định danh bằng **hash chuẩn-hoá payload** (`5e9 ≡ 5000000000`, bỏ field phi-nghiệp-vụ) — cùng MỘT hàm cho cả mint lẫn verify, không có cửa drift | `gated.py::payload_hash` |
+| Chống giải ngân chéo chủ (IDOR) | cross-owner guard **fail-closed ở tầng tool**, chặn trước cả khi tạo phiếu — khách prompt-inject cỡ nào cũng vô hiệu | `backend/app/orch/disburse_guard.py` |
+| Chống lộ secret ra UI | redact key/JWT tại cổng SSE duy nhất trước khi emit; `/api/models` chỉ trả `has_key` true/false — key không bao giờ ra FE | `backend/app/sse/redact.py` · `configs/providers.yaml` |
+| Ma trận thẩm quyền **chỉ siết, không bao giờ nới** | verdict-aware: hồ sơ chưa qua pháp lý → hành vi y hệt bản không-verdict (không mở thêm cửa auto nào); lane đỏ → về người kể cả khoản nhỏ | `backend/app/orch/verdict.py` |
+
+**Bug khó đã xử (có test chốt):**
+
+- **Race "admin duyệt nhanh hơn sub trả lời"** — server tự re-dispatch khi role rảnh (không để
+  MAIN đua trên stale-read), kèm trần `MAX_EXEC_ATTEMPTS` chống bão task khi tool fail bền —
+  `main_session.py::_resume_dispatch_guard`, 14 test tại `backend/tests/test_resume_dispatch_guard.py`.
+- **Audit không rơi call nào** — tool-call bị đứt giữa chừng vẫn ghi một dòng (`output=null`):
+  append-only kể cả trên đường lỗi, không có call nào biến mất khỏi sổ.
 
 ## Kiến trúc hệ thống
 
@@ -96,12 +145,12 @@ Các thành phần chính:
 | Thành phần | Vai trò | Code |
 |---|---|---|
 | **MAIN** | Điều phối viên: phân rã yêu cầu, giao việc, hòa giải mâu thuẫn, tổng hợp trả lời. Phiên bền — server restart vẫn resume đúng hội thoại | `backend/app/orch/main_session.py` |
-| **SUB** (×4) | Chuyên gia domain, client tươi mỗi lượt: nhận brief → dùng tool → `present` card → trả kết quả | `backend/app/orch/sub_runner.py` |
+| **SUB** (×4) | Chuyên gia domain, client tươi mỗi lượt: nhận brief → dùng tool → `present` card → trả kết quả. Tín dụng + Pháp chế: tool thật; Sản phẩm + Vận hành: stub `isMock` cùng contract | `backend/app/orch/sub_runner.py` |
 | **Orchestrator (vỏ)** | Dispatch nền idempotent, hàng đợi event, đánh thức MAIN khi sub xong — vỏ **không** ép logic "đợi đủ N sub" (điều phối là suy nghĩ của model) | `backend/app/orch/` |
 | **Phanh (approval gate)** | Wrapper tầng tool cho hành động nhạy cảm: phiếu `(conversation, action, payload_hash)` single-use, claim atomic, biên nhận trong cùng transaction — retry không thực thi đôi | `backend/app/orch/gated.py` |
 | **Mount tool LAB** | Nạp tool nghiệp vụ + SKILL per chuyên gia từ `roles/` (labpack) — vỏ cấp connection, không sửa logic nghiệp vụ | `backend/app/mount/` |
 | **Canvas / present** | Card có cấu trúc (metric, bảng, document, approval, form…) do agent trình bày, stream về FE qua SSE | `backend/app/orch/common_tools.py` + `frontend/src/components/cards/` |
-| **Control Tower** | Màn admin: approval queue, audit, trace, cost | `frontend/src/components/ControlTower.tsx` |
+| **Control Tower** | Màn admin: approval queue, audit, trace, compare | `frontend/src/components/ControlTower.tsx` |
 
 Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
 
@@ -111,6 +160,11 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
   trần; error toàn hệ một shape `{code, message, hint, retryable}`.
 - **Tối giản có chủ đích** (SPEC §14): không Redis, không WebSocket (SSE đủ), không replay-cursor —
   reconnect thì tải lại full-state.
+- **Tool-first thay RAG-corpus (lựa chọn có chủ đích):** dữ liệu nghiệp vụ ngân hàng ở đây là dữ
+  liệu **có cấu trúc** (bảng Postgres) — truy vấn SQL qua tool trả lời đúng-hàng-đúng-cột kèm
+  nguồn, không có hallucination tầng retrieval; tri thức nghề nén trong SKILL per chuyên gia.
+  Retrieval nhiều tầng cho văn bản chính sách phi cấu trúc nằm ở lộ trình
+  ([`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §3).
 
 ## Công nghệ sử dụng
 
@@ -123,6 +177,10 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
 | Auth | JWT cookie httponly · bcrypt · Google OAuth 2.0 (authorization-code, server-side) |
 | Kiểm thử | pytest (BE) · vitest + Testing Library (FE) · ruff · tsc |
 | Deploy | Docker Compose · nginx (FE + proxy /api) · cloudflared tunnel |
+
+Provider chọn **per-conversation** và cấp qua env của SDK **per-session** (không đụng process
+env) — nhiều ca chạy nhiều model song song không giẫm nhau; key nằm trong `.env` server-side,
+FE chỉ thấy `has_key` true/false.
 
 **Chủ quyền dữ liệu (on-prem):** hệ chạy được **model local** — Ollama nói giọng Anthropic API
 native nên chỉ cần khai một provider (`local`) trong `configs/providers.yaml` rồi chọn live trên
@@ -209,16 +267,20 @@ Ghi chú:
 ## Kiểm thử
 
 ```bash
-# Backend — ~300 test (pytest); nên tách DB test
+# Backend — 380 passed / 13 skipped (skip = test live-SDK, opt-in bằng RUN_LIVE_SDK=1)
 cd backend
 TEST_DATABASE_URL=postgresql://shb:shb@localhost:5432/shb_test uv run pytest
 uv run ruff check . && uv run ruff format --check .
 
-# Frontend — ~90 test (vitest) + typecheck
+# Frontend — 162 test / 20 file (vitest) + typecheck (tsc 0 lỗi)
 cd frontend
 npm run test
 npm run typecheck
 ```
+
+CI (GitHub Actions) chạy đủ pytest + ruff + vitest + tsc trên **mỗi push/PR** — xem
+[lịch sử run](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml)
+(ví dụ run xanh: [#29665924473](https://github.com/tinhnguyen0110/shb-digital/actions/runs/29665924473)).
 
 Quy ước kiểm thử: suite phải **100% pass** trước khi đóng task; test assert hành vi quan sát
 được, phủ edge case (rỗng/None/max/malformed/error-path); component WebGL guard no-op trong
@@ -269,7 +331,12 @@ Repo này được xây bởi **đội AI agent** (điều phối bởi con ngư
   (API / function / sprint) — số liệu chạy lại độc lập ghi ở `sprints/end_sprint_*.md`,
   kể cả waiver và lỗi đã gặp (không tô hồng).
 - Quyết định ngoài dự tính ghi `DECISIONS.md` để con người đọc lại async và có quyền lật.
+- Hệ được **dogfood trên chính bản prod như user thật** trước vòng chấm: các finding ghi công
+  khai tại [`docs/dogfood-findings.md`](docs/dogfood-findings.md) — trong đó có **1 lỗ lộ
+  credential do chính đội tự phát hiện và vá ngay** (D-64, `sprints/end_sprint_14.md`).
+  Sổ lỗi công khai, kể cả lỗi bảo mật của mình, là một phần của sản phẩm.
 
-**Trạng thái hiện tại:** Sprint 1–8 đã đóng (spine → canvas + 4 chuyên gia → phanh → Control
-Tower + trace → demo-safety → pháp lý 3 trụ → 2 persona) · Sprint 9 (khách mới + form intake +
-mail/bell) đang chạy · Sprint 10 deploy. Chi tiết: [`sprints/ROADMAP.md`](sprints/ROADMAP.md).
+**Trạng thái hiện tại:** Sprint 1–9, 10 (deploy), 11 (docs/CI), 13 (stats admin), 14 (dogfood + vá)
+**đã đóng** — sổ chi tiết tại `sprints/end_sprint_*.md` · Sprint 12 (retrieval 4 tầng từ LAB)
+**hoãn có chủ đích** chờ LAB chốt bản certified (D-63) · Sprint 15 **đang chạy**.
+Chi tiết: [`sprints/ROADMAP.md`](sprints/ROADMAP.md).
