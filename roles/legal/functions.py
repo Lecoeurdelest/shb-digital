@@ -444,3 +444,17 @@ SCHEMAS: dict[str, Any] = {
                              "desc": "mã mục đích vay nếu ca có nêu — server check compliance luôn"},
         }},
 }
+
+
+# ── T12-1 (§7 op #1/#2): mount legal_related_exposure vào toolpack legal ──────────────────────
+# Aggregation THUẦN (KHÔNG sửa logic LAB ở trên — 5 tool legal byte-identical). Hàm + schema lấy
+# TỪ retrieval pack byte-identical (roles/_retrieval/functions.py) — 1 nguồn, không dup định nghĩa.
+# read-only (entity-graph trần dư nợ nhóm, không GHI) → WRITE_TOOLS giữ nguyên (assessments-only).
+from roles._retrieval.functions import (  # noqa: E402 — append cuối file (§7 swap), sau cụm LAB
+    SCHEMAS_RETRIEVAL as _SCHEMAS_RETRIEVAL,
+    legal_related_exposure as _legal_related_exposure,
+)
+
+REGISTRY["legal_related_exposure"] = _legal_related_exposure
+ANNOTATIONS["legal_related_exposure"] = {"readOnlyHint": True}
+SCHEMAS["legal_related_exposure"] = _SCHEMAS_RETRIEVAL["legal_related_exposure"]

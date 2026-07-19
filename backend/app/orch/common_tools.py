@@ -223,7 +223,32 @@ async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+# ── T12-1: retrieval toolpack CHUNG (§7) — wiki_*/notes_search vào common server (mọi role) ──
+# legal_related_exposure KHÔNG ở đây (mount vào toolpack legal — roles/legal REGISTRY). Các fn LAB
+# byte-identical (roles/_retrieval/functions.py) chạy qua SEAM CHUNG run_labpack_fn (mount_role) —
+# PGConnAdapter + 4-field mọi lỗi (bảng chưa seed → db_error, KHÔNG 500). read_scope OFF cho common
+# (T12-1 scope; notes_search owner-scope = T12-2). schema LAB → input_schema qua schema_to_input.
+_COMMON_RETRIEVAL = ["wiki_lookup", "wiki_search", "wiki_related_docs", "notes_search"]
+
+
+def _build_retrieval_tools() -> list:
+    """Wrap 4 fn retrieval (common) thành SDK tool — delegate `mount_role.build_common_retrieval_tools`
+    (logic build NẰM Ở mount_role: module đó insert REPO_ROOT vào sys.path lúc load nên `import roles.*`
+    chạy dù uvicorn cwd=backend/). Đặt ở đó, KHÔNG ở đây, để tránh phụ thuộc THỨ TỰ import mà ruff-isort
+    sắp lại → ModuleNotFoundError 'roles' lúc boot. Seam adapter chung run_labpack_fn (§6, không dup)."""
+    from app.mount.mount_role import build_common_retrieval_tools
+
+    return build_common_retrieval_tools(_COMMON_RETRIEVAL)
+
+
 COMMON_SERVER = create_sdk_mcp_server(
-    name="common", version="1.0.0", tools=[calc_tool, present_tool, present_form_tool]
+    name="common",
+    version="1.0.0",
+    tools=[calc_tool, present_tool, present_form_tool, *_build_retrieval_tools()],
 )
-COMMON_ALLOWED = ["mcp__common__calc", "mcp__common__present", "mcp__common__present_form"]
+COMMON_ALLOWED = [
+    "mcp__common__calc",
+    "mcp__common__present",
+    "mcp__common__present_form",
+    *(f"mcp__common__{n}" for n in _COMMON_RETRIEVAL),
+]

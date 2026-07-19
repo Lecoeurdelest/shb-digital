@@ -1,9 +1,11 @@
 # deploy/seed — SNAPSHOT seed cho deploy (D-62)
 
 ## `shb-132.db`
-- **md5:** `8b3597cd205fd46ca0ff1ff86083da1d`
-- **Ngày snapshot:** 2026-07-18
+- **md5:** `2d493755c9e2bc5b774a3103f6378b35`
+- **Ngày snapshot:** 2026-07-19 (T12-2 — THAY world 8bf6b4: +4 tầng retrieval, 2215 notes có embedding,
+  82 wiki, party_relations + L901. D-65b: world business đổi, users/app-tables PG runtime KHÔNG trong file này).
 - **Nguồn:** `../shb-digital-experts/missions/shb-132/seed/shb-132.db` (LAB repo — D-08).
+- **Đảo:** snapshot cũ world `8b3597cd205fd46ca0ff1ff86083da1d` (2026-07-18) còn trong git history.
 
 ## ĐÂY LÀ SNAPSHOT DEPLOY — KHÔNG PHẢI NGUỒN SỰ THẬT
 Nguồn sự thật = LAB repo (`shb-digital-experts`). File này là bản CHỤP để repo TỰ CHỨA seed khi

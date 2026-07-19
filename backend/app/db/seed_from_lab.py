@@ -50,6 +50,16 @@ TABLES: list[tuple[str, list[str]]] = [
         "employment_records",
         ["owner_id", "employer", "position", "tenure_months", "verified_income_vnd", "status", "verified_at"],
     ),
+    # T12-2: 4 tầng retrieval (world 8bf6b4). Cột KHỚP migration d7f1a2c9e4b0 = LAB seed_retrieval.DDL.
+    # embedding (BLOB→bytea) cần psycopg2.Binary — xem _row_values. note_id transfer THẬT (citation ổn).
+    (
+        "wiki_pages",
+        ["id", "role", "title", "topic", "tags", "legal_basis", "effective_from", "effective_to",
+         "status", "body", "source_file", "so_hieu", "dieu", "amended_by", "source_url", "crawled_at"],
+    ),
+    ("wiki_links", ["from_page", "to_page"]),
+    ("interaction_notes", ["note_id", "owner_id", "ts", "channel", "rm", "note_text", "embedding"]),
+    ("party_relations", ["from_id", "to_id", "relation", "pct"]),
 ]
 
 
@@ -84,6 +94,17 @@ def _filter_rows(table: str, cols: list[str], rows: list) -> list:
     return rows
 
 
+def _row_values(cols: list[str], row: sqlite3.Row) -> tuple:
+    """Giá trị positional cho INSERT. `embedding` (BLOB SQLite = bytes) → psycopg2.Binary cho bytea
+    (T12-2 — không wrap thì psycopg2 vẫn adapt bytes nhưng Binary tường minh + None-safe). Cột khác
+    nguyên giá trị."""
+    out = []
+    for c in cols:
+        v = row[c]
+        out.append(psycopg2.Binary(v) if c == "embedding" and v is not None else v)
+    return tuple(out)
+
+
 def _open_sqlite(path: Path) -> sqlite3.Connection:
     if not path.exists():
         raise FileNotFoundError(
@@ -115,7 +136,7 @@ def load_seed(sqlite_path: Path | None = None, database_url: str = DATABASE_URL)
                 rows = _filter_rows(table, cols, rows)  # D-28: bỏ assumptions non-numeric
                 pcur.execute(f"TRUNCATE TABLE {table} CASCADE")
                 if rows:
-                    values = [tuple(r[c] for c in cols) for r in rows]
+                    values = [_row_values(cols, r) for r in rows]
                     pcur.executemany(f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})", values)
                 counts[table] = len(rows)
         pconn.commit()

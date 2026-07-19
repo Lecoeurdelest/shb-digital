@@ -243,7 +243,10 @@ def test_old_tool_check_compliance_unchanged():
 
 
 def test_mount_legal_exposes_five_tools():
-    """mount_role('legal') derive đủ 5 tool từ REGISTRY (không hardcode 2 tool cũ) + SKILL v3."""
+    """mount_role('legal') derive tool từ REGISTRY (không hardcode) + SKILL v3.
+
+    T12-1 (§7): thêm legal_related_exposure (retrieval entity-graph) vào toolpack legal → 6 tool.
+    Đổi-hành-vi CÓ CHỦ ĐÍCH (port retrieval), KHÔNG nới test lặng lẽ — 5 tool T7-2 GIỮ nguyên + 1 mới."""
     from app.mount.mount_role import mount_role
 
     skill, _server, allowed = mount_role("legal")
@@ -254,5 +257,6 @@ def test_mount_legal_exposes_five_tools():
         "legal_check_police",
         "legal_verify_employment",
         "legal_classify_profile",
-    }, f"phải đủ 5 tool: {tool_names}"
+        "legal_related_exposure",  # T12-1 §7 — mount retrieval entity-graph vào legal
+    }, f"phải đủ 6 tool (5 T7-2 + legal_related_exposure T12-1): {tool_names}"
     assert "v3" in skill[:120], "SKILL phải là bản v3"

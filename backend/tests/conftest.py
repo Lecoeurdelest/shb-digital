@@ -114,6 +114,22 @@ requires_test_db = pytest.mark.skipif(
 )
 
 
+def _embed_ready() -> bool:
+    """sentence-transformers + pyvi + numpy có sẵn? (T12-2 embed extra — optional group)."""
+    import importlib.util
+
+    return all(importlib.util.find_spec(m) is not None for m in ("sentence_transformers", "pyvi", "numpy"))
+
+
+# T12-2 (D-68): test SEMANTIC notes_search cần model bkai (embed extra). Máy không cài group embed
+# (torch nặng — CI/deploy mặc định bỏ) → SKIP, KHÔNG fail. Dispatch cho phép gate "máy build lâu".
+requires_embed = pytest.mark.skipif(
+    not _embed_ready(),
+    reason="Embed lib (sentence-transformers/pyvi) chưa cài — `uv sync --extra embed`. "
+    "notes_search semantic cần model bkai CPU; wiki/graph/exposure KHÔNG cần.",
+)
+
+
 @pytest.fixture
 def pg_conn():
     """1 psycopg2 conn tươi mỗi test; rollback + close cuối test."""

@@ -96,6 +96,14 @@ class Row:
         return f"Row({dict(zip(self._cols, self._values, strict=False))!r})"
 
 
+def _coerce_row(row: tuple[Any, ...]) -> tuple[Any, ...]:
+    """T12-2 landmine fix (D-68): psycopg2 trả cột `bytea` = memoryview; fn LAB (notes_search)
+    làm `b"".join(r["embedding"] ...)` — join memoryview raise TypeError. Ép memoryview → bytes ở
+    ĐÂY (choke point trung tâm — mọi tool hưởng, KHÔNG sửa retrieval.py byte-identical). SQLite trả
+    BLOB = bytes sẵn nên đây đúng là khôi phục hành vi sqlite mà adapter mô phỏng. Cột khác 0 ảnh hưởng."""
+    return tuple(bytes(v) if isinstance(v, memoryview) else v for v in row)
+
+
 class _AdapterCursor:
     """Cursor-like trả về từ `PGConnAdapter.execute()` — hỗ trợ `.fetchone()`/`.fetchall()`
     y hệt kết quả `sqlite3.Connection.execute(...)` mà credit.py/customers.py xích thẳng.
@@ -111,10 +119,10 @@ class _AdapterCursor:
 
     def fetchone(self) -> Row | None:
         row = self._cur.fetchone()
-        return Row(tuple(row), self._cols) if row is not None else None
+        return Row(_coerce_row(row), self._cols) if row is not None else None
 
     def fetchall(self) -> list[Row]:
-        return [Row(tuple(r), self._cols) for r in self._cur.fetchall()]
+        return [Row(_coerce_row(r), self._cols) for r in self._cur.fetchall()]
 
     def close(self) -> None:
         self._cur.close()

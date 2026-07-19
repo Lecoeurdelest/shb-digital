@@ -9,12 +9,32 @@ dependencies = [
     "claude-agent-sdk>=0.1.0",
     "fastapi[standard]>=0.139.2",
     "httpx>=0.28.1",
+    "numpy>=2.4.6",
     "psycopg2-binary>=2.9.12",
     "pydantic>=2",
     "pyjwt>=2.13.0",
     "sqlalchemy>=2.0",
     "uvicorn[standard]>=0.51.0",
 ]
+
+# T12-2 (D-68): embed group OPTIONAL — notes_search (1/4 tầng retrieval) cần model bkai CPU. CI/deploy
+# MẶC ĐỊNH KHÔNG kéo (torch nặng); cài riêng `uv sync --extra embed`. torch pin CPU (không CUDA — SPEC
+# "local CPU"). Lib vắng → notes_search trả env_missing graceful (LAB thiết kế), 3 tầng kia chạy bình thường.
+[project.optional-dependencies]
+embed = [
+    "sentence-transformers>=3.0",
+    "pyvi>=0.1.1",
+    "torch>=2.0",
+]
+
+# torch từ index CPU-only (tránh CUDA ~2.5G nuốt đĩa/image). Chỉ áp khi cài extra embed.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 
 [dependency-groups]
 dev = [
