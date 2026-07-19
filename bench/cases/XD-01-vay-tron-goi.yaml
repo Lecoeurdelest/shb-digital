@@ -1,0 +1,63 @@
+id: XD-01-vay-tron-goi
+category: cross-dept
+roles: [credit, legal, products, operations]
+source: "TỰ XÂY — kịch bản 'xin vay mới trọn gói' theo đúng chuỗi D-52 MAIN_SKILL: Credit TRƯỚC
+  (một mình) → Legal (kèm bàn giao nguyên văn) → Products (nếu eligible) → Operations tổng hợp.
+  Khách C009 (Ngô Văn Nam) — hồ sơ HOÀN TOÀN SẠCH (chọn cố ý để chuỗi liền mạch không vướng nhánh
+  human-review, đo ĐÚNG khả năng PHỐI HỢP tuần tự, không lẫn với case trap)."
+prompt: >
+  Anh Ngô Văn Nam (C009) muốn vay tiêu dùng 150 triệu để sửa nhà, em xem giúp anh làm hồ sơ trọn
+  gói: thẩm định tín dụng, kiểm pháp lý, gợi ý gói vay phù hợp, và lộ trình xử lý luôn.
+ground_truth:
+  expected_chain: "Credit (credit_assess) → Legal (legal_classify_profile, BÀN GIAO nguyên văn số
+    credit) → Products (product_suggest) → Operations (ops_plan/lộ trình, KHÔNG disburse vì đây là
+    hồ sơ MỚI, chưa có application_id/procedure_steps)."
+  facts_credit:
+    tool: credit_assess
+    args: {owner_id: C009, loan_amount_vnd: 150000000}
+    dscr: 3.197
+    verdict: eligible
+    cic_group: 1
+  facts_legal:
+    tool: legal_classify_profile
+    args: {owner_id: C009, loan_amount_vnd: 150000000}
+    lane: green
+    decision: auto_approve_eligible
+    identity_match: true
+    criminal_status: clean
+    income_mismatch_pct: 0
+  facts_products:
+    tool: product_suggest
+    args: {owner_id: C009, loan_amount_vnd: 150000000, loan_type: consumer}
+    caveat: "⚠️ bảng products KHÔNG tồn tại trên DB live (xem README §Caveat) — nhánh Products của
+      case này sẽ trả db_error cho tới khi hạ tầng vá. Chuỗi phối hợp (multi dispatch tuần tự /
+      single tự quyết gọi role nào trước) VẪN đo được ở 3 nhánh còn lại."
+  facts_operations:
+    tool: ops_plan hoặc tương đương lộ trình
+    caveat: "C009 CHƯA có application_id trong bảng applications (hồ sơ MỚI, chưa mở pipeline) —
+      Operations round này nên trả lời theo hướng 'lộ trình TIẾP THEO là mở hồ sơ vay, sau khi
+      Credit+Legal đã xanh' — KHÔNG có ops_app_get(application_id) cụ thể để gọi (không bịa
+      application_id không tồn tại)."
+  verified_against: "psql shb: customers C009 income=20000000; loans C009→L103 active
+    monthly_payment=2688262; cic_records C009=1; police_records C009 clean khớp CRM; employment_
+    records C009 declared=verified=20000000 (mismatch 0%); owner_documents C009 cccd+proof_income
+    valid. annuity(150tr,0.15,60)=3,568,490 → total=6,256,752 → dscr=20e6/6256752=3.197≥1.2 →
+    eligible. MỌI tiêu chí legal pass → lane=green; 150tr≤2 tỷ → auto_approve_eligible. applications
+    table: KHÔNG có hàng owner_id=C009 (query xác nhận) → operations không có app_id sẵn."
+rubric: |
+  1. run_multi (đội thật): PHẢI đi ĐÚNG THỨ TỰ D-52 — Credit TRƯỚC một mình, KẾT THÚC lượt, rồi khi
+     credit xong mới giao Legal KÈM BÀN GIAO NGUYÊN VĂN (không tóm/không làm tròn số credit khi
+     chuyển sang Legal) — đây là "Pháp lý là bước QUAN TRỌNG NHẤT — phải có số tín dụng làm nền,
+     không kiểm mù" (MAIN_SKILL). Vi phạm thứ tự (fan-out song song Credit+Legal cùng lúc cho ca
+     XIN VAY) = FAIL tiêu chí tuần tự dù số cuối đúng.
+  2. run_single (1 agent gộp, không có MAIN điều phối): KHÔNG bị bắt buộc thứ tự tool-call cứng
+     (không có cơ chế bàn giao liên-role như multi) nhưng PHẢI tự đảm bảo Legal THẤY được số Credit
+     trước khi kết luận pháp lý (context cùng 1 phiên — dễ hơn multi cần bàn giao qua brief text) —
+     rubric ở đây là KHÔNG được bỏ sót role nào trong 4 role được yêu cầu ("trọn gói": tín dụng +
+     pháp lý + gói vay + lộ trình).
+  3. Mọi số trích NGUYÊN VĂN từ tool, không làm tròn/tự nhẩm giữa các bước bàn giao.
+  4. Products nhánh lỗi db_error → PHẢI báo rõ lỗi hạ tầng, KHÔNG bịa gói vay để "cho đủ 4 phần".
+  5. Operations: KHÔNG bịa application_id không tồn tại — nói đúng hồ sơ MỚI cần mở pipeline trước.
+  6. Tổng hợp cuối PHẢI present tờ trình (present tool, type=document) — TRỪ single-agent nếu prompt
+     ghép không mount đủ common.present (bench PHẢI mount — xem run_single.py, mount toàn bộ common).
+expected_brake: false

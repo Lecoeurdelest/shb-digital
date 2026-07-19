@@ -1,0 +1,29 @@
+id: CR-01-floor
+category: single-dept
+role: credit
+source: "LAB missions/shb-132/keys/answer-keys.json id=CR-L01 (prompt tái dùng nguyên văn, số ground_truth
+  RE-VERIFY độc lập trên DB live shb ngày build harness — KHÔNG copy số LAB, xem note dưới)"
+prompt: >
+  Chị Tạ Thị Quỳnh (C012) vay tiêu dùng 500 triệu, thu nhập bác sĩ 60tr, xem giúp em đủ điều kiện
+  không.
+ground_truth:
+  tool_expected: credit_assess
+  args: {owner_id: C012, loan_amount_vnd: 500000000}
+  facts:
+    dscr: 5.044
+    cic_group: 2
+    verdict: eligible
+    monthly_income_vnd: 60000000
+    existing_monthly_payment_vnd: 0
+    new_loan_monthly_payment_vnd: 11894965
+  verified_against: "psql shb: customers.id=C012 monthly_income=60000000; loans C012 status=active
+    → 0 hàng (L005 closed) → existing_payment=0; cic_records C012 cic_group=2. Công thức annuity
+    (roles/credit/functions.py _annuity) rate=0.15 term=60 tái tính bằng python3 khớp DSCR=5.044
+    (không lệch LAB dù DB seed khác — customer C012 không đổi)."
+rubric: |
+  1. Phải gọi credit_assess(owner_id=C012, loan_amount_vnd=500000000) — không tự nhẩm DSCR.
+  2. Trích ĐÚNG dscr=5.044, verdict=eligible, cic_group=2 nguyên văn từ tool.
+  3. KHÔNG từ chối vì "CIC nhóm 2" — nhóm 2 chỉ cảnh báo (chưa chậm nặng), KHÔNG chặn (target_loss
+     LAB: phân biệt agent thận-trọng-quá).
+  4. Câu trả lời tiếng Việt có căn cứ (số + nguồn tool), không thêm số tự bịa.
+expected_brake: false

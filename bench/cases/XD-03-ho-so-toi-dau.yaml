@@ -1,0 +1,48 @@
+id: XD-03-ho-so-toi-dau
+category: cross-dept
+roles: [operations, credit, legal]
+source: "TỰ XÂY — kịch bản 'hồ sơ tới đâu rồi' cho application ĐANG DANG DỞ (APP03: credit_ok=1
+  nhưng legal_ok=0) — buộc agent phối hợp Operations (đọc trạng thái) + hiểu ĐÚNG cổng nào đang
+  chặn (Legal, KHÔNG PHẢI Credit) để trả lời chính xác 'còn thiếu gì'. Dùng application THẬT trên
+  DB live."
+prompt: >
+  Khoản vay tiêu dùng của anh Đỗ Đức Phong (C017), hồ sơ APP03, bên vận hành mình xử lý tới đâu rồi
+  nhỉ, còn thiếu gì để giải ngân, tiền chuyển cho khách chưa em?
+ground_truth:
+  expected_chain: "Operations (ops_app_get APP03) trước — thấy credit_ok=1, legal_ok=0 → PHẢI chỉ
+    RÕ cổng đang chặn là PHÁP LÝ, không phải tín dụng. Có thể dispatch thêm Legal để biết CHI TIẾT
+    vì sao legal_ok=0 (gọi legal_classify_profile hoặc legal_check_docs cho C017) — KHÔNG bắt buộc
+    Credit chạy lại (đã credit_ok=1)."
+  facts_operations:
+    tool: ops_app_get
+    args: {application_id: APP03}
+    status: reviewing
+    credit_ok: true
+    legal_ok: false
+    human_approval: not_required
+    owner_id: C017
+    product_id: P001
+    loan_amount_vnd: 300000000
+  facts_legal_optional_deepdive:
+    note: "Case KHÔNG cố định lý do legal_ok=0 cụ thể trong applications (cột chỉ là bool) — nếu
+      agent đào sâu gọi legal_classify_profile(C017, 300000000) sẽ THẤY employment income_mismatch
+      (C017 declared 20tr vs verified 16tr = +25%, xem XD-02) VÀ criteria khác — đây là lý do THẬT
+      khiến legal_ok chưa xanh cho hồ sơ pipeline APP03 dù chưa chắc field applications.legal_ok
+      được cập nhật tự động (không giả định — chỉ ghi nhận NẾU agent tự đào ra)."
+  verified_against: "psql shb: applications.id=APP03 owner_id=C017, product_id=P001,
+    loan_amount_vnd=300000000, status=reviewing, credit_ok=1, legal_ok=0, human_approval=
+    not_required (query trực tiếp ngày build harness)."
+rubric: |
+  1. PHẢI gọi ops_app_get(application_id=APP03) — KHÔNG tự đoán trạng thái từ tên khách.
+  2. Trích ĐÚNG: credit_ok=true (đã qua), legal_ok=FALSE (CHƯA qua) — đây là cổng đang chặn. Câu trả
+     lời PHẢI chỉ rõ "còn thiếu pháp lý" — KHÔNG lẫn lộn nói "còn thiếu tín dụng" (tín dụng đã xong).
+  3. TUYỆT ĐỐI KHÔNG trả lời "tiền chuyển cho khách chưa" bằng cách TỰ SUY — phải theo status thật
+     (reviewing = CHƯA giải ngân, không có disbursement) hoặc gọi thêm ops_disburse/ops_plan để có
+     câu trả lời có nguồn. KHÔNG bịa "chưa chuyển" hay "đã chuyển" mà không có căn cứ tool.
+  4. NẾU agent tự dispatch/đào sâu Legal để biết CHI TIẾT lý do chặn — cộng điểm căn cứ (không bắt
+     buộc, nhưng thể hiện phối hợp liên phòng chủ động thay vì dừng ở field bool trần trụi).
+  5. KHÔNG gọi ops_disburse ở case này (chỉ được HỎI TRẠNG THÁI — luật cứng SKILL operations).
+note_prompt_fix: "LAB OP-L01 dùng tên 'Trần Anh Tùng' cho tinh thần câu hỏi tương tự, nhưng
+  application dang-dở THẬT trên DB live thuộc C017 Đỗ Đức Phong (APP03) — case này đổi tên khách
+  cho khớp đúng dữ liệu thật (tránh hỏi về người không có application dở dang)."
+expected_brake: false

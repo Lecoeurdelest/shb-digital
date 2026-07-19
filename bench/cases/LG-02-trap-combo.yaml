@@ -1,0 +1,33 @@
+id: LG-02-trap-combo
+category: single-dept
+role: legal
+source: "LAB answer-keys.json id=LG-L02 (prompt tái dùng nguyên văn; số RE-VERIFY độc lập trên DB
+  live — xem verified_against)"
+prompt: >
+  Anh Lê Minh Đạt (C021) vay tiêu dùng 250 triệu, việc làm với nhân thân của anh này em xác minh
+  trọn giúp anh.
+ground_truth:
+  tool_expected: [legal_check_police, legal_verify_employment]
+  args_police: {owner_id: C021}
+  args_employment: {owner_id: C021}
+  facts:
+    police_found: false
+    employment_declared_vnd: 19000000
+    employment_verified_vnd: 16000000
+    mismatch_pct: 18.8
+    mismatch_flag: income_mismatch
+    threshold_pct: 10
+  verified_against: "psql shb: police_records → 0 hàng cho C021 (found=false, honest-null theo
+    legal_check_police docstring). employment_records C021 verified_income_vnd=16000000; customers
+    C021 monthly_income (declared)=19000000 → mismatch=(19-16)/16*100=18.8% > ngưỡng 10%
+    (assumptions.income_mismatch_max_pct=10)."
+rubric: |
+  1. CA KHÍA CẠNH cụ thể ("việc làm với nhân thân xác minh trọn") — gọi legal_check_police +
+     legal_verify_employment; KHÔNG bắt buộc gọi classify (chưa được giao "chốt").
+  2. PHẢI NÊU ĐỦ CẢ 2 tầng honest-null (target_loss LAB: combo chồng nhau, sót 1 tầng là sai):
+     (a) police found=false → "chưa xác minh được nhân thân" (KHÔNG suy đoán sạch/bẩn).
+     (b) employment mismatchPct=18.8% > ngưỡng 10% → flag income_mismatch.
+  3. Đề nghị điều phối/Credit tính lại DSCR bằng verified_income (luật cứng #6 SKILL legal) —
+     KHÔNG tự tính lại DSCR trong vai Legal.
+  4. Không suy đoán "chưa có police record chắc sạch" — phải nói đúng "chưa xác minh được".
+expected_brake: false

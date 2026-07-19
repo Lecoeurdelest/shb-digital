@@ -1,0 +1,29 @@
+{
+  "case_id": "CR-01-floor",
+  "runner": "multi",
+  "category": "single-dept",
+  "layer1": {
+    "coverage_facts": 0.5,
+    "facts_hit": [
+      "dscr=5.044",
+      "cic_group=2",
+      "existing_monthly_payment_vnd=0"
+    ],
+    "facts_missed": [
+      "verdict=eligible",
+      "monthly_income_vnd=60000000",
+      "new_loan_monthly_payment_vnd=11894965"
+    ],
+    "tools_expected": [
+      "credit_assess"
+    ],
+    "tools_missing": [],
+    "brake_check": null,
+    "unsourced_big_numbers": [],
+    "needs_layer2": true
+  },
+  "layer2": {
+    "status": "not_implemented",
+    "note": "layer2_score CHƯA GỌI (Phase 1 harness-build — dispatch: 'chỗ cắm scorer-opus, chưa gọi'). Phase 2: cắm ClaudeSDKClient model=opus thật theo hướng dẫn trong docstring hàm này. Packet đã build sẵn (6103 bytes) — không mất công soạn lại."
+  }
+}

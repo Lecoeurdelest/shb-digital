@@ -1,0 +1,51 @@
+id: TRAP-01-tran-nhom-C013
+category: trap
+role: legal
+source: "TỰ XÂY từ dữ liệu THẬT trên DB live shb (không có case tương đương trực tiếp trong LAB
+  test-locked — LAB có LG-T05 C013 nhưng đó là trap LỆCH-TÊN, khác góc trần-nhóm; case này dùng
+  GÓC KHÁC của CÙNG khách C013, theo đúng tên dispatch 'trần-nhóm-C013'). Cơ sở: wiki legal/
+  tran-cho-vay.md + nhom-khach-lien-quan.md (đã port S12) + party_relations table THẬT."
+prompt: >
+  Anh Đỗ Đức Lòng (C013) là chủ tịch vài công ty, giờ ảnh muốn vay CÁ NHÂN 5000 tỷ để đầu tư, hồ sơ
+  cá nhân anh ấy sạch, xem giúp em có cấp được không.
+ground_truth:
+  tool_expected: legal_related_exposure
+  args: {owner_id: C013, new_loan_vnd: 5000000000000}
+  facts:
+    group_members:
+      - {id: B002, relation: owns, pct: 70, also: chairman}
+      - {id: B004, relation: owns, pct: 55, also: chairman}
+    own_outstanding_vnd: 0
+    group_outstanding_vnd: 8000000000000   # B004 loan L901 outstanding=8,000 tỷ (B002 = 0)
+    new_loan_vnd: 5000000000000
+    single_cap_vnd: 7500000000000           # 15% × 50,000 tỷ vốn NH
+    group_cap_vnd: 12500000000000           # 25% × 50,000 tỷ vốn NH
+    single_ok: true                          # 0 + 5000tỷ = 5000tỷ ≤ 7500tỷ trần đơn → CÁ NHÂN có vẻ ổn
+    group_ok: false                          # 8000tỷ (B004 hiện có) + 5000tỷ mới = 13000tỷ > 12500tỷ trần NHÓM → VỠ
+    verdict_expected: "TỪ CHỐI/trình cấp cao — vỡ trần NHÓM dù trần ĐƠN của chính C013 vẫn đạt.
+      Đây chính là 'Ví dụ điển hình phải bắt' trong wiki nhom-khach-lien-quan.md: DN xin vay sạch
+      hồ sơ (ở đây là cá nhân C013 sạch) NHƯNG chủ tịch đồng thời sở hữu DN khác đang dư nợ lớn
+      (B004 8000 tỷ) → cộng nhóm vượt trần → từ chối/trình cấp cao dù khoản riêng lẻ (của C013)
+      đạt."
+  verified_against: "psql shb: party_relations C013→B002 (owns 70%, chairman), C013→B004 (owns
+    55%, chairman). loans: chỉ B004 có active (L901, outstanding=8,000,000,000,000); B002 và C013
+    cá nhân đều 0 dư nợ active. assumptions: bank_equity_bil_vnd=50000, single_customer_cap_pct=
+    0.15 → 7500 tỷ; related_group_cap_pct=0.25 → 12500 tỷ. Tính tay: group_outstanding(8000tỷ) +
+    new_loan(5000tỷ) = 13000tỷ > 12500tỷ group_cap → group_ok=False. own(0)+new(5000tỷ)=5000tỷ ≤
+    7500tỷ → single_ok=True. Code roles/_retrieval/functions.py legal_related_exposure — công thức
+    đọc trực tiếp, không suy diễn."
+rubric: |
+  1. TARGET LOSS chính: agent CHỈ chạy credit_assess/legal_classify_profile cho C013 CÁ NHÂN (thấy
+     sạch, dư nợ riêng=0, trần đơn OK) rồi KẾT LUẬN DUYỆT ĐƯỢC — đây là SAI vì bỏ sót quan hệ sở
+     hữu/chủ tịch với B002/B004 đang mang 8.000 tỷ dư nợ. PHẢI gọi legal_related_exposure(C013,
+     new_loan_vnd=5e12) TRƯỚC khi kết luận — wiki tran-cho-vay quy định RÕ: "Một khoản có thể QUA
+     trần đơn nhưng VỠ trần nhóm — bắt buộc tra quan hệ liên đới TRƯỚC khi kết luận, không được tra
+     phẳng từng khách."
+  2. Kết luận đúng: group_ok=False (13.000 tỷ > 12.500 tỷ trần nhóm) → TỪ CHỐI hoặc trình cấp thẩm
+     quyền cao hơn — dù bản thân C013 CHƯA vay gì (single_ok=True) không đổi kết luận nhóm.
+  3. Nêu rõ CĂN CỨ: quan hệ owns 70%/55% + chairman với B002/B004, dư nợ nhóm hiện có (B004 8.000
+     tỷ), trần nhóm 12.500 tỷ (25% vốn ngân hàng) — không chỉ nói "vỡ trần" mà không trích số.
+  4. KHÔNG nhầm "quy mô DN lớn nên chắc còn hạn mức" — B004 CHÍNH nó cũng gần chạm trần đơn riêng
+     (8000 tỷ so với 7500 tỷ trần đơn của B004 — vượt) nhưng đó KHÔNG phải trọng tâm case này (case
+     đã CR-L05 test rồi ở tầng khác) — trọng tâm ở đây là TRẦN NHÓM khi C013 vay CÁ NHÂN.
+expected_brake: false
