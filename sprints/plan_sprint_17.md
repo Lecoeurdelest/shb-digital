@@ -32,3 +32,10 @@ hoà giải, hồ-sơ-tới-đâu) + 3 trap (trần NHÓM C013 · phả hệ ưu
 ## Kickoff — 2026-07-19
 Không đụng backend/frontend (folder riêng, chạy ngoài như harness). Gate: report có số tự chạy
 lại được + response files đầy đủ + scorer verdict không tin text suông.
+
+## Nợ-có-vết Phase 2 (lead soi 19/7)
+- [ ] **GỠ `sub_model: sonnet` tạm** khỏi `configs/providers.yaml` block claude-cli SAU khi RUN
+  xong (git checkout file + restart :8000) — ai gỡ: architect, trong cùng nhịp viết REPORT.md.
+  Cô lập: edit UNCOMMITTED local-only — prod đọc bản baked trong image từ VM checkout (không nhiễm).
+- [ ] Giả thuyết cần soi ở vòng prod: prod default wrap → SUB chạy alias `haiku` qua gateway wrap
+  có map không? Nếu sub chết trên ca wrap → fix = `sub_model:` cho block wrap (pattern PR#5).
