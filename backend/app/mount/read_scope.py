@@ -76,7 +76,9 @@ def read_scope_refusal(pg_conn: Any, conv_id: str, tool: str, args: dict[str, An
 
         # khách CHƯA có hồ sơ (owner NULL) mà gọi tool định danh → refuse (MAIN inject bảo present_form)
         if not owner:
-            if tool in _SEARCH_TOOLS or any(k in args for k in ("owner_id", "id", "loan_id", "collateral_id")):
+            if tool in _SEARCH_TOOLS or any(
+                k in args for k in ("owner_id", "id", "loan_id", "collateral_id", "application_id")
+            ):
                 return dict(_NOT_YOUR_DATA)
             return None  # tool không định danh (calc/present) → qua
 
@@ -94,6 +96,13 @@ def read_scope_refusal(pg_conn: Any, conv_id: str, tool: str, args: dict[str, An
         if (
             args.get("collateral_id") is not None
             and _owner_of(pg_conn, "collaterals", "id", args["collateral_id"]) != owner
+        ):
+            return dict(_NOT_YOUR_DATA)
+        # T12-3b: application_id (ops_app_get/ops_plan) → applications.owner PHẢI == O (khách chỉ tra
+        # hồ sơ pipeline CỦA MÌNH). Cùng pattern loan_id/collateral_id — TIGHTENING (đóng lỗ), reversible.
+        if (
+            args.get("application_id") is not None
+            and _owner_of(pg_conn, "applications", "id", args["application_id"]) != owner
         ):
             return dict(_NOT_YOUR_DATA)
         return None  # mọi arg định danh khớp owner → cho qua

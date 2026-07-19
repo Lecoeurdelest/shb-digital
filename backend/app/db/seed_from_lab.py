@@ -60,6 +60,17 @@ TABLES: list[tuple[str, list[str]]] = [
     ("wiki_links", ["from_page", "to_page"]),
     ("interaction_notes", ["note_id", "owner_id", "ts", "channel", "rm", "note_text", "embedding"]),
     ("party_relations", ["from_id", "to_id", "relation", "pct"]),
+    # T12-3b: ops pipeline (world 8bf6b4). Cột KHỚP migration e8b3f5a1c920 = LAB shb-132.db.
+    (
+        "applications",
+        ["id", "owner_id", "product_id", "loan_amount_vnd", "loan_type", "collateral_id",
+         "status", "credit_ok", "legal_ok", "human_approval", "approval_ref", "created_at"],
+    ),
+    (
+        "disbursements",
+        ["id", "application_id", "amount_vnd", "beneficiary", "status", "executed_at", "receipt_code"],
+    ),
+    ("procedure_steps", ["application_id", "step", "status", "done_at"]),
 ]
 
 

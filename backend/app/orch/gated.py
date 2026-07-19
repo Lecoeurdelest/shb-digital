@@ -97,18 +97,16 @@ def disburse(conn: ConnLike, loan_id: str, amount: float = 0) -> Receipt:
 
 
 def _ops_disburse_inner(conn: ConnLike, **args: Any) -> Receipt:
-    """[T12-3] Cầu nối GATED_TOOLS["ops_disburse"] → LAB `roles.operations.functions.ops_disburse`
-    nguyên trạng (N1 — 0 sửa logic LAB). Lazy import (tránh vòng import module-level app.orch↔roles).
+    """[T12-3b] Cầu nối GATED_TOOLS["ops_disburse"] → LAB ops_disburse qua OpsConnProxy.
 
-    KHÔNG cast/convert conn — LAB fn nhận `conn` gated cấp (ConnLike, `.cursor()`/`.commit()`/
-    `.rollback()`), gọi y hệt interface D-18 `fn(conn, **kwargs)`. Bảng applications/disbursements
-    CHƯA tồn tại (T12-2) → psycopg2 raise "relation does not exist" ngay câu SELECT applications
-    ĐẦU TIÊN (TRƯỚC khi chạm BEGIN IMMEDIATE/commit nội bộ LAB) → gated._gated_txn bắt ở except
-    cửa-cuối → rollback + gated_error 4-field. KHÔNG bypass phanh (xem seam note trong
-    roles/operations/functions.py — LAB tx-model cần T12-2 portable-hoá trước khi chạy THẬT)."""
-    from roles.operations.functions import ops_disburse
+    LAB ops_disburse viết cho sqlite3 (`conn.execute`/`?`/BEGIN IMMEDIATE/commit nội bộ/sqlite3.Error)
+    — KHÔNG chạy verbatim trên conn gated psycopg2. `run_ops_disburse` bọc proxy: `?`→`%s`, no-op
+    BEGIN/commit/rollback (gated sở hữu 1 tx), map psycopg2.Error→sqlite3.*. MONEY-INVARIANT: block/
+    not-found → RAISE (gated rollback → phiếu về approved, retryable — khớp contract disburse stub raise-
+    on-fail); disbursement THẬT → trả receipt để _save_receipt commit CÙNG tx. 0 sửa fn LAB (byte-identical)."""
+    from app.orch.ops_bridge import run_ops_disburse
 
-    return ops_disburse(conn, **args)  # type: ignore[return-value]
+    return run_ops_disburse(conn, **args)  # type: ignore[return-value]
 
 
 # REGISTRY tool gated (vỏ viết + T12-3 cầu nối LAB). inner(conn, **args) — nhận conn wrapper cấp (SAME tx).
