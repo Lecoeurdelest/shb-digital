@@ -67,25 +67,29 @@ def _rm(conv_ids: tuple[str, ...] = (), owners: tuple[str, ...] = ()) -> None:
 
 @requires_test_db
 def test_stats_shape_and_window_filter():
-    """Seed 2 approvals (today + yesterday) → today window đếm ĐÚNG 1; auto đếm riêng; delta chuẩn."""
+    """D-69 24h rolling: seed 2 mốc trong-window + 1 mốc >24h (ngoài) → đo DELTA counts (isolation-
+    independent: DB world có sẵn approvals, assert TĂNG ĐÚNG chứ không absolute). shape + sparks."""
     now = datetime.now(UTC)
-    yst = now - timedelta(days=1)
+    old = now - timedelta(days=2)  # >24h → NGOÀI window 24h
+
+    def _counts() -> dict:
+        return client.get("/api/stats?window=24h", cookies=_admin()).json()["approvals"]
+
+    before = _counts()
     _mk_approval("st1", "approved", "admin", now, "sh1")
-    _mk_approval("st2", "used", "auto-rule", now, "sh2")  # auto
-    _mk_approval("st3", "rejected", "admin", yst, "sh3")  # HÔM QUA — không vào today
+    _mk_approval("st2", "used", "auto-rule", now, "sh2")  # auto (used = approved matrix)
+    _mk_approval("st3", "rejected", "admin", old, "sh3")  # >24h — KHÔNG vào window
     try:
-        r = client.get("/api/stats?window=today", cookies=_admin())
+        r = client.get("/api/stats?window=24h", cookies=_admin())
         assert r.status_code == 200
         b = r.json()
-        # shape đủ 4 nhóm
-        assert set(b) == {"window", "approvals", "assessments", "conversations", "delta"}
+        assert set(b) == {"window", "approvals", "assessments", "conversations", "delta", "sparks"}
         assert set(b["approvals"]) == {"approved", "rejected", "pending", "auto"}
-        # today: approved 2 (approved+used), rejected 0 (yesterday excluded), auto 1
-        assert b["approvals"]["approved"] == 2
-        assert b["approvals"]["rejected"] == 0  # rejected của HÔM QUA không vào today
-        assert b["approvals"]["auto"] == 1  # auto-rule đếm riêng
-        # delta: today 2 − yesterday 1 = +1
-        assert b["delta"]["approvals_total"] == 1
+        after = b["approvals"]
+        # DELTA (không absolute): +2 approved (approved+used), +1 auto, +0 rejected (mốc cũ ngoài window)
+        assert after["approved"] - before["approved"] == 2
+        assert after["auto"] - before["auto"] == 1
+        assert after["rejected"] - before["rejected"] == 0  # st3 >24h → không vào
     finally:
         _rm(conv_ids=("st1", "st2", "st3"))
 
@@ -112,7 +116,7 @@ def test_stats_assessments_by_lane():
     _mk_assessment("STAT1", "green", iso)
     _mk_assessment("STAT1", "red", iso)
     try:
-        b = client.get("/api/stats?window=today", cookies=_admin()).json()
+        b = client.get("/api/stats?window=24h", cookies=_admin()).json()
         assert b["assessments"]["green"] >= 1
         assert b["assessments"]["red"] >= 1
     finally:
@@ -131,7 +135,7 @@ def test_stats_default_today():
     """Không truyền window → default today (không 400)."""
     r = client.get("/api/stats", cookies=_admin())
     assert r.status_code == 200
-    assert r.json()["window"] == "today"
+    assert r.json()["window"] == "24h"
 
 
 @requires_db
@@ -154,7 +158,7 @@ def test_stats_authz_403_customer():
 @requires_db
 def test_stats_no_500_shape_always():
     """Dù data thế nào → 200 + shape đủ (không 500). Số có thể ≥0."""
-    b = client.get("/api/stats?window=today", cookies=_admin()).json()
+    b = client.get("/api/stats?window=24h", cookies=_admin()).json()
     assert all(isinstance(b["approvals"][k], int) for k in ("approved", "rejected", "pending", "auto"))
     assert all(isinstance(b["assessments"][k], int) for k in ("green", "yellow", "red"))
 

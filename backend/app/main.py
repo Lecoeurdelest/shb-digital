@@ -16,6 +16,7 @@ from app.api.approvals import router as approvals_router
 from app.api.audit import router as audit_router
 from app.api.compare import router as compare_router
 from app.api.conversations import router as conversations_router
+from app.api.cost import router as cost_router
 from app.api.form_intake import router as form_intake_router
 from app.api.interrupt import router as interrupt_router
 from app.api.models import router as models_router
@@ -70,6 +71,7 @@ app.include_router(compare_router)  # POST /compare single vs multi (T4-4 delive
 app.include_router(form_intake_router)  # POST /form-submit khách mới nộp hồ sơ (T9-1 D-57)
 app.include_router(notifications_router)  # GET /notifications bell khách (T9-2 D-57)
 app.include_router(stats_router)  # GET /stats + /assessments dashboard Control Tower (T13-1)
+app.include_router(cost_router)  # GET /stats/cost + /stats/cost-trend (T16-2)
 
 
 @app.get("/api/health")

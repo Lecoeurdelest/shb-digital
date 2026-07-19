@@ -23,31 +23,33 @@ log = logging.getLogger("api.stats")
 
 router = APIRouter(prefix="/api", tags=["stats"])
 
-_WINDOWS = {"today": 1, "7d": 7}
+# D-69: window ROLLING 24h|7d|30d (thay today|7d cũ). số giờ lùi từ now.
+_WINDOWS = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
 _ASSESS_LIMIT_MAX = 100
 
 
 def _window_bounds(window: str) -> tuple[datetime, datetime, datetime]:
-    """(start, prev_start, end) UTC cho window. today = UTC day hiện tại; 7d = 7 ngày tính từ đầu
-    ngày UTC. prev = kỳ TRƯỚC cùng độ dài (delta so kỳ trước). end = now (kỳ này tới hiện tại)."""
-    days = _WINDOWS[window]
+    """(start, prev_start, end) UTC — ROLLING (D-69): end=now; start=now-N giờ; prev_start=start-N
+    (delta kỳ trước cùng độ dài). 24h|7d|30d = 24|168|720 giờ."""
+    hours = _WINDOWS[window]
     now = datetime.now(UTC)
-    today0 = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    start = today0 if window == "today" else today0 - timedelta(days=days - 1)
-    prev_start = start - timedelta(days=days)
+    start = now - timedelta(hours=hours)
+    prev_start = start - timedelta(hours=hours)
     return start, prev_start, now
 
 
 @router.get("/stats")
-async def get_stats(window: str = Query("today"), claims: dict = Depends(require_admin)) -> dict[str, Any]:
+async def get_stats(window: str = Query("24h"), claims: dict = Depends(require_admin)) -> dict[str, Any]:
     """Dashboard counters for Control Tower (admin) — approvals/assessments/conversations by window.
 
-    window=today|7d (khác → 400). UTC day. approvals theo decided_at (auto=decided_by='auto-rule'
+    window=24h|7d|30d rolling (D-69, khác → 400). approvals theo decided_at (auto=decided_by='auto-rule'
     đếm riêng); pending = trạng thái HIỆN TẠI (không lọc window). assessments theo lane+created_at.
     conversations: total tạo trong window + active=status='running' hiện tại. delta = kỳ này − kỳ trước.
-    DB rỗng → zeros (không 500)."""
+    sparks (D-70): mỗi KPI 1 mảng 24 số (24-bucket chuẩn hoá window) — FE KpiCard vẽ sparkline. DB rỗng → zeros."""
     if window not in _WINDOWS:
-        raise ApiError(400, "bad_window", f"window '{window}' không hỗ trợ.", "Dùng window=today|7d.", retryable=False)
+        raise ApiError(
+            400, "bad_window", f"window '{window}' không hỗ trợ.", "Dùng window=24h|7d|30d.", retryable=False
+        )
     import asyncio
 
     return await asyncio.to_thread(_stats_sync, window)
@@ -107,6 +109,7 @@ def _stats_sync(window: str) -> dict[str, Any]:
                 (start, end, prev_start, start),
             )
             d_ass = cur.fetchone()
+            sparks = _sparks(cur, start, end)
     finally:
         conn.close()
 
@@ -124,7 +127,54 @@ def _stats_sync(window: str) -> dict[str, Any]:
             "approvals_total": d_appr["cur_appr"] - d_appr["prev_appr"],
             "assessments_total": d_ass["cur_ass"] - d_ass["prev_ass"],
         },
+        "sparks": sparks,  # D-70: {<kpiKey>: number[24]} — KpiCard optional sparkline
     }
+
+
+def _sparks(cur: Any, start: datetime, end: datetime) -> dict[str, list[int]]:
+    """D-70: 24-bucket ĐỀU cho mỗi KPI (approved/rejected/green/yellow/red/conversations). generate_series
+    24 bucket (width=window/24) LEFT JOIN + COALESCE 0 → LUÔN đúng 24 số (rỗng → 24 số 0). Keyed theo tên KPI."""
+    width = (end - start) / 24
+    keys = ("approved", "rejected", "green", "yellow", "red", "conversations")
+    out: dict[str, list[int]] = {k: [0] * 24 for k in keys}
+    # 1 query/nhóm, bucket theo floor((ts-start)/width). Gom về Python list 24.
+    # approvals (approved gồm used, rejected)
+    cur.execute(
+        "SELECT floor(extract(epoch FROM (decided_at - %s)) / extract(epoch FROM %s::interval))::int AS b, "
+        "count(*) FILTER (WHERE status IN ('approved','used')) AS approved, "
+        "count(*) FILTER (WHERE status='rejected') AS rejected "
+        "FROM approvals WHERE decided_at >= %s AND decided_at < %s GROUP BY b",
+        (start, width, start, end),
+    )
+    for r in cur.fetchall():
+        b = r["b"]
+        if 0 <= b < 24:
+            out["approved"][b] = r["approved"]
+            out["rejected"][b] = r["rejected"]
+    # assessments (green/yellow/red)
+    cur.execute(
+        "SELECT floor(extract(epoch FROM (created_at::timestamptz - %s)) "
+        "/ extract(epoch FROM %s::interval))::int AS b, "
+        "count(*) FILTER (WHERE lane='green') AS green, count(*) FILTER (WHERE lane='yellow') AS yellow, "
+        "count(*) FILTER (WHERE lane='red') AS red "
+        "FROM assessments WHERE created_at::timestamptz >= %s AND created_at::timestamptz < %s GROUP BY b",
+        (start, width, start, end),
+    )
+    for r in cur.fetchall():
+        b = r["b"]
+        if 0 <= b < 24:
+            out["green"][b], out["yellow"][b], out["red"][b] = r["green"], r["yellow"], r["red"]
+    # conversations total
+    cur.execute(
+        "SELECT floor(extract(epoch FROM (created_at - %s)) / extract(epoch FROM %s::interval))::int AS b, "
+        "count(*) AS total FROM conversations WHERE created_at >= %s AND created_at < %s GROUP BY b",
+        (start, width, start, end),
+    )
+    for r in cur.fetchall():
+        b = r["b"]
+        if 0 <= b < 24:
+            out["conversations"][b] = r["total"]
+    return out
 
 
 @router.get("/assessments")
