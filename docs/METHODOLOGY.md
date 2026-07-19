@@ -2,7 +2,8 @@
 
 > BANK Digital — Digital Expert Guild · đề #132 · VAIC 2026.
 > Khuôn mỗi mục: *định kiến → cơ chế thật → lựa chọn → trade-off khai thật.* Khai TRẠNG THÁI
-> THẬT tại thời điểm viết (S11) — dẫn tên cơ chế + entry DECISIONS cụ thể, không nói vống.
+> THẬT tại thời điểm viết (S15) — mọi claim dẫn tên file/test/entry DECISIONS cụ thể, không
+> nói vống. Số nào đo được thì kèm lệnh để tự chạy lại (§7).
 
 ## §0. Nguyên tắc gốc
 
@@ -13,21 +14,24 @@ vì sao không chọn phương án quen · từ bỏ gì khi chọn nó.
 
 **Định kiến:** model đủ thông minh thì một agent gánh hết.
 
-**Cơ chế thật — ba giới hạn của agent đơn:** attention hữu hạn (5 vai = 5 bộ luật nhiễu nhau
-trong một context; một vai — một bộ luật — attention dồn một chỗ) · bùng nổ tool (nghiệp vụ đủ
-lớn chạm 30–50 tools, chọn sai tăng theo số lựa chọn — chia phòng ban: mỗi agent 5–8 tools đúng
-nghề) · tràn context (một ca end-to-end nhồi một context = dài, đắt, trượt bước — MAIN giữ ngữ
-cảnh ca mỏng, SUB giữ ngữ cảnh việc ngắn, xong là hết đời).
+**Cơ chế thật — ba giới hạn của agent đơn:**
+- **Attention hữu hạn**: gánh 5 vai = 5 bộ luật nghiệp vụ nhiễu nhau trong một context; model
+  làm tốt nhất khi một vai — một bộ luật — attention dồn một chỗ.
+- **Bùng nổ tool**: nghiệp vụ đủ lớn chạm 30–50 tools, xác suất chọn sai tăng theo số lựa chọn.
+  Chia phòng ban: mỗi agent 5–8 tools đúng nghề; thêm phòng mới không làm agent cũ kém đi.
+- **Tràn context**: một ca end-to-end nhồi một context = dài, đắt, trượt bước. MAIN giữ ngữ
+  cảnh ca (mỏng), SUB disposable giữ ngữ cảnh việc (ngắn, xong là hết đời).
 
 Cộng: mỗi role **train + certify độc lập** (nâng Legal không hỏng Credit — thật: LAB legal port
-CERTIFIED v3 ở S7, D-55, không đụng credit đang chạy production). Quy trình tín dụng thật VỐN
-đa phòng ban (NHNN: tách 3 tuyến, maker–checker, phân cấp thẩm quyền) — multi-agent là bản số
-hoá trung thực cách ngân hàng buộc phải tổ chức, không phải kiến trúc áp lên bài toán.
+CERTIFIED v3 ở S7, D-55, không đụng credit đang chạy production). Và quy trình tín dụng thật
+VỐN đa phòng ban (NHNN: tách 3 tuyến, maker–checker, phân cấp thẩm quyền) — multi-agent là bản
+số hoá trung thực cách ngân hàng buộc phải tổ chức, không phải kiến trúc áp lên bài toán.
 
-**Trạng thái SYSTEM:** 4 chuyên gia mount thật — Credit + Legal (tool LAB byte-identical, D-55/
-D-58) · Products + Operations (stub vỏ-viết PROVISIONAL, D-36, chờ LAB). Ca "DN X vay 5 tỷ"
-dispatch ≥2 sub song song, canvas render real-sub card (gate S2, browser evidence conv
-17fe336a).
+**Trạng thái SYSTEM:** 4 chuyên gia mount cùng một cơ chế labpack — **Credit + Legal ruột thật**
+(tool LAB byte-identical, D-55/D-58) · Products + Operations **stub vỏ-viết** cùng contract,
+mọi return khai `isMock:true` (PROVISIONAL D-36, chờ LAB — đẻ thật một chuyên gia = thay một
+`functions.py`, không sửa vỏ). Ca "DN X vay 5 tỷ" dispatch ≥2 sub song song, canvas render
+real-sub card (gate S2, browser evidence conv 17fe336a).
 
 **Trade-off:** điều phối phức tạp hơn, bàn giao có thể rơi thông tin — chỉ đáng trả khi bài đủ
 phức tạp. Bằng chứng định lượng: endpoint compare single vs multi (deliverable #5, S4) — chênh
@@ -40,9 +44,10 @@ lệch nhỏ ở ca đơn giản, bùng nổ ở ca liên-phòng-ban và ca có 
 **Luận điểm chính: chọn HIGH-LEVEL SDK vì phần KHÓ thì SDK đã làm sẵn — phần LangGraph làm
 sẵn thì tự viết được.**
 
-- Phần khó — **không đội nào tự đắp nổi**, SDK handle trọn: agentic tool-loop được train khớp
-  model · **context compaction** tự động · **MCP** native · **subagent** + session
-  resume/fork. LangGraph không có tầng này — tự lo trimming, tự dựng tool-loop.
+- Phần khó — **không đội nào tự đắp nổi trong một mùa thi**, SDK handle trọn: agentic
+  tool-loop được train khớp model · **context compaction** tự động · **MCP** native ·
+  **subagent** + session resume/fork. LangGraph không có tầng này — tự lo trimming, tự dựng
+  tool-loop.
 - Phần LangGraph có — checkpoint, interrupt, barrier, typed state — đều là tổ hợp của ba
   nguyên tử SDK đã cấp: **tool-call · vòng đời session (spawn/đóng/resume/fork) ·
   transcript-là-state**. Đã BUILD THẬT trong `backend/app/orch/gated.py`: human-in-the-loop =
@@ -53,19 +58,23 @@ sẵn thì tự viết được.**
   vụ** thay vì generic: phiếu duyệt có vòng đời (pending→approved→used) + biên nhận
   chống-thực-thi-đôi (claim atomic + advisory lock per-key, INVARIANT `status='used' ⟺ receipt
   present`) + phân cấp hạn mức (ma trận 3 tầng, §6 dưới) — thứ `interrupt()` generic không có.
-- Đồ thị tĩnh còn ép luật điều phối vào code (conditional edge vẽ trước). MAIN_SKILL (vỏ tự
-  viết, `app/orch/main_skill.py`) dạy luồng nghiệp vụ TUẦN TỰ (Tín dụng → Pháp lý kèm bàn giao
-  → Vận hành tổng hợp cuối — D-52) bằng PROMPT: đổi thứ tự nghiệp vụ = sửa prompt, không sửa
-  code điều phối.
+- Đồ thị tĩnh còn ép luật điều phối vào code (conditional edge vẽ trước). Đề chấm
+  *"autonomously plan"*: MAIN_SKILL (vỏ tự viết, `app/orch/main_skill.py`) dạy luồng nghiệp vụ
+  TUẦN TỰ (Tín dụng → Pháp lý kèm bàn giao → Vận hành tổng hợp cuối — D-52) bằng PROMPT — điều
+  phối "đợi hay tổng hợp" là tư duy của model, vỏ không ép "đợi đủ N con". Đổi thứ tự nghiệp
+  vụ = sửa prompt; thêm ca nghiệp vụ mới = không sửa một dòng code điều phối.
 
 **Khi nào chọn ngược lại:** quy trình cứng nhiều khâu chồng chéo mà tổ chức MUỐN hardcode
-(đồ thị = tài liệu chứng nhận quy trình), hoặc ràng buộc multi-vendor. Không phải bài này.
+(đồ thị = tài liệu chứng nhận quy trình). Không phải bài này.
 
 **Trade-off:** gắn hệ sinh thái Anthropic — xử bằng multi-provider qua `ClaudeAgentOptions.env`
-per-session (D-45, port từ `battle/core/runtime/providers.py`, KHÔNG chế bánh xe): đổi model là
-config (`providers.yaml` — subscription/zai/wrap, UI dropdown 3 nhà D-45b), không đụng process
-env nên session song song không đụng nhau. Ca đứt giữa chừng thì re-dispatch task ngắn thay vì
-máy cứu-ca — ít moving part (guard A/B race-fix D-47 xử đúng lớp này).
+per-session (D-45): đổi model là config (`configs/providers.yaml` — Claude subscription · GLM
+z.ai · GPT gateway · **Ollama on-prem**, UI dropdown D-45b), không đụng process env nên các ca
+song song chạy model khác nhau không giẫm nhau. Đường on-prem đã kiểm chứng thật trên máy 24 GB
+(Qwen3-8B, Ollama nói giọng Anthropic native): cơ chế điều phối + tool-call chạy đúng
+end-to-end, hệ báo trung thực khi kết quả rỗng; chất lượng SUB cần model lớn hơn 8B nên on-prem
+là năng lực kiến trúc, không phải đường demo chính. Ca đứt giữa chừng thì re-dispatch task ngắn
+thay vì máy cứu-ca — ít moving part (guard A/B race-fix D-47 xử đúng lớp này).
 
 ## §3. RAG — phá định kiến "RAG = vector"
 
@@ -84,24 +93,22 @@ tra tiếp), không phải pipeline top-k tĩnh.
 | Sổ tay RM, nghìn ghi chú tự do | **vector local** (BLOB float32 + numpy cosine trong tool, KHÔNG pgvector) | tầng duy nhất semantic thắng: "khách từng có dấu hiệu rủi ro mềm gì?" |
 
 **Trạng thái thật — khai đúng, không vống:** cả 4 tầng đã THIẾT KẾ + BUILD và **CERTIFIED tại
-LAB** (`shb-digital-experts/missions/shb-132/RETRIEVAL-README.md`, 18/7): DOER-test 5/5 câu
-đúng ground-truth (gói Tết chết theo cạnh thay-thế · C005 ghép CIC+notes+dư nợ · B002 vỡ trần
-nhóm đúng số · trần 1 khách có citation · bộ 3 khách quan tâm mua nhà) + QA đối kháng 7 hướng
-(39 tool-call có biên lai, PASS toán-tay/đồ-thị/vector/an-toàn-ghi/schema-drift, 4 bug vá +
-re-verify). **Tầng SQL** đã nằm TRONG SYSTEM từ S1 (Postgres, D-21/D-22). **Wiki +
-document-graph, entity-graph, vector notes** CHƯA port vào SYSTEM — kế hoạch port ở **Sprint
-12** (sau S10 deploy, S11 cleanup — thứ tự người chốt 18/7): 3 thao tác quen thuộc (thả
-`functions/retrieval.py` vào common/legal, dán SCHEMAS, migration 4 bảng + seed wiki), không
-phải xây mới.
+LAB** (DOER-test 5/5 câu đúng ground-truth: gói Tết chết theo cạnh thay-thế · C005 ghép
+CIC+notes+dư nợ · B002 vỡ trần nhóm đúng số · trần 1 khách có citation · bộ 3 khách quan tâm
+mua nhà — QA đối kháng 7 hướng, 39 tool-call có biên lai, 4 bug vá + re-verify). **Tầng SQL đã
+nằm TRONG SYSTEM từ S1** (Postgres, D-21/D-22). Wiki + document-graph, entity-graph, vector
+notes **CHƯA port vào SYSTEM** — Sprint 12, hiện **hoãn có chủ đích** (D-63): LAB đang training
+tiếp nguồn tri thức, port bản chưa khoá là rước bản trôi; chờ LAB drop bản certified thì port
+bằng 3 thao tác quen thuộc (thả `functions/retrieval.py`, dán SCHEMAS, migration 4 bảng + seed
+wiki), không phải xây mới.
 
 **Bản gốc từng nhắm pgvector; bản BUILD THẬT tại LAB là BLOB+numpy local**
 (`bkai-foundation-models/vietnamese-bi-encoder` 768-dim + pyvi word-segmentation, CPU, không
-mạng — benchmark 18/7 chọn bằng số: precision@5 11/15, phổ điểm rộng 0.45 đỉnh/0.15 đáy so với
-3 model đối chứng 8-9/15 dính chùm). Lý do đổi: z.ai + wrapper nội bộ KHÔNG có embedding
-endpoint (API là phụ thuộc không sẵn có); 544 notes brute-force cosine <1ms nên pgvector là hạ
-tầng thừa ở quy mô này; quan trọng hơn — giữ tool SQL PORTABLE tuyệt đối (SQLite lab ↔ Postgres
-system không đổi một dòng). pgvector ghi nhận là đường mở khi notes lên quy mô triệu dòng,
-không build trước.
+mạng — benchmark chọn bằng số: precision@5 11/15, phổ điểm rộng so với 3 model đối chứng
+8-9/15 dính chùm). Lý do đổi: z.ai + gateway nội bộ KHÔNG có embedding endpoint (API là phụ
+thuộc không sẵn có); 544 notes brute-force cosine <1ms nên pgvector là hạ tầng thừa ở quy mô
+này; quan trọng hơn — giữ tool SQL PORTABLE tuyệt đối (SQLite lab ↔ Postgres system không đổi
+một dòng). pgvector ghi nhận là đường mở khi notes lên quy mô triệu dòng, không build trước.
 
 Mọi tri thức được dùng có vết 2 tầng: citation → dòng/trang → file nguồn git.
 
@@ -119,23 +126,31 @@ Prompt là hành-vi-mong-muốn, không phải cơ chế an toàn (model quên /
 Tầng kiểm được 100% là tool: cú gọi **tự nó không nổ được** khi chưa đủ điều kiện — luật nằm
 ở cái két, không ở lời dặn.
 
-**Cơ chế thật đã build (`backend/app/orch/gated.py`, T3-1/T3-2, SPEC §4.4):** wrapper gated
-chạy 1 conn psycopg2 riêng, 1 transaction đồng bộ **4 bước tuần tự** trong `asyncio.to_thread`
-(không block event loop 1-worker):
-1. Biên nhận cũ (status='used') → trả biên nhận, không chạy lại.
+**Cơ chế thật đã build (`backend/app/orch/gated.py`, SPEC §4.4):** wrapper gated chạy 1 conn
+psycopg2 riêng, 1 transaction đồng bộ **4 bước tuần tự** trong `asyncio.to_thread` (không block
+event loop 1-worker):
+1. Biên nhận cũ (`status='used'`) → trả biên nhận, không chạy lại.
 2. Phiếu approved → **claim atomic** (`UPDATE … WHERE status='approved' RETURNING id`) rồi mới
    chạy — 1 phiếu = đúng 1 lần thực thi.
 3. Phiếu pending → báo chờ, không đẻ phiếu/card mới (idempotent).
-4. Chưa có gì → ma trận 3 tầng quyết `auto` hay `human` (§7 dưới); `human` → tạo phiếu pending
+4. Chưa có gì → ma trận 3 tầng quyết `auto` hay `human` (§6 dưới); `human` → tạo phiếu pending
    + card approval, kết thúc lượt.
 
-Đầu transaction có `pg_advisory_xact_lock(hash(conv_id, action, payload_hash))` — serialize
-per-key, chặn race 2-gọi-đồng-thời đẻ phiếu rác (tester tìm 18/7, fix bằng advisory lock, verify
-10× không rác). INVARIANT tiền: receipt-save nằm TRONG CÙNG tx với claim + write nghiệp vụ
-(`status='used' ⟺ receipt present`) — lỗi giữa chừng thì rollback về `approved`, retry sạch,
-không có cửa sổ tiền-đôi. Chuỗi tin cậy **tool-ghi-DB → wrapper-đọc-DB**: model bịa "hồ sơ
-xanh" trong lời cũng không mở được két, vì điều kiện auto đọc thẳng bảng `assessments`, không
-đọc lời agent.
+Ba lớp gia cố quanh 4 bước đó:
+- **Serialize per-key**: đầu transaction `pg_advisory_xact_lock(sha256(conv, payload_hash))` —
+  chặn race 2-gọi-đồng-thời đẻ phiếu rác (tester tìm ra, fix, verify 10× không rác).
+- **INVARIANT tiền**: receipt-save nằm TRONG CÙNG tx với claim + write nghiệp vụ
+  (`status='used' ⟺ receipt present`) — lỗi giữa chừng rollback về `approved`, retry sạch,
+  không có cửa sổ tiền-đôi.
+- **Phiếu định danh bằng hash CHUẨN HOÁ payload** (`payload_hash`: quy số về một dạng —
+  `5e9 ≡ 5000000000` — bỏ field phi-nghiệp-vụ, cùng MỘT hàm cho cả mint lẫn verify): không có
+  cửa "duyệt 1 tỷ, gọi 5 tỷ" hay né phiếu bằng đổi format số.
+- **Cross-owner guard fail-closed** (`disburse_guard.py`, chặn TRƯỚC cả khi tạo phiếu): khách
+  không giải ngân được khoản vay của người khác — authorization đọc tầng data, khách
+  prompt-inject cỡ nào cũng vô hiệu.
+
+Chuỗi tin cậy **tool-ghi-DB → wrapper-đọc-DB**: model bịa "hồ sơ xanh" trong lời cũng không mở
+được két, vì điều kiện auto đọc thẳng bảng `assessments`, không đọc lời agent.
 
 Phanh = **phân cấp thẩm quyền** đúng nghiệp vụ, không phải nhị phân chặn/không-chặn (§6). Đây
 là câu trả lời cho chữ đề nhấn ba lần: *execute actions* — thực thi thật trong thẩm quyền, dừng
@@ -144,12 +159,12 @@ thật đúng chỗ người phải ký.
 ## §5. Hạ tầng TỐI GIẢN — một Postgres
 
 Mỗi moving part thêm = một điểm hỏng thêm. SYSTEM chọn D-21 (đảo SPEC gốc): **1 Postgres 15**
-gánh trọn — data nghiệp vụ (customers/loans/collaterals/cic/assumptions) + render (cards/
-conversations) + audit append-only (tool_calls) + phanh (approvals) — 1 pool, 1 migration
-(Alembic), deploy on-premise một lệnh. Wiki + hai đồ thị (CTE) + vector notes (BLOB, §3) khi
-port ở S12 cũng nằm CHUNG Postgres này — không thêm hạ tầng mới. Đường mở vẽ sẵn chưa build:
-đa worker → tách queue; đồ thị triệu cạnh → graph engine; kho vạn trang → nâng retrieval. Chừa
-chỗ cắm, không chừa code chết.
+gánh trọn — data nghiệp vụ (customers/loans/collaterals/cic/assumptions) + render
+(cards/conversations) + audit append-only (tool_calls) + phanh (approvals) — 1 pool, 1
+migration (Alembic), deploy on-premise một lệnh. Wiki + hai đồ thị (CTE) + vector notes (BLOB,
+§3) khi port ở S12 cũng nằm CHUNG Postgres này — không thêm hạ tầng mới. Đường mở vẽ sẵn chưa
+build: đa worker → tách queue; đồ thị triệu cạnh → graph engine; kho vạn trang → nâng
+retrieval. Chừa chỗ cắm, không chừa code chết.
 
 ## §6. Vì sao NGƯỜI DUYỆT ở tầng TOOL, không phải agent-approver
 
@@ -171,8 +186,8 @@ X."* Agent-approver bị dụ y hệt agent-thực-thi bị dụ. Cửa duyệt 
   tự quyết". Tầng 1 (`<500tr`): auto trừ khi verdict xấu (`lane=red`) thì thắt về người. Tầng 2
   (`500tr–2 tỷ`): auto CHỈ khi hồ sơ đã qua 3 trụ pháp lý và lane=green (dẫn `assessment #id`
   làm căn cứ, trích thẳng bản ghi LAB certify — không tự xưng). Tầng 3 (`>2 tỷ`): luôn người.
-  `assessments` rỗng (chưa qua Legal) → hành vi y hệt bản trước D-59 — verdict-aware KHÔNG nới
-  lỏng, chỉ SIẾT thêm.
+  `assessments` rỗng (chưa qua Legal) → hành vi y hệt bản trước D-59 — verdict-aware **KHÔNG
+  bao giờ nới lỏng, chỉ SIẾT thêm**: thêm tính năng mà không mở thêm một cửa auto nào.
 - **D-56 hai persona:** app tách CỬA KHÁCH (role `customer`, khoanh chỉ-thấy-ca-mình, MAIN
   inject danh tính, KHÔNG có quyền `decide`) và BÀN DUYỆT NGÂN HÀNG (role admin, thấy mọi ca +
   Control Tower + quyền duyệt). Thẩm quyền nằm ở role-check tại API (`require_admin` cho
@@ -192,16 +207,29 @@ nguồn-sự-thật của thứ nó tin càng khắt khe.
 
 ## §7. Đo được mới tin
 
-- Bộ ca certify 3 tầng (floor/trap/combo) chấm máy trên ground-truth seed; trap = làm-ẩu-thì-
-  fail (nợ xấu phải từ chối, chưa phê duyệt phải bị chặn, lương lệch phải tính lại) — LAB DOER-
-  test 5/5, QA đối kháng 7 hướng có biên lai (§3).
-- Tester nội bộ SYSTEM giữ nguyên tắc **author ≠ checker**: mọi gate (S1→S10) verify bằng
-  browser evidence + query DB thật, không nhận lời khai implementer — 465 test tại S9/S10 (355
-  backend + 110 FE), tăng dần qua từng sprint, không lùi; vòng chấm cuối 6/6 chạy TRÊN
-  production công khai (digital.tinhdev.com), không phải máy dev.
-- **Span-grounding**: mọi trích dẫn đối chiếu ngược về trang/dòng được cite — không có thật
-  = rejected (nguyên tắc LAB retrieval §5, port cùng S12).
-- Single vs multi chạy CÙNG bộ ca qua endpoint compare (Control Tower, S4) — khoảng cách hai
-  cột là con số duy nhất xin giám khảo nhớ.
+Nguyên tắc xuyên suốt: số không tự chạy lại được = lời khai, không phải bằng chứng. Vì vậy:
+
+- **Suite tự chạy lại được (S15): 542 test — 380 backend passed / 13 skipped (skip = live-SDK
+  opt-in `RUN_LIVE_SDK=1`) + 162 frontend, ruff + tsc sạch.** Lệnh ở README §Kiểm thử; CI
+  (GitHub Actions) chạy đủ 4 job trên mỗi push/PR. Test đo hành vi quan sát được trên DB
+  (set → gọi handler thật → query lại row), không phải assert-lại-chính-output: test race 2
+  lệnh đồng thời → đúng 1 `used`/0 phiếu rác · inner-throw → rollback không để phiếu rác ·
+  gọi lại sau thực thi → trả biên nhận cũ (`backend/tests/test_gated.py`), 14 test race
+  resume-dispatch (`test_resume_dispatch_guard.py`).
+- **Tester nội bộ giữ nguyên tắc author ≠ checker**: mọi gate sprint verify bằng browser
+  evidence + query DB thật, không nhận lời khai implementer — số test tăng dần qua từng sprint,
+  không lùi; vòng chấm S10 chạy 6/6 TRÊN production công khai (digital.tinhdev.com), không
+  phải máy dev.
+- **Dogfood trên prod như user thật (S14):** đội tự chơi vai khách + admin trên bản public,
+  ghi công khai các finding tại `docs/dogfood-findings.md` — trong đó có 1 lỗ lộ credential
+  do chính đội phát hiện và vá ngay (D-64). Sổ lỗi công khai là một phần của phương pháp:
+  hệ an toàn không phải hệ chưa từng có lỗi, mà là hệ có vòng tìm-và-vá đang chạy.
+- **Bộ ca certify 3 tầng tại LAB** (floor/trap/combo, chấm máy trên ground-truth seed; trap =
+  làm-ẩu-thì-fail: nợ xấu phải từ chối, chưa phê duyệt phải bị chặn, lương lệch phải tính lại)
+  — DOER-test 5/5, QA đối kháng 7 hướng có biên lai (§3). **Span-grounding** (trích dẫn đối
+  chiếu ngược về trang/dòng — không có thật = rejected) port cùng S12.
+- Single vs multi chạy CÙNG câu hỏi qua endpoint compare (Control Tower, S4) — cột multi chạy
+  luồng đội thật (dispatch → poll tới khi sub xong → tổng hợp), không phải số dựng sẵn.
+  Khoảng cách hai cột là con số duy nhất xin giám khảo nhớ.
 
 *Hệ này không xin được tin — nó nộp bảng điểm.*
