@@ -44,24 +44,27 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 # JOIN read-time (KHÔNG đổi schema/payload GHI — money-path gated đóng băng). fail-soft tuyệt đối:
 # lookup miss → field null; payload rác → display toàn null; KHÔNG BAO GIỜ 500 hàng chờ.
 #
-# Chuỗi resolve owner (1 query, LEFT JOIN):
-#   loan_id = payload->>'loan_id' → loans.loan_id → loans.owner_id (đường chuẩn)
-#   FALLBACK (edge tester bắt: MAIN nhét owner vào loan_id, vd "C902") loans MISS → customers.id=loan_id
-#   → COALESCE(loan.owner_id, cust_fallback.id) = eff_owner. customer_name theo eff_owner.
-#   lane = assessments MỚI NHẤT của eff_owner (ORDER BY id DESC LIMIT 1).
-# amount_vnd KHÔNG cast ở SQL (::bigint THROW trên payload rác → giết CẢ hàng chờ) — cast Python per-row.
+# Chuỗi resolve owner (1 query, LEFT JOIN) — hỗ trợ CẢ 2 dạng action (T12-5 FAIL C):
+#   · disburse cũ: payload {loan_id, amount} → loans.loan_id → owner_id
+#   · ops_disburse (Products/Ops): payload {application_id, amount_vnd} → applications.id → owner_id
+#   ref_id = COALESCE(loan_id, application_id) — 1 field hiển thị. amount = COALESCE(amount, amount_vnd).
+#   FALLBACK (edge: MAIN nhét owner vào loan_id, vd "C902") → customers.id=ref_id.
+#   eff_owner = COALESCE(loans.owner, applications.owner, customers.id=ref_id). customer_name theo eff_owner.
+#   lane = assessments MỚI NHẤT của eff_owner. amount KHÔNG cast SQL (::bigint THROW rác) — cast Python.
 _ENRICH_SELECT = (
     "SELECT a.*, "
-    "  a.payload->>'loan_id' AS _disp_loan_id, "
-    "  a.payload->>'amount' AS _disp_amount_raw, "
-    "  COALESCE(l.owner_id, cf.id) AS _disp_owner_id, "
-    "  COALESCE(cl.full_name, cf.full_name) AS _disp_customer_name, "
-    "  (SELECT s.lane FROM assessments s WHERE s.owner_id = COALESCE(l.owner_id, cf.id) "
+    "  COALESCE(a.payload->>'loan_id', a.payload->>'application_id') AS _disp_loan_id, "
+    "  COALESCE(a.payload->>'amount', a.payload->>'amount_vnd') AS _disp_amount_raw, "
+    "  COALESCE(l.owner_id, ap.owner_id, cf.id) AS _disp_owner_id, "
+    "  COALESCE(cl.full_name, ca.full_name, cf.full_name) AS _disp_customer_name, "
+    "  (SELECT s.lane FROM assessments s WHERE s.owner_id = COALESCE(l.owner_id, ap.owner_id, cf.id) "
     "     ORDER BY s.id DESC LIMIT 1) AS _disp_lane "
     "FROM approvals a "
     "LEFT JOIN loans l ON l.loan_id = a.payload->>'loan_id' "
     "LEFT JOIN customers cl ON cl.id = l.owner_id "
-    "LEFT JOIN customers cf ON cf.id = a.payload->>'loan_id' "
+    "LEFT JOIN applications ap ON ap.id = a.payload->>'application_id' "
+    "LEFT JOIN customers ca ON ca.id = ap.owner_id "
+    "LEFT JOIN customers cf ON cf.id = COALESCE(a.payload->>'loan_id', a.payload->>'application_id') "
     "WHERE a.status='pending'"
 )
 

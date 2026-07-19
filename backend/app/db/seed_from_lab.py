@@ -30,12 +30,35 @@ def _resolve_seed_db() -> Path:
 # (table, columns) — cột KHỚP SQLite LAB, giữ đúng thứ tự cho INSERT positional (task T1-1 §A)
 TABLES: list[tuple[str, list[str]]] = [
     # T7-1: +id_number/address (khách) + tax_code/address (DN) — trụ ①công an đối chiếu nhân thân
-    ("customers", ["id", "full_name", "age", "occupation", "monthly_income", "region", "id_number", "address"]),
+    # T12-5 FAIL B: +segment (mass|vip|staff) — product_suggest match theo phân khúc khách.
+    (
+        "customers",
+        ["id", "full_name", "age", "occupation", "monthly_income", "region", "id_number", "address", "segment"],
+    ),
     ("businesses", ["id", "name", "sector", "annual_revenue", "equity", "years_operating", "tax_code", "address"]),
     ("loans", ["loan_id", "owner_id", "principal", "outstanding", "monthly_payment", "status"]),
     ("collaterals", ["id", "owner_id", "type", "appraised_value", "docs_status"]),
     ("cic_records", ["owner_id", "cic_group", "history_note"]),
     ("assumptions", ["key", "value"]),
+    # T12-5 FAIL B: products catalog (gói vay) — product_list/product_suggest. Cột khớp LAB shb-132.db.
+    (
+        "products",
+        [
+            "id",
+            "name",
+            "loan_type",
+            "rate_annual",
+            "term_max_months",
+            "amount_min_vnd",
+            "amount_max_vnd",
+            "fee_pct",
+            "income_min_vnd",
+            "cic_max_group",
+            "segment",
+            "status",
+            "note",
+        ],
+    ),
     # Legal tables (T2-2 — mount legal thật)
     ("legal_requirements", ["loan_type", "doc_code", "doc_name", "mandatory"]),
     ("owner_documents", ["owner_id", "doc_code", "status"]),
@@ -54,8 +77,24 @@ TABLES: list[tuple[str, list[str]]] = [
     # embedding (BLOB→bytea) cần psycopg2.Binary — xem _row_values. note_id transfer THẬT (citation ổn).
     (
         "wiki_pages",
-        ["id", "role", "title", "topic", "tags", "legal_basis", "effective_from", "effective_to",
-         "status", "body", "source_file", "so_hieu", "dieu", "amended_by", "source_url", "crawled_at"],
+        [
+            "id",
+            "role",
+            "title",
+            "topic",
+            "tags",
+            "legal_basis",
+            "effective_from",
+            "effective_to",
+            "status",
+            "body",
+            "source_file",
+            "so_hieu",
+            "dieu",
+            "amended_by",
+            "source_url",
+            "crawled_at",
+        ],
     ),
     ("wiki_links", ["from_page", "to_page"]),
     ("interaction_notes", ["note_id", "owner_id", "ts", "channel", "rm", "note_text", "embedding"]),
@@ -63,8 +102,20 @@ TABLES: list[tuple[str, list[str]]] = [
     # T12-3b: ops pipeline (world 8bf6b4). Cột KHỚP migration e8b3f5a1c920 = LAB shb-132.db.
     (
         "applications",
-        ["id", "owner_id", "product_id", "loan_amount_vnd", "loan_type", "collateral_id",
-         "status", "credit_ok", "legal_ok", "human_approval", "approval_ref", "created_at"],
+        [
+            "id",
+            "owner_id",
+            "product_id",
+            "loan_amount_vnd",
+            "loan_type",
+            "collateral_id",
+            "status",
+            "credit_ok",
+            "legal_ok",
+            "human_approval",
+            "approval_ref",
+            "created_at",
+        ],
     ),
     (
         "disbursements",

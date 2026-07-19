@@ -342,8 +342,9 @@ def _payload(env: dict) -> dict:
 # ── DF-B-01: enrich hàng chờ duyệt (display object) — cán bộ thấy tên khách + số + lane ──
 
 
-def _mk_pending_raw(conv: str, payload: dict) -> str:
+def _mk_pending_raw(conv: str, payload: dict, action: str = "disburse") -> str:
     """INSERT thẳng 1 phiếu pending với payload cho trước (KHÔNG qua money-path — test enrich đọc).
+    action mặc định 'disburse' (backward); T12-5 FAIL C truyền 'ops_disburse' để test enrich key mới.
     payload_hash unique để không đụng constraint. Trả approval id."""
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
@@ -351,8 +352,8 @@ def _mk_pending_raw(conv: str, payload: dict) -> str:
         with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO approvals (conv_id, action, payload, payload_hash, status) "
-                "VALUES (%s,'disburse',%s,%s,'pending') RETURNING id",
-                (conv, json.dumps(payload), "dfb01_" + uuid4().hex[:12]),
+                "VALUES (%s,%s,%s,%s,'pending') RETURNING id",
+                (conv, action, json.dumps(payload), "dfb01_" + uuid4().hex[:12]),
             )
             return str(cur.fetchone()[0])
     finally:
@@ -425,6 +426,25 @@ async def test_enrich_display_loan_id_is_owner_fallback():
         assert d["amount_vnd"] == 300000000
     finally:
         _rm_dfb01("dfb01b")
+
+
+@requires_db
+@pytest.mark.asyncio
+async def test_enrich_display_ops_disburse_application_id_amount_vnd():
+    """T12-5 FAIL C regression: phiếu ops_disburse (application_id/amount_vnd — KHÁC key disburse cũ)
+    → display KHÔNG null (COALESCE key + JOIN applications.owner). Trước fix: toàn null."""
+    aid = _mk_pending_raw(
+        "dfb01ops", {"application_id": "APP01", "amount_vnd": 250000000}, action="ops_disburse"
+    )
+    try:
+        rows = await store_approvals.list_pending("dfb01ops")
+        d = next(r for r in rows if r["id"] == aid)["display"]
+        assert d["customer_name"] == "Phạm Thị Dung"  # APP01 → applications.owner=C004 → full_name
+        assert d["owner_id"] == "C004"
+        assert d["loan_id"] == "APP01"  # ref_id = application_id (COALESCE)
+        assert d["amount_vnd"] == 250000000  # amount_vnd (COALESCE với amount)
+    finally:
+        _rm_dfb01("dfb01ops")
 
 
 @requires_db
