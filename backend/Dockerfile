@@ -49,8 +49,10 @@ COPY deploy/seed/ ./deploy/seed/
 # (data/conversations + ~/.claude) + chown TRƯỚC USER. Named volume RỖNG lần đầu mount copy ownership
 # từ image dir → appuser sở hữu từ lúc sinh (hết Permission denied mkdir conversations trên fresh
 # deploy — không cần chown tay). Sự cố VM 18/7.
-RUN mkdir -p /app/backend/data/conversations /home/appuser/.claude \
+RUN mkdir -p /app/backend/data/conversations /home/appuser/.claude /home/appuser/.cache \
     && chown -R appuser:appuser /app /home/appuser
+# T12-5 sự cố 19/7: volume hf_cache mount /home/appuser/.cache — dir PHẢI tồn tại trong image
+# (mkdir trên) để first-mount copy ownership appuser; thiếu → volume root-owned → uv cache crash exit(2).
 USER appuser
 ENV PATH="/app/backend/.venv/bin:${PATH}" HOME="/home/appuser"
 WORKDIR /app/backend
