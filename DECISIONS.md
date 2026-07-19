@@ -4,6 +4,22 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-68 · Retrieval PG-adapt + read-scope (T12-2)** (architect chốt 19/7, backend thi hành) —
+  (a) **memoryview→bytes**: psycopg2 trả cột bytea = memoryview; fn LAB notes_search làm
+  `b"".join(embedding)` raise TypeError → ép bytes TẠI `PGConnAdapter._coerce_row` (choke trung
+  tâm, mọi tool hưởng, KHÔNG sửa retrieval.py byte-identical). (b) **read-scope notes_search**:
+  ca KHÁCH (owner ctx) → `notes_search` REFUSE HOÀN TOÀN (4-field "dữ liệu nội bộ") — sổ RM là
+  nội bộ, khớp luật disclosure; ca bank/admin → cho dùng. Guard tại build_common_retrieval_tools
+  (VỎ, không sửa fn LAB). `wiki_*` mở mọi conv (kiến thức quy trình, không PII).
+  `legal_related_exposure` đi qua read_scope_refusal role-path sẵn có (owner_id generic-check —
+  khách A tra exposure khách B bị chặn). — cách đổi: notes cho khách xem sổ mình → nới guard theo owner.
+- **D-68c · Deviation LAB (T12-2): `legal_related_exposure` CTE `via`→`MIN(via)` cho PG** (architect
+  duyệt 19/7) — SQLite chấp bare-column `via` trong GROUP BY (chọn row TUỲ Ý = không xác định); PG
+  bắt aggregate. `MIN(via)` = bản XÁC ĐỊNH cùng ngữ nghĩa, KHÔNG đổi logic. Verify ground-truth khớp
+  LAB y hệt: C013→group B002/B004, group_outstanding 8000 tỷ, group_ok=False (vượt trần nhóm 12500 tỷ
+  khi +5000 tỷ). Đây là DEVIATION DUY NHẤT khỏi byte-identical retrieval.py (comment tại dòng L209).
+  — cách đổi: **LAB cần re-sync upstream** (user chủ LAB — architect relay); khi LAB sửa xong, port lại byte-identical.
+
 - **D-67 · DELETE ca (T15-3): xoá cả `messages` cùng cards/tasks — audit (tool_calls + approvals
   đã-quyết) GIỮ** (backend decide-and-log ② 19/7) — dispatch liệt kê "conv row + cards + tasks"
   không nhắc messages; nhưng hard-delete để lại messages = row mồ côi mâu thuẫn ý "xoá ca". Phân
@@ -689,3 +705,14 @@
   Workspace React mock + lobby 3D + seed snapshot, `design/Digital Expert Guild.dc.html`
   (Login + Tower + Approval). FE port tokens từ `T` → `frontend/src/tokens.css` ở dispatch
   đầu. Blocker B2 đóng. — Đổi: người cấp bản design mới đè vào `design/`.
+
+- **D-69 · S16 T16-3 window thống nhất `24h|7d|30d`** (thay `today|7d` cũ) — segmented control
+  Tổng quan có 24h (user chốt). FE `StatsWindow` + getStats/getCost/cost-trend đều nhận 3 giá
+  trị này. **BE T16-2 phải cho stats CŨ nhận cả 30d** (contract plan chỉ nói "24h thêm vào stats
+  cũ", im về 30d — FE mock đã handle 30d, BE khớp). — Đổi: nếu BE chốt vocab khác, sửa 1 chỗ
+  `StatsWindow` + testid `window-*`.
+- **D-70 · S16 spark shape provisional `StatsResponse.sparks?: {<kpiKey>: number[24]}`** — contract
+  plan nói "mỗi KPI +spark[24]" nhưng StatsResponse là grouped objects (approvals.approved…),
+  không per-KPI phẳng. FE chọn map `sparks` keyed theo tên KPI (approved/green/total…), KpiCard
+  đọc optional → thiếu thì không vẽ (backward). BE T16-2 khớp shape này. — Đổi: BE trả shape khác
+  thì sửa `sparks` type + chỗ truyền `spark={sp?.xxx}` trong StatsOverview.

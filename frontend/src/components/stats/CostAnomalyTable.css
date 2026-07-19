@@ -1,0 +1,30 @@
+/* CostAnomalyTable — bảng ca chi phí bất thường (S16 T16-3), border-left đỏ, row-click→audit */
+.anom {
+  background: var(--p1); border: 1px solid var(--bd); border-radius: 12px;
+  padding: 14px 16px; margin: 12px 0;
+}
+.anom__head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.anom__title { font-size: 12.5px; font-weight: 700; color: var(--tx); }
+.anom__filter { margin-left: auto; display: flex; gap: 4px; }
+.anom__filter-btn {
+  padding: 4px 10px; border-radius: 7px; font: 600 11px var(--font);
+  background: var(--bg2); color: var(--mute); border: 1px solid var(--bd); cursor: pointer;
+}
+.anom__filter-btn--active { background: var(--tone-fail-bg); color: var(--fail); border-color: var(--tone-fail-bd); }
+.anom__empty { font-size: 11.5px; color: var(--faint); padding: 16px 0; text-align: center; }
+.anom__rows { display: flex; flex-direction: column; gap: 6px; }
+.anom__row {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  background: var(--bg2); border: 1px solid var(--bd);
+  border-left: 3px solid var(--fail); /* đỏ = bất thường */
+}
+.anom__row:hover { background: var(--p2); }
+.anom__row-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.anom__row-title { font-size: 12px; font-weight: 600; color: var(--tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.anom__row-meta { font: 500 10.5px var(--mono); color: var(--mute); }
+.anom__z {
+  flex: none; font: 800 11px var(--mono); color: var(--fail);
+  background: var(--tone-fail-bg); border: 1px solid var(--tone-fail-bd);
+  padding: 3px 8px; border-radius: 6px;
+}

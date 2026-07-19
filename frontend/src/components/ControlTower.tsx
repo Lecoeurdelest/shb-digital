@@ -27,6 +27,9 @@ const TAB_ORDER: Tab[] = ['overview', 'queue', 'assessments', 'audit', 'agents',
 
 export function ControlTower({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<Tab>('overview'); // T13-2: Tổng quan là tab ĐẦU, default
+  // T16-3: anomaly row-click ở Tổng quan → nhảy tab Nhật ký + seed filter mã ca (không route mới).
+  const [auditSeed, setAuditSeed] = useState('');
+  const openAudit = (convId: string) => { setAuditSeed(convId); setTab('audit'); };
   // ControlTower chỉ render cho admin (App gate) → poll badge phiếu-bay luôn bật. Số nổi trên tab queue.
   const pending = useApprovalBadge(true);
   return (
@@ -54,10 +57,10 @@ export function ControlTower({ onBack }: { onBack: () => void }) {
       </header>
 
       <div className="ct__body" data-scroll>
-        {tab === 'overview' && <StatsOverview />}
+        {tab === 'overview' && <StatsOverview onOpenAudit={openAudit} />}
         {tab === 'queue' && <ApprovalQueue />}
         {tab === 'assessments' && <AssessmentsView />}
-        {tab === 'audit' && <AuditView />}
+        {tab === 'audit' && <AuditView seedConvId={auditSeed} />}
         {tab === 'agents' && <AgentStatus />}
         {tab === 'compare' && <CompareView />}
       </div>
@@ -168,12 +171,16 @@ function ApprovalQueue() {
   );
 }
 
-// ── Khối 2: Audit view — filter tool_calls ──
-function AuditView() {
+// ── Khối 2: Audit view — filter tool_calls. T16-3: seedConvId (từ anomaly row-click Tổng quan) →
+//    khởi tạo filter mã ca đúng ngay khi vào tab. Đổi seed (row khác) → cập nhật filter.
+function AuditView({ seedConvId = '' }: { seedConvId?: string }) {
   const [rows, setRows] = useState<AuditRow[]>([]);
-  const [convId, setConvId] = useState('');
+  const [convId, setConvId] = useState(seedConvId);
   const [tool, setTool] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // seed đổi (mở tab qua anomaly row-click với mã ca mới) → nạp vào ô lọc conv_id.
+  useEffect(() => { if (seedConvId) setConvId(seedConvId); }, [seedConvId]);
 
   const load = useCallback(() => {
     const filters: Record<string, string> = {};

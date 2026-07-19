@@ -1,6 +1,8 @@
 // KpiCard.tsx — thẻ KPI tab Tổng quan (S13 T13-2). Hình dạng THAM KHẢO shopquantum-admin (label
 // uppercase + value mono lớn + delta ↑↓), VIẾT LẠI theo stack này (CSS class + var token → theme-aware).
-// Spark OPTIONAL bỏ qua (stats không trả series — dispatch: không chế endpoint mới, rào §2).
+// S16 T16-3: spark OPTIONAL → sparkline mini (KpiSparkline). KPI cũ chưa có spark từ API → không
+// render (backward, KpiCard hiện y như trước).
+import { KpiSparkline } from './KpiSparkline';
 import './KpiCard.css';
 
 interface Props {
@@ -10,6 +12,7 @@ interface Props {
   sub?: string; // dòng phụ (vd "trong đó AUTO: 7")
   tone?: 'default' | 'warn' | 'green' | 'yellow' | 'red'; // nổi màu (Đang chờ >0 → warn; lane 3 màu)
   icon?: string;
+  spark?: number[]; // S16: chuỗi 24-bucket → sparkline mini (thiếu → không vẽ)
 }
 
 function DeltaBadge({ delta }: { delta: number }) {
@@ -22,7 +25,7 @@ function DeltaBadge({ delta }: { delta: number }) {
   );
 }
 
-export function KpiCard({ label, value, delta, sub, tone = 'default', icon }: Props) {
+export function KpiCard({ label, value, delta, sub, tone = 'default', icon, spark }: Props) {
   return (
     <div className={`kpi kpi--${tone}`} data-testid={`kpi-${label}`}>
       <div className="kpi__label">
@@ -34,6 +37,7 @@ export function KpiCard({ label, value, delta, sub, tone = 'default', icon }: Pr
         {delta != null && <DeltaBadge delta={delta} />}
       </div>
       {sub && <div className="kpi__sub">{sub}</div>}
+      <KpiSparkline spark={spark} />
     </div>
   );
 }

@@ -5,7 +5,7 @@
 
 import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse } from '../types';
+import type { ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
 
 // True when the app talks to the in-memory mock backend instead of the real REST API.
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
@@ -32,8 +32,10 @@ export interface ConversationApi {
   auditFiltered(filters?: Record<string, string>): Promise<AuditRow[]>;
   getModels(): Promise<ModelsResponse>;
   runCompare(question: string): Promise<CompareResult>;
-  // Admin stats + assessments (S13)
-  getStats(window?: 'today' | '7d'): Promise<StatsResponse>;
+  // Admin stats + assessments (S13) + cost dashboard (S16 T16-3)
+  getStats(window?: StatsWindow): Promise<StatsResponse>;
+  getCost(window?: StatsWindow): Promise<CostResponse>;
+  getCostTrend(window: StatsWindow, bucket: 'hour' | 'day', groupBy: 'model' | 'role'): Promise<CostTrendResponse>;
   listAssessments(owner?: string, limit?: number): Promise<Assessment[]>;
   // Form intake + bell (T9-3)
   submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult>;
@@ -105,8 +107,14 @@ const mockApi: ConversationApi = {
   async runCompare(question: string) {
     return mockBackend.runCompare(question);
   },
-  async getStats(window: 'today' | '7d' = 'today') {
+  async getStats(window: StatsWindow = '24h') {
     return mockBackend.getStats(window);
+  },
+  async getCost(window: StatsWindow = '24h') {
+    return mockBackend.getCost(window);
+  },
+  async getCostTrend(window: StatsWindow, bucket: 'hour' | 'day', groupBy: 'model' | 'role') {
+    return mockBackend.getCostTrend(window, bucket, groupBy);
   },
   async listAssessments(owner?: string, limit?: number) {
     return mockBackend.listAssessments(owner, limit);
@@ -162,6 +170,8 @@ const realApi: ConversationApi = {
   getModels: apiClient.getModels,
   runCompare: apiClient.runCompare,
   getStats: apiClient.getStats,
+  getCost: apiClient.getCost,
+  getCostTrend: apiClient.getCostTrend,
   listAssessments: apiClient.listAssessments,
   submitForm: apiClient.submitForm,
   getNotifications: apiClient.getNotifications,

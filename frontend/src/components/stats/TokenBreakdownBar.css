@@ -1,0 +1,20 @@
+/* TokenBreakdownBar — stacked horizontal 1 thanh + legend (S16 T16-3, component chung) */
+.tbb {
+  background: var(--p1); border: 1px solid var(--bd); border-radius: 12px;
+  padding: 14px 16px; margin: 12px 0;
+}
+.tbb__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.tbb__title { font-size: 12.5px; font-weight: 700; color: var(--tx); }
+.tbb__total { font: 600 11px var(--mono); color: var(--mute); }
+.tbb__empty { font-size: 11.5px; color: var(--faint); padding: 12px 0; }
+.tbb__bar {
+  display: flex; height: 22px; border-radius: 6px; overflow: hidden;
+  background: var(--bg2); border: 1px solid var(--bd);
+}
+.tbb__seg { height: 100%; transition: width 0.3s; }
+.tbb__seg:not(:last-child) { border-right: 1px solid var(--p1); }
+.tbb__legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 12px; }
+.tbb__legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.tbb__dot { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.tbb__legend-label { color: var(--dim); }
+.tbb__legend-val { color: var(--mute); font: 500 10.5px var(--mono); }

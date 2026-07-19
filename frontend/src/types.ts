@@ -254,13 +254,52 @@ export interface NotificationItem {
 }
 
 // ── Stats + assessments (S13 T13-1 · GET /api/stats, /api/assessments — admin) ──
+// window thống nhất S16 (T16-3): 24h | 7d | 30d — thay 'today'|'7d' cũ (segmented control có 24h).
+export type StatsWindow = '24h' | '7d' | '30d';
+
 export interface StatsResponse {
   window: string;
   approvals: { approved: number; rejected: number; pending: number; auto: number };
   assessments: { green: number; yellow: number; red: number };
   conversations: { total: number; active: number };
   delta: { approvals_total: number; assessments_total: number };
+  // S16 T16-3: mỗi KPI +spark 24-bucket chuẩn hoá mọi window (BE T16-2 sẽ trả). OPTIONAL —
+  // thiếu → KpiCard render như cũ (backward). Shape provisional (grouped map — DECISIONS, BE khớp).
+  sparks?: Partial<Record<string, number[]>>;
 }
+
+// ── S16 T16-3: cost & vận hành AI (contract architect chốt — BE T16-2 khớp NGUYÊN VĂN) ──
+// GET /api/stats/cost?window=24h|7d|30d
+export interface CostBreakdown {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_create_tokens: number;
+}
+export interface CostByModel { model: string; cost_usd: number; turns: number; total_tokens: number }
+export interface CostByRole { role: string; cost_usd: number; turns: number }
+export interface CostAnomaly {
+  conv_id: string;
+  title: string;
+  cost_usd: number;
+  mean: number;
+  stddev: number;
+  z_score: number;
+}
+export interface CostResponse {
+  window: string;
+  total_cost_usd: number;
+  cost_estimated: boolean; // provider ngoài: cost SDK không tin → label "ước tính"
+  breakdown: CostBreakdown;
+  by_model: CostByModel[];
+  by_role: CostByRole[];
+  anomalies: CostAnomaly[];
+  delta: { total_cost_pct: number };
+}
+
+// GET /api/stats/cost-trend?window=&bucket=hour|day&group_by=model|role → long-format buckets.
+export interface CostTrendBucket { ts: string; series: Record<string, number> }
+export interface CostTrendResponse { buckets: CostTrendBucket[] }
 export type AssessmentLevel = 'pass' | 'green' | 'yellow' | 'red' | string; // criteria level (defensive: chấp string lạ)
 export interface AssessmentCriterion {
   key: string;

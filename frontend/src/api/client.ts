@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse } from '../types';
+import type { ApiError, ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -161,10 +161,21 @@ export const apiClient = {
     return request<ModelsResponse>('/api/models');
   },
 
-  // Dashboard counters for the admin overview tab (window=today|7d).
-  // stats tab Tổng quan (S13 T13-2, admin): approvals/assessments/conversations + delta so kỳ trước.
-  getStats(window: 'today' | '7d' = 'today'): Promise<StatsResponse> {
+  // Dashboard counters for the admin overview tab (window=24h|7d|30d — S16 unified).
+  // stats tab Tổng quan: approvals/assessments/conversations + delta + spark 24-bucket (T16-2).
+  getStats(window: StatsWindow = '24h'): Promise<StatsResponse> {
     return request<StatsResponse>(`/api/stats?window=${encodeURIComponent(window)}`);
+  },
+
+  // S16 T16-3: cost & vận hành AI (contract). cost_estimated=true → provider ngoài "ước tính".
+  getCost(window: StatsWindow = '24h'): Promise<CostResponse> {
+    return request<CostResponse>(`/api/stats/cost?window=${encodeURIComponent(window)}`);
+  },
+
+  // S16 T16-3: cost-trend long-format (buckets[].series{name:cost}) — FE pivot sang wide cho recharts.
+  getCostTrend(window: StatsWindow, bucket: 'hour' | 'day', groupBy: 'model' | 'role'): Promise<CostTrendResponse> {
+    const qs = new URLSearchParams({ window, bucket, group_by: groupBy });
+    return request<CostTrendResponse>(`/api/stats/cost-trend?${qs.toString()}`);
   },
 
   // List credit assessments (newest-first, cap 100) for the AI-reasoning panel.

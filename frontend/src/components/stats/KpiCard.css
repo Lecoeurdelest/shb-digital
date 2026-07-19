@@ -45,3 +45,6 @@
 .kpi__delta--flat { color: var(--mute); background: var(--bg2); }
 
 .kpi__sub { font: 500 10.5px var(--mono); color: var(--mute); }
+
+/* S16 T16-3: sparkline mini dưới value (chỉ hiện khi có spark ≥2 điểm) */
+.kpi__spark { margin-top: 8px; height: 28px; opacity: 0.85; }
