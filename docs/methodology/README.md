@@ -3,7 +3,7 @@
 > BANK Digital — Digital Expert Guild · đề #132 · VAIC 2026.
 > Khuôn mỗi mục: *định kiến → cơ chế thật → lựa chọn → trade-off khai thật.* Khai TRẠNG THÁI
 > THẬT tại thời điểm viết (S12 port xong phần lớn, chờ wave verify) — mọi claim dẫn tên file/test/entry DECISIONS cụ thể, không
-> nói vống. Số nào đo được thì kèm lệnh để tự chạy lại (§7).
+> nói vống. Số nào đo được thì kèm lệnh để tự chạy lại (§8).
 
 ## §0. Nguyên tắc gốc
 
@@ -27,11 +27,15 @@ CERTIFIED v3 ở S7, D-55, không đụng credit đang chạy production). Và q
 VỐN đa phòng ban (NHNN: tách 3 tuyến, maker–checker, phân cấp thẩm quyền) — multi-agent là bản
 số hoá trung thực cách ngân hàng buộc phải tổ chức, không phải kiến trúc áp lên bài toán.
 
-**Trạng thái SYSTEM:** 4 chuyên gia mount cùng một cơ chế labpack — **4/4 ruột thật** (Credit + Legal port sớm; Products + Ops port bản CERTIFIED ở S12, vỏ 0 sửa)
-(tool LAB byte-identical, D-55/D-58) · Products + Operations **stub vỏ-viết** cùng contract,
-mọi return khai `isMock:true` (PROVISIONAL D-36, chờ LAB — đẻ thật một chuyên gia = thay một
-`functions.py`, không sửa vỏ). Ca "DN X vay 5 tỷ" dispatch ≥2 sub song song, canvas render
-real-sub card (gate S2, browser evidence conv 17fe336a).
+**Trạng thái SYSTEM (khai đúng):** 4 chuyên gia mount cùng một cơ chế labpack. **Credit +
+Legal chạy end-to-end** (tool LAB byte-identical, D-55/D-58, bảng dữ liệu đầy đủ). **Products
++ Operations: code CERTIFIED đã port trọn ở S12** (vỏ 0 sửa — đẻ chuyên gia = thay đúng
+`functions.py` + `SKILL.md`); **migration + seed bảng** `products`/`applications`/`disbursements`/
+`procedure_steps` **đã vào** (head Alembic `a3f7e1d92b40`; `seed_from_lab.py` nạp cả 4 + cột
+`customers.segment`) — 2 role query bảng riêng THẬT, MAIN dispatch được cả 4 role (`main_skill.py`
+liệt kê `credit`/`legal`/`products`/`operations`); tool vẫn fail sạch 4-field khi thiếu bảng.
+Ca "DN X vay 5 tỷ" dispatch ≥2 sub song song, canvas
+render real-sub card (gate S2, browser evidence conv 17fe336a).
 
 **Trade-off:** điều phối phức tạp hơn, bàn giao có thể rơi thông tin — chỉ đáng trả khi bài đủ
 phức tạp. Bằng chứng định lượng: endpoint compare single vs multi (deliverable #5, S4) — chênh
@@ -106,7 +110,7 @@ wiki), không phải xây mới.
 (`bkai-foundation-models/vietnamese-bi-encoder` 768-dim + pyvi word-segmentation, CPU, không
 mạng — benchmark chọn bằng số: precision@5 11/15, phổ điểm rộng so với 3 model đối chứng
 8-9/15 dính chùm). Lý do đổi: z.ai + gateway nội bộ KHÔNG có embedding endpoint (API là phụ
-thuộc không sẵn có); 544 notes brute-force cosine <1ms nên pgvector là hạ tầng thừa ở quy mô
+thuộc không sẵn có); 2.215 notes brute-force cosine <1ms nên pgvector là hạ tầng thừa ở quy mô
 này; quan trọng hơn — giữ tool SQL PORTABLE tuyệt đối (SQLite lab ↔ Postgres system không đổi
 một dòng). pgvector ghi nhận là đường mở khi notes lên quy mô triệu dòng, không build trước.
 
@@ -205,12 +209,40 @@ ngoài quyền sửa của SYSTEM — N1) lan thẳng thành auto-approve sai. V
 byte-identical với bản certify (D-55/D-58, không vá tay) — thẩm quyền tool càng cao, yêu cầu về
 nguồn-sự-thật của thứ nó tin càng khắt khe.
 
-## §7. Đo được mới tin
+## §7. Tool — viết cho AGENT đọc, không phải API cho dev
+
+**Định kiến:** có backend rồi thì bọc mỗi endpoint thành một tool là xong.
+
+**Cơ chế thật:** caller của tool là model xác suất, không phải code đã đọc docs — nó chọn tool
+bằng pattern-match tên + mô tả, quên (compaction) rồi gọi lại, sai thì sai trơn tru không
+crash, và **output tool là ground-truth duy nhất của lượt sau**. Tool trả lời mơ hồ → chuyên
+gia Tín dụng kết luận sai đầy tự tin trên một hồ sơ vay thật.
+
+**Lựa chọn — luật áp toàn toolpack `roles/*/functions.py` (contract D-08, `docs/CONTRACT.md`):**
+- **Một envelope**: get `{found, item, asOf, hint}` · error `{code, message, hint, retryable}`
+  — học một lần, đúng mọi tool từ `cic_lookup` tới `wiki_search`.
+- **`hint` = action kế**: không thấy owner → `"Lấy id: cust_search(q=...)"` · không có trang
+  wiki → `"wiki_search trước"` · phiếu đã dùng → `"đây là biên nhận"`. Error cũng chỉ đường —
+  agent không đoán mò bước tiếp.
+- **Không bịa số**: chưa có bản ghi CIC → `found:false` + dặn nguyên văn "chưa có lịch sử tín
+  dụng — KHÔNG mặc định nhóm 1"; số nào cũng kèm `asOf`. Ranh này quyết định card DSCR trên
+  canvas là số thật hay hallucination.
+- **Chịu caller quên**: `disburse` gọi lại → trả biên nhận cũ (§4) · `decide` lần 2 → 409 kèm
+  hint · dispatch idempotent khoá `(conv, role)`. Không call nào bắt agent giữ session.
+- **Mỗi chuyên gia 5–8 tool đúng nghề**, không bọc endpoint — tool chiếm context cả khi không
+  được gọi, càng nhiều càng dễ chọn nhầm.
+
+**Trade-off:** envelope + hint tốn token mỗi call — đổi lấy lượt sau hành động đúng; bước
+deterministic (tìm, lọc, join) nuốt vào server thay vì bắt agent loop — server gánh thêm
+logic, đổi lấy ít vòng gọi, ít cơ hội sai.
+
+## §8. Đo được mới tin
 
 Nguyên tắc xuyên suốt: số không tự chạy lại được = lời khai, không phải bằng chứng. Vì vậy:
 
-- **Suite tự chạy lại được (S12/S16 đang chạy): 605 test — 396 backend passed / 38 skipped (skip = live-SDK + embed/test-db gate
-  opt-in `RUN_LIVE_SDK=1`) + 162 frontend, ruff + tsc sạch.** Lệnh ở README §Kiểm thử; CI
+- **Suite tự chạy lại được: 445 backend passed / 14 skipped (skip = live-SDK + embed opt-in)
+  + 227 frontend / 26 file, ruff + tsc sạch** (lệnh ở README §Kiểm thử — chạy được trên DB
+  trống, suite tự chuẩn bị data; số đo lại 19/7, còn tăng theo sprint). CI
   (GitHub Actions) chạy đủ 4 job trên mỗi push/PR. Test đo hành vi quan sát được trên DB
   (set → gọi handler thật → query lại row), không phải assert-lại-chính-output: test race 2
   lệnh đồng thời → đúng 1 `used`/0 phiếu rác · inner-throw → rollback không để phiếu rác ·

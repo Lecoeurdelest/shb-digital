@@ -11,7 +11,7 @@ Luật finding: **verdict + LÝ DO + tầng + repro + mức** — verdict suông
 
 | ID | Persona | Tầng | Mức | Tóm tắt | Trạng thái |
 |---|---|---|---|---|---|
-| DF-A-01 | A | UX | 🔴 | Modal login/register lộ credential thật (`user/user`, `admin/admin`, `c001/c001`) ngay trên landing page công khai | fixed (re-verified PROD sau deploy — modal + 401 hint đúng) |
+| DF-A-01 | A | UX | 🔴 | Modal login/register lộ tài khoản demo (RM · quản lý · khách) ngay trên landing page công khai | fixed (re-verified PROD sau deploy — modal + 401 hint đúng) |
 | DF-A-02 | A | UX | ⚪ | Header/brand landing chỉ ghi "Digital Expert Guild", không thấy "BANK"/"BANK Digital" cho tới khi mở modal login | fixed (re-verified PROD sau deploy) |
 | DF-A-03 | A | UX | 🟡 | Thông báo lỗi đăng ký sai ngữ cảnh: điền đủ username/password nhưng email sai định dạng → app báo "Nhập đủ tên đăng nhập và mật khẩu" (không nói về email) | fixed (re-verified PROD sau deploy) |
 | DF-A-04 | A | UX | 🔴 | Form intake MẤT SẠCH dữ liệu đã điền khi chuyển tab "Đội làm việc" ↔ "Công việc" — không cần reload/logout, chỉ đổi tab. Tái hiện 2/2 lần | fixed (re-verified PROD sau deploy, 6/6 field giữ đúng vị trí) |
@@ -32,16 +32,16 @@ Luật finding: **verdict + LÝ DO + tầng + repro + mức** — verdict suông
 ### DF-A-01 — Credential demo lộ công khai trên landing prod
 - **Persona:** A khách vay
 - **Tầng · Mức:** UX · 🔴 demo-killer
-- **Repro:** Vào `https://digital.tinhdev.com` (chưa login) → click "Bắt đầu miễn phí" hoặc "Đăng nhập" → modal hiện dòng cuối: "Demo: user/user (RM) · admin/admin (quản lý) · c001/c001 (khách)".
+- **Repro:** Vào `https://digital.tinhdev.com` (chưa login) → click "Bắt đầu miễn phí" hoặc "Đăng nhập" → modal hiện dòng cuối liệt kê 3 tài khoản demo kèm mật khẩu (RM · quản lý · khách).
 - **Expected (tâm thế user):** Trang public không nên tự hiện thông tin đăng nhập của tài khoản quản trị/nội bộ — khách lạ ghé qua không cần biết account nào tồn tại.
 - **Actual:** Toàn bộ 3 bộ credential (kể cả admin) hiện ngay trên UI công khai, ai cũng đọc được mà không cần đăng nhập.
-- **Verdict + lý do:** Đây có thể là chủ đích cho DEMO (giám khảo cần gõ nhanh) — nhưng nếu để nguyên lúc thi thật, bất kỳ ai truy cập link public đều login được admin (xem toàn bộ Tower, dữ liệu khách, duyệt/từ chối phiếu). Rủi ro cao nếu link bị lộ ra ngoài trước giờ G. Đề xuất: ẩn dòng "Demo:" trên bản public hoặc đổi cách hiển thị (chỉ hiện cho `user`/`c001`, giấu `admin`), hoặc gate bằng flag môi trường.
+- **Verdict + lý do:** Đây có thể là chủ đích cho DEMO (giám khảo cần gõ nhanh) — nhưng nếu để nguyên lúc thi thật, bất kỳ ai truy cập link public đều login được admin (xem toàn bộ Tower, dữ liệu khách, duyệt/từ chối phiếu). Rủi ro cao nếu link bị lộ ra ngoài trước giờ G. Đề xuất: ẩn dòng "Demo:" trên bản public hoặc đổi cách hiển thị (chỉ hiện tài khoản khách, giấu admin/RM), hoặc gate bằng flag môi trường.
 - **Bằng chứng bổ sung**: không chỉ UI landing — `POST /api/auth/login` với credential sai trả lỗi 401 kèm `"hint":"Kiểm lại credential. 2 account demo: user / admin."` — API backend cũng tự lộ gợi ý account demo trong error message, không chỉ riêng modal FE. Rủi ro rộng hơn ban đầu tưởng (áp dụng cả cho ai gọi thẳng API, không cần thấy UI).
-- **Trạng thái:** fixing — architect chốt D-64 (DECISIONS): FE modal chỉ giữ gợi ý `c001/c001`, BE đổi hint 401 sang generic (giấu admin/user-RM khỏi bề mặt public, không dùng env-flag). (Có 1 đoạn ngắn D-64 tạm ⏸ hold chờ user chốt hướng, sau đó user chốt lại đúng phương án 2 (che admin/RM) → về `fixing`, không đổi kết quả cuối.)
+- **Trạng thái:** fixing — architect chốt D-64 (DECISIONS): FE modal chỉ giữ gợi ý tài khoản khách (c001), BE đổi hint 401 sang generic (giấu admin/user-RM khỏi bề mặt public, không dùng env-flag). (Có 1 đoạn ngắn D-64 tạm ⏸ hold chờ user chốt hướng, sau đó user chốt lại đúng phương án 2 (che admin/RM) → về `fixing`, không đổi kết quả cuối.)
   **Re-verify :8000 (2026-07-18, TESTER xác nhận PASS 4/4 case)**: 401 login sai → hint="Kiểm lại thông tin đăng nhập.", không lộ admin/user/c001; 403 admin-only bằng cookie khách → hint="Cần quyền quản lý.", không nêu "admin"; 409 register trùng → message generic; `uv run pytest` = 343 passed, 37 skipped (khớp báo cáo BE). **BE phần A-01 ĐÃ COMMIT (`58d3774`).**
-  **Re-verify FE trên :8000 (2026-07-18)**: modal "Đăng nhập" chỉ còn dòng "Demo: c001/c001 (khách)" — KHÔNG còn admin/admin, user/user. PASS.
+  **Re-verify FE trên :8000 (2026-07-18)**: modal "Đăng nhập" chỉ còn gợi ý tài khoản khách (c001) — KHÔNG còn admin, user (RM). PASS.
 - **Trạng thái:** fixed (re-verified :8000, cả BE lẫn FE đều PASS).
-  **Re-verify PROD HOÀN TẤT (2026-07-18, sau deploy `7e94be9`)**: modal login chỉ còn "Demo: c001/c001 (khách)"; `curl -X POST https://digital.tinhdev.com/api/auth/login` sai credential → hint="Kiểm lại thông tin đăng nhập." — cả FE lẫn BE đều đúng generic trên PROD.
+  **Re-verify PROD HOÀN TẤT (2026-07-18, sau deploy `7e94be9`)**: modal login chỉ còn gợi ý tài khoản khách (c001); `curl -X POST https://digital.tinhdev.com/api/auth/login` sai credential → hint="Kiểm lại thông tin đăng nhập." — cả FE lẫn BE đều đúng generic trên PROD.
 - **Trạng thái:** fixed (re-verified PROD — CHỐT).
 
 ### DF-A-02 — Brand landing không nhất quán tên ngân hàng
@@ -104,13 +104,13 @@ Luật finding: **verdict + LÝ DO + tầng + repro + mức** — verdict suông
 - **Persona:** A khách vay
 - **Tầng · Mức:** kỹ-thuật · 🔴 demo-killer
 - **Repro (case 1 — qua logout, tái hiện trên c001):**
-  1. Login `c001/c001` trên `https://digital.tinhdev.com` (account đã có lịch sử ca cũ — "Giải ngân L001 340tr").
-  2. Click "Đăng xuất" (góc trên phải) → modal login hiện lại → đăng nhập lại `c001/c001`.
+  1. Login `[KHÁCH-CN c001]` trên `https://digital.tinhdev.com` (account đã có lịch sử ca cũ — "Giải ngân L001 340tr").
+  2. Click "Đăng xuất" (góc trên phải) → modal login hiện lại → đăng nhập lại `[KHÁCH-CN c001]`.
   3. Vào Workspace → click "+ Ca mới" (nút cam góc trên trái sidebar).
   4. Click vào ô input cuối panel, gõ 1 câu bất kỳ (vd "Tôi muốn hỏi về khoản vay mua xe"), bấm nút gửi (hoặc Enter).
   5. Quan sát: không có gì xảy ra — không "Đang chạy", không tin nhắn mới xuất hiện trong panel chat.
 - **Repro (case 2 — KHÔNG qua logout, tái hiện trên b001, loại trừ nguyên nhân là do logout):**
-  1. Từ 1 tab đã login sẵn (bất kỳ), gọi thẳng `POST /api/auth/login` đổi sang `b001/b001` (login-đè, không qua nút Đăng xuất) → `navigate()` reload trang.
+  1. Từ 1 tab đã login sẵn (bất kỳ), gọi thẳng `POST /api/auth/login` đổi sang `[KHÁCH-DN b001]` (login-đè, không qua nút Đăng xuất) → `navigate()` reload trang.
   2. b001 đã có sẵn 3 ca cũ (1 ca thẩm định 594tr DN từ trước). Click "+ Ca mới" → nút chuyển trạng thái active (highlight cam) đúng, nhưng **nội dung panel bên dưới vẫn hiện nguyên ca cũ nhất** (bảng "KẾT QUẢ 3 PHÒNG" của thẩm định 594tr) — không phải panel nháp trống.
   3. Bấm lại "+ Ca mới" thêm 1-2 lần nữa: không đổi gì, luôn quay về đúng ca cũ đó.
 - **Expected (tâm thế user):** Bấm "+ Ca mới" phải mở 1 cuộc trò chuyện HOÀN TOÀN MỚI, trống — gõ câu hỏi vào phải gửi được và MAIN phải trả lời.
@@ -127,10 +127,10 @@ Luật finding: **verdict + LÝ DO + tầng + repro + mức** — verdict suông
 - **Trạng thái:** fixed (re-verified :8000 + PROD race thật — CHỐT, không còn nghi vấn nào treo).
 
 ### DF-B-01 — Phiếu chờ duyệt định danh bằng UUID + JSON thô, không tên khách (xác nhận qua code, không chỉ UI)
-- **Persona:** B cán bộ duyệt (login `admin/admin`)
+- **Persona:** B cán bộ duyệt (login `[ADMIN]`)
 - **Tầng · Mức:** UX + nghiệp-vụ · 🔴 demo-killer
 - **Repro (UI — sidebar chat, đã thấy trực tiếp):**
-  1. Login `admin/admin` trên `https://digital.tinhdev.com` → Workspace (mặc định) → sidebar trái "CA CỦA BẠN" (14 dòng).
+  1. Login `[ADMIN]` trên `https://digital.tinhdev.com` → Workspace (mặc định) → sidebar trái "CA CỦA BẠN" (14 dòng).
   2. Đối chiếu `GET /api/conversations` (fetch qua console, credentials include) → 14 conversation thuộc NHIỀU `user_id` khác nhau (`dogfood-a1`, `c001`, `c019`, `compare`, `b001`...).
   3. 13/14 dòng sidebar hiện y hệt "Ca mới" (tên) + "Mới" (trạng thái) — không tên/mã khách/số tiền/ngày.
 - **Repro (code — đọc trực tiếp, xác nhận "Hàng chờ duyệt" CŨNG bị, không cần chờ seed):**
@@ -154,7 +154,7 @@ Luật finding: **verdict + LÝ DO + tầng + repro + mức** — verdict suông
 - **Persona:** B cán bộ duyệt
 - **Tầng · Mức:** UX · 🟡 khó chịu (KHÔNG phải 🔴 — 3 trụ phía trên vẫn đủ để ký, xem ghi chú)
 - **Repro:**
-  1. Login `admin/admin` → Control Tower → tab "Hồ sơ + lý do AI".
+  1. Login `[ADMIN]` → Control Tower → tab "Hồ sơ + lý do AI".
   2. Click hồ sơ `C902 · consumer · 300 triệu` (YELLOW) → đọc khung tím "🤖 LÝ DO AI" ở cuối panel phải.
   3. Click hồ sơ `C019 · consumer · 594 triệu` (GREEN) → đọc lại khung "🤖 LÝ DO AI".
   4. So sánh 2 nội dung.
@@ -202,14 +202,14 @@ Luật finding: **verdict + LÝ DO + tầng + repro + mức** — verdict suông
 - **Tầng · Mức:** kỹ-thuật · **UNVERIFIED — tự hạ từ 🔴 xuống nghi vấn treo, xem lý do dưới**
 - **Repro:**
   1. Đã seed 2 phiếu pending thật trên PROD (architect seed L950/L951 cho C902 → dogfood-a1 chat xin giải ngân từng khoản → 2 phiếu vào hàng chờ, xác nhận qua chat MAIN: "Yêu cầu đang chờ duyệt rồi ạ").
-  2. Login `admin/admin` → Workspace load xong (đợi ≥3s cho chắc hook đã kịp poll lần đầu theo code — hook có "poll ngay lần đầu, không đợi 5s").
+  2. Login `[ADMIN]` → Workspace load xong (đợi ≥3s cho chắc hook đã kịp poll lần đầu theo code — hook có "poll ngay lần đầu, không đợi 5s").
   3. Zoom vào góc phải header, vùng nút "🗼 Control Tower".
   4. Kiểm DOM: `document.querySelector('[data-testid="tower-badge"]')` → `null` (element hoàn toàn không tồn tại, không phải bị ẩn CSS).
   5. Kiểm network qua `read_network_requests` (urlPattern `/api/`) NGAY SAU reload sạch + đợi 3s: chỉ thấy `GET /api/conversations`, `/api/models`, `/api/conversations/{id}/sse`, `/api/conversations/{id}` — **KHÔNG có `GET /api/approvals` nào**.
   6. Đối chiếu: `fetch('/api/approvals?status=pending', {credentials:'include'})` gọi TRỰC TIẾP từ console → 200, trả đúng 2 phiếu thật (`L951` 1.2 tỷ + `L950` 800tr, cả 2 `status:"pending"`).
 - **Expected:** Theo code `frontend/src/hooks/useApprovalBadge.ts` — hook `useApprovalBadge(isAdmin)` phải tự poll `GET /api/approvals?status=pending` ngay khi mount (dòng 54: "poll ngay lần đầu, không đợi 5s") và set badge số trên nút Control Tower (`frontend/src/Workspace.tsx` dòng 399-407, điều kiện `pendingApprovals > 0`). Cán bộ mở app phải THẤY NGAY có phiếu chờ mà không cần chủ động click vào Tower để "đi tìm".
 - **Actual:** Badge KHÔNG bao giờ xuất hiện — hook dường như không được gọi/không chạy đúng trên PROD, dù API backend hoạt động hoàn toàn bình thường khi gọi trực tiếp.
-- **Verdict + lý do (TỰ SỬA sau advisor review — ban đầu ghi 🔴, hạ xuống UNVERIFIED):** Cùng phiên này đã xác nhận 2 lần PROD đang chạy bundle CŨ, chưa deploy wave 1: (a) 403 hint khi dogfood-a1 gọi `/api/stats` vẫn ghi "Đăng nhập bằng account admin" — trong khi fix D-64 (đã PASS trên :8000) đổi hint sang generic; (b) modal login PROD vẫn hiện đủ 3 credential kể cả admin/admin — trong khi A-01-FE đã báo fixed. Vậy PROD ≠ code tôi vừa đọc để viết Expected — so sánh code MỚI (repo) với hành vi PROD CŨ là so sai 2 bundle khác nhau, không phải bằng chứng bug. Có khả năng cao badge code (`useApprovalBadge`) cũng chưa nằm trong bundle PROD hiện tại, giống hệt tình trạng A-07/A-04/A-01 đang chờ deploy. KHÔNG loại trừ đây là bug thật (có thể badge code đã có nhưng lỗi race như A-07) — nhưng chưa đủ căn cứ để chốt 🔴 lúc PROD chưa update.
+- **Verdict + lý do (TỰ SỬA sau advisor review — ban đầu ghi 🔴, hạ xuống UNVERIFIED):** Cùng phiên này đã xác nhận 2 lần PROD đang chạy bundle CŨ, chưa deploy wave 1: (a) 403 hint khi dogfood-a1 gọi `/api/stats` vẫn ghi "Đăng nhập bằng account admin" — trong khi fix D-64 (đã PASS trên :8000) đổi hint sang generic; (b) modal login PROD vẫn hiện đủ 3 tài khoản demo kể cả tài khoản admin — trong khi A-01-FE đã báo fixed. Vậy PROD ≠ code tôi vừa đọc để viết Expected — so sánh code MỚI (repo) với hành vi PROD CŨ là so sai 2 bundle khác nhau, không phải bằng chứng bug. Có khả năng cao badge code (`useApprovalBadge`) cũng chưa nằm trong bundle PROD hiện tại, giống hệt tình trạng A-07/A-04/A-01 đang chờ deploy. KHÔNG loại trừ đây là bug thật (có thể badge code đã có nhưng lỗi race như A-07) — nhưng chưa đủ căn cứ để chốt 🔴 lúc PROD chưa update.
 - **Trạng thái:** UNVERIFIED — gộp re-test vào đợt xác nhận PROD sau khi wave 1 (A-07+A-04+A-01) deploy xong. Nếu badge VẪN không hiện sau deploy dù có phiếu pending thật → nâng lại 🔴 ngay. Nếu hiện đúng → đóng finding, ghi "false alarm do đọc nhầm bundle".
   **Cập nhật hướng fix (architect, 2026-07-18)**: thay vì chỉ chờ xác nhận môi trường, architect chọn sửa hook cho BỀN — tick đầu tiên sau mount sẽ fetch VÔ ĐIỀU KIỆN (kể cả khi `document.hidden=true`), tick sau vẫn giữ skip-khi-hidden để tiết kiệm server. Lý do kép: (a) sửa luôn edge thật "mở app ở tab nền → badge trắng cả nhịp đầu", (b) verify được bằng máy (không cần visibility thật) — chỉ cần kiểm mount → có ≥1 `GET /api/approvals` + badge DOM tồn tại khi có phiếu pending, không phụ thuộc `document.visibilityState`.
   **Re-verify sau fix (2026-07-18, TESTER xác nhận)**: đăng nhập admin trên :8000, có phiếu pending thật (118 phiếu, gồm rác test + phiếu vừa tạo) → nút "🗼 Control Tower"/tab "Hàng chờ duyệt" hiện đúng badge số **"118"** ngay khi vào Tower — PASS. Đây CHÍNH LÀ minh chứng trực tiếp fix hoạt động (trước đây network log hoàn toàn không có request `/api/approvals` nào).
@@ -222,7 +222,7 @@ Luật finding: **verdict + LÝ DO + tầng + repro + mức** — verdict suông
 - **Tầng · Mức:** nghiệp-vụ · 🔴 demo-killer
 - **Repro:**
   1. Login `dogfood-a1` (owner C902) → tạo 2 ca mới → xin giải ngân L950 (800tr) rồi L951 (1.2 tỷ) → cả 2 vào hàng chờ, xác nhận qua chat MAIN.
-  2. Login `admin/admin` → Control Tower → Hàng chờ duyệt (2 phiếu, đúng UUID+JSON thô như DF-B-01) → bấm "✓ Duyệt" trên phiếu L950 → bấm "✗ Từ chối" trên phiếu L951.
+  2. Login `[ADMIN]` → Control Tower → Hàng chờ duyệt (2 phiếu, đúng UUID+JSON thô như DF-B-01) → bấm "✓ Duyệt" trên phiếu L950 → bấm "✗ Từ chối" trên phiếu L951.
   3. Quan sát: bấm "✗ Từ chối" ra quyết định NGAY LẬP TỨC — không có dialog/ô nhập lý do nào hiện ra trước khi quyết.
   4. Đọc code xác nhận: `frontend/src/components/ControlTower.tsx` dòng 86, hàm `decide()` gọi `conversationApi.decideApproval(row.id, decision, '')` — tham số `reason` LUÔN LÀ CHUỖI RỖNG CỨNG, dùng chung cho CẢ nút Duyệt lẫn Từ chối (dòng 121-122 cả 2 đều gọi `decide(row, ...)` không truyền reason riêng).
   5. Đăng xuất admin → login lại `dogfood-a1` → ca L951 tự động resume, MAIN báo: *"Nguyễn Văn Test ơi, em phải báo tin buồn ạ. Yêu cầu giải ngân khoản vay L951 (1.2 tỷ VND) của anh **không được duyệt**. Anh cần em kiểm tra lại lý do không được duyệt hoặc hỗ trợ thêm gì không ạ?"*
@@ -291,7 +291,7 @@ pending:0,auto:1}`, `assessments{green:1,yellow:5,red:0}`, `conversations{total:
 
 **Hành động tester thực hiện**: login `dogfood-a1` (owner C902) → tạo 2 ca mới → xin giải ngân
 L950 rồi L951 (tuần tự, đúng ma trận D-59 — cả 2 nằm band 500tr-2tỷ + lane YELLOW nên bay thẳng
-về người duyệt, không auto) → 2 phiếu pending → login `admin/admin` → Control Tower → Hàng chờ
+về người duyệt, không auto) → 2 phiếu pending → login `[ADMIN]` → Control Tower → Hàng chờ
 duyệt → **Duyệt L950**, **Từ chối L951** (reason rỗng — xem DF-B-07).
 
 **Trạng thái stats sau bước 1-2** (`/api/stats?window=7d`): `approvals{approved:2,rejected:1,

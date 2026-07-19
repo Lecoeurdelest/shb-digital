@@ -25,10 +25,36 @@ curl https://digital.tinhdev.com/api/conversations  # → 401 {"code":"unauthori
 > 🤖 **AI agent đọc/sửa repo này** → bắt đầu từ [`AGENTS.md`](AGENTS.md) (lệnh chuẩn, quy ước
 > code, vùng cẩn trọng). Người đọc tiếp tục bên dưới.
 
+## Dành cho giám khảo — chấm nhanh trong 10 phút
+
+1. **Demo sống, chưa cần login (1 phút):** hai lệnh curl phía trên + mở
+   https://digital.tinhdev.com — landing, lobby 3D, kiến trúc tự giới thiệu.
+2. **Đăng nhập (tài khoản demo 2 vai — khách · ngân hàng — đã gửi riêng Ban tổ chức; repo
+   không chứa credential).** Không có trong tay? Bấm **Đăng ký** ngay trên UI — tự tạo tài
+   khoản khách mới, hệ nhận khách lạ bằng form tiếp nhận hồ sơ trong hội thoại.
+3. **Kịch bản 5 phút — vai khách:** gõ *"Công ty tôi muốn vay 5 tỷ mở rộng sản xuất, thế chấp
+   nhà xưởng — khảo sát nhanh: sức khỏe tín dụng, pháp lý hồ sơ, gói vay phù hợp."*
+   → lobby 3D sáng đèn từng chuyên gia, khối diễn tiến stream suy nghĩ + tool-call,
+   card DSCR/CIC/pháp-lý-3-trụ đổ về canvas — **mỗi con số có chip nguồn**. Gõ tiếp yêu cầu
+   giải ngân → khoản lớn dừng ở **"chờ ngân hàng duyệt"** (phanh tầng tool, không phải lời hứa).
+4. **Vai ngân hàng (3 phút):** Control Tower → hàng đợi phiếu → Duyệt → hệ đánh thức đúng ca,
+   giải ngân **đúng một lần** (bấm lại trả biên nhận cũ) → tab Audit soi từng tool call →
+   tab Thống kê xem KPI + chi phí LLM per-turn → tab So sánh chạy single-agent vs cả đội
+   trên cùng câu hỏi.
+5. **Không có key LLM vẫn chấm được:** quickstart Docker 60 giây (dưới) — UI/DB/audit/canvas
+   xem đủ, chat cần key provider.
+6. **Đọc gì tiếp:** bảng [5 deliverables](#đáp-ứng-đề-bài-5-deliverables) →
+   [`docs/methodology/README.md`](docs/methodology/README.md) (vì sao chọn từng công nghệ, 8 mục) →
+   [`docs/business-case.md`](docs/business-case.md) (pilot 3 pha). Kiểm code 5 phút:
+   `backend/app/orch/gated.py` + `backend/tests/test_gated.py` (an toàn tiền) ·
+   `backend/app/orch/main_session.py` (phiên bền resume) · `roles/_retrieval/functions.py`
+   (retrieval 4 tầng). Tự chạy test: mục [Kiểm thử](#kiểm-thử).
+
 ---
 
 ## Mục lục
 
+- [Dành cho giám khảo — chấm nhanh trong 10 phút](#dành-cho-giám-khảo--chấm-nhanh-trong-10-phút)
 - [Tính năng chính](#tính-năng-chính)
 - [Đáp ứng đề bài (5 deliverables)](#đáp-ứng-đề-bài-5-deliverables)
 - [An toàn khi AI chạm tiền](#an-toàn-khi-ai-chạm-tiền-phanh-tầng-tool)
@@ -60,12 +86,17 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 - Yêu cầu giải ngân: **≤ 500 triệu** — agent tự duyệt theo ma trận thẩm quyền (phiếu vẫn ghi
   `decided_by=auto-rule` + lý do, audit đầy đủ); **> 500 triệu** — tạo phiếu chờ ngân hàng duyệt,
   khách thấy trạng thái "chờ ngân hàng".
+- **Chọn model từng lượt** ngay trong ô chat (đổi provider/model per-turn, không phải tạo ca
+  mới) · sidebar quản lý hội thoại (đổi tên, xoá — xoá vẫn giữ audit) · theme sáng/tối.
 
 **Bàn ngân hàng (admin)** — giám sát và cầm quyền quyết:
 
 - Thấy mọi ca của mọi khách + **Control Tower**: hàng đợi phiếu duyệt (badge real-time),
   audit log append-only từng LLM call/tool call (input/output — ghi cả call đứt giữa chừng),
   trace timeline.
+- **Tab Thống kê**: 7 KPI ngày + hồ sơ thẩm định + **chi phí LLM theo lượt** (token/cost/model
+  bóc từ từng turn thật — biểu đồ cost theo ngày, phân bổ theo model, bảng ca chi phí bất
+  thường bằng z-score).
 - Duyệt / từ chối phiếu giải ngân — hệ đánh thức đúng ca, đội thực thi tiếp **đúng một lần**
   (biên nhận chống thực-thi-đôi; bấm lại trả biên nhận cũ).
 - Click từng chuyên gia xem brief/trace/kết quả; hủy một sub đang chạy không ảnh hưởng sub khác.
@@ -77,11 +108,11 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 
 | # | Đề #132 yêu cầu | Sản phẩm trả bằng |
 |---|---|---|
-| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **4/4 chuyên gia ruột thật** (Tín dụng + Pháp chế + Sản phẩm + Vận hành — S12 port trọn bản CERTIFIED từ LAB, tool SQL đọc/ghi Postgres, bàn giao ngữ cảnh tuần tự). Khung **labpack cắm-là-chạy** đã tự chứng minh: đẻ thật 2 chuyên gia cuối = thay đúng file `functions.py` + `SKILL.md`, vỏ 0 sửa (commit e075f37); card đổ về canvas |
+| 1 | Demo ≥ 2–3 chuyên gia số cộng tác trên một request phức tạp | Ca "DN vay 5 tỷ": **4/4 chuyên gia tool SQL thật trên bảng thật** — Tín dụng + Pháp chế end-to-end từ S1/S7; Sản phẩm + Vận hành port bản CERTIFIED S12, migration + seed bảng nghiệp vụ đã vào (bảng `products`/`applications`/`disbursements`; đường giải ngân qua phanh + biên nhận), wave verify e2e cuối đang chạy. Khung **labpack cắm-là-chạy** tự chứng minh: đẻ chuyên gia = thay đúng `functions.py` + `SKILL.md`, vỏ 0 sửa; card đổ về canvas |
 | 2 | Cơ chế orchestration: planner phân rã → executor | MAIN (planner, phiên bền — resume qua restart) + `orch_dispatch` giao việc nền + event đánh thức khi sub xong |
 | 3 | Tool use thật — hành động cụ thể, không chỉ text | Tool đọc/ghi Postgres thật (DSCR, CIC, pháp lý…); `disburse` bị **chặn ở tầng tool** bằng phiếu phê duyệt |
 | 4 | Dashboard traces, task status, decisions, collaboration flows | Control Tower + SSE trace (thinking/toolcall) + audit append-only + lobby/task map |
-| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | `POST /api/compare` — chạy cùng câu hỏi 2 chế độ, render đối chiếu 2 cột. Cột multi chạy **luồng đội thật** (dispatch → poll tới khi mọi sub xong → tổng hợp), không phải số dựng sẵn |
+| 5 | So sánh single-agent chatbot vs hệ action-oriented agents | Hai lớp: `POST /api/compare` — cùng câu hỏi chạy 2 chế độ, đối chiếu 2 cột (cột multi chạy **luồng đội thật**, không phải số dựng sẵn); + **bench harness** (`bench/` — 15 case đơn-phòng/liên-phòng/bẫy/phanh, ground-truth re-verify trên DB sống, 2 runner + grader; vòng chạy full đang tới) |
 
 ## An toàn khi AI chạm tiền (phanh tầng tool)
 
@@ -152,7 +183,19 @@ tuyệt không ép "đợi đủ N con". Hệ quả đo được:
   động) · **thêm provider = 1 entry yaml** · đổi luồng nghiệp vụ = sửa prompt. Mở rộng không
   đụng core.
 
-Lập luận đầy đủ SDK-vs-LangGraph: [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §2.
+Lập luận đầy đủ SDK-vs-LangGraph: [`docs/methodology/README.md`](docs/methodology/README.md) §2.
+
+**Sáu định kiến hệ này phá — sự khác biệt nằm ở đây** (cùng khuôn *định kiến → cơ chế thật
+→ lựa chọn → trade-off khai thật*):
+
+| Định kiến phổ biến | Hệ này làm khác | Chi tiết |
+|---|---|---|
+| "Multi-agent = vẽ đồ thị LangGraph" | Điều phối là **suy luận nghiệp vụ của MAIN qua prompt** — đổi luồng = sửa prompt, vỏ không hardcode đồ thị | [`METHODOLOGY`](docs/methodology/README.md) §2 |
+| "RAG = cắm vector DB" | **4 tầng dữ liệu → 4 cách truy vấn đúng bản chất**: SQL cho số · wiki + document-graph cho quy định · entity-graph CTE cho trần nhóm liên quan · vector local chỉ cho ghi-chú-mềm | [`METHODOLOGY`](docs/methodology/README.md) §3 |
+| "Tool cho agent = bọc API" | Tool viết cho **model xác suất đọc**: một envelope toàn hệ, `hint` = action kế, honest không bịa số (`found:false` + lý do, `asOf` mọi data), idempotent chịu caller quên | [`METHODOLOGY`](docs/methodology/README.md) §7 |
+| "An toàn = prompt dặn kỹ / thêm agent kiểm duyệt" | **Phanh + thẩm quyền ở tầng tool đọc DB** — điều kiện mở két nằm trong bảng `approvals`/`assessments`, model thuyết phục cỡ nào cũng không mở được két bằng lời | [`METHODOLOGY`](docs/methodology/README.md) §4 · §6 |
+| "Chuyên gia AI = viết prompt hay là xong" | SKILL + tool = **trọng số của một vòng huấn luyện**: đề có bẫy làm-ẩu-thì-fail, chấm 2 tầng, gate chặn bản kém, certify có hồ sơ — port vào hệ kiểm bằng test, cấm vá tay | [`skill-training`](docs/methodology/skill-training.md) |
+| "Code AI viết = vibe coding, không tin được" | Repo này chính nó được build bằng **vòng có phanh**: spec-là-contract, tester độc lập (author ≠ checker), 3 lớp gate 100% mới commit, sổ quyết định + sổ lỗi công khai | [`loop-engineering`](docs/methodology/loop-engineering.md) |
 
 Các thành phần chính:
 
@@ -179,7 +222,7 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
   tầng retrieval; văn bản chính sách/án lệ/ghi chú mềm đi **retrieval 4 tầng đã port (S12)**:
   wiki 82 trang (citation page bắt buộc) · document-graph soát phả hệ hiệu lực (trap văn-bản-bị-
   thay-thế) · vector notes local-CPU (2.215 ghi chú, bkai bi-encoder) · entity-graph trần dư nợ
-  NHÓM khách liên quan. Chi tiết ([`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) §3).
+  NHÓM khách liên quan. Chi tiết ([`docs/methodology/README.md`](docs/methodology/README.md) §3).
 
 ## Công nghệ sử dụng
 
@@ -224,10 +267,12 @@ shb-digital/
 │       ├── api/                  # cổng duy nhất gọi backend (client thật + mock theo cờ env)
 │       └── types.ts              # shape khớp docs/CONTRACT.md
 ├── roles/                        # labpack per chuyên gia: SKILL.md + functions.py (tool nghiệp vụ)
-├── docs/                         # đề bài · CONTRACT · patterns/ · demo-script · deploy (+ mục lục docs/README.md)
+│   └── _retrieval/               # tool tra cứu 4 tầng dùng chung: wiki · document-graph · entity-graph · vector
+├── bench/                        # bench single-agent vs hệ: 15 case YAML + 2 runner + grader
+├── docs/                         # đề bài · CONTRACT · methodology/ · patterns/ · demo-script · deploy (+ mục lục docs/README.md)
 ├── sprints/                      # ROADMAP + plan/end từng sprint (số liệu thật, gate, waiver)
 ├── design/                       # mock look-and-feel (Claude Design) — tham khảo, scope theo SPEC
-└── deploy/seed/                  # snapshot seed để deploy tự chứa (D-62)
+└── deploy/seed/                  # snapshot seed tự chứa (D-62) + wiki/ 82 trang chính sách-pháp luật (nguồn tầng retrieval)
 ```
 
 ## Cài đặt & chạy local
@@ -239,7 +284,7 @@ git clone https://github.com/tinhnguyen0110/shb-digital.git && cd shb-digital
 cp .env.example .env                       # điền key provider (zai/wrap) nếu muốn chat thật
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 # → mở http://localhost:3011  (DB + migration + seed nghiệp vụ TỰ ĐỘNG — seed-if-empty)
-#   account demo: admin/admin (ngân hàng) · c019/c019, b001/b001 (khách) — hoặc Đăng ký mới
+#   tài khoản demo (2 vai khách · ngân hàng): đã gửi riêng BTC — hoặc bấm Đăng ký tạo tài khoản khách mới
 ```
 
 1 lệnh dựng trọn stack (Postgres + backend + frontend, project `shb132-prod` cô lập). Không có
@@ -282,12 +327,12 @@ Ghi chú:
 ## Kiểm thử
 
 ```bash
-# Backend — 380 passed / 13 skipped (skip = test live-SDK, opt-in bằng RUN_LIVE_SDK=1)
+# Backend — 445 passed / 14 skipped (skip = live-SDK + embed, opt-in bằng RUN_LIVE_SDK=1)
 cd backend
 TEST_DATABASE_URL=postgresql://shb:shb@localhost:5432/shb_test uv run pytest
 uv run ruff check . && uv run ruff format --check .
 
-# Frontend — 162 test / 20 file (vitest) + typecheck (tsc 0 lỗi)
+# Frontend — 227 test / 26 file (vitest) + typecheck (tsc 0 lỗi)
 cd frontend
 npm run test
 npm run typecheck
@@ -318,8 +363,11 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 | POST | `/api/conversations/{id}/interrupt` | Hủy một sub đang chạy |
 | GET | `/api/approvals?status=pending` | Hàng đợi phiếu duyệt (admin) |
 | POST | `/api/approvals/{id}/decide` | Duyệt/từ chối phiếu — đánh thức đúng ca (idempotent, 409 nếu đã quyết) |
+| PATCH/DELETE | `/api/conversations/{id}` | Đổi tên / xoá hội thoại (xoá 1 transaction, giữ audit) |
 | GET | `/api/audit` | Audit log tool-call (filter theo ca/task) |
-| GET | `/api/models` | Provider + model khả dụng |
+| GET | `/api/stats` · `/api/stats/assessments` | KPI ngày + hồ sơ thẩm định (admin) |
+| GET | `/api/stats/cost` · `/api/stats/cost-trend` | Chi phí LLM per-turn: tổng theo ngày/model + ca bất thường z-score (admin) |
+| GET | `/api/models` | Provider + model khả dụng (đổi được per-conversation, per-turn) |
 | POST | `/api/compare` | Chạy so sánh single-agent vs multi-agent |
 
 ## Tài liệu
@@ -329,6 +377,7 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 | [`SPEC.md`](SPEC.md) | Đặc tả sản phẩm: nguyên lý → kiến trúc → cơ chế → rule (kể cả mục KHÔNG-làm) |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md) | Hợp đồng API + SSE + error — một nguồn sự thật FE↔BE |
 | [`docs/patterns/`](docs/patterns/00-INDEX.md) | 5 pattern build: SDK session · multi-agent · SSE · canvas/present · mount tool LAB |
+| [`docs/business-case.md`](docs/business-case.md) | Khả thi kinh doanh: bài toán kinh tế · lộ trình pilot 3 pha (shadow-mode → chi nhánh → mở rộng) · tích hợp CIC/core-banking · trách nhiệm pháp lý auto-approve |
 | [`docs/demo-script.md`](docs/demo-script.md) | Kịch bản demo ~10-13 phút, 2 cửa sổ khách ‖ ngân hàng |
 | [`docs/deploy.md`](docs/deploy.md) | Deploy + vận hành + rollback |
 | [`DECISIONS.md`](DECISIONS.md) | Sổ quyết định — mỗi entry ghi *quyết gì / vì sao / cách đổi* (human-wins) |
@@ -351,7 +400,9 @@ Repo này được xây bởi **đội AI agent** (điều phối bởi con ngư
   credential do chính đội tự phát hiện và vá ngay** (D-64, `sprints/end_sprint_14.md`).
   Sổ lỗi công khai, kể cả lỗi bảo mật của mình, là một phần của sản phẩm.
 
-**Trạng thái hiện tại:** Sprint 1–9, 10 (deploy), 11 (docs/CI), 13 (stats admin), 14 (dogfood + vá)
-**đã đóng** — sổ chi tiết tại `sprints/end_sprint_*.md` · Sprint 12 (retrieval 4 tầng từ LAB)
-**đang ráp nốt** — retrieval 4 tầng + Products/Ops certified ĐÃ vào master (T12-1..4, chờ wave verify cuối + deploy) · Sprint 15 **đã đóng** (549 test, PROD 4/4) · Sprint 16 (tracing/cost + chart) đang chạy.
+**Trạng thái hiện tại:** Sprint 1–11, 13–15 **đã đóng** (sổ chi tiết `sprints/end_sprint_*.md`)
+· Sprint 12 (retrieval 4 tầng + port Products/Ops từ LAB) **đang ráp nốt** — retrieval, code
+4 chuyên gia, migration + seed bảng nghiệp vụ đều đã vào master; còn wave verify e2e cuối +
+deploy · Sprint 16 (đo token/cost per-turn + biểu đồ thống kê) phần lớn đã vào · Sprint 17
+(bench harness single vs multi, 15 case) đã dựng xong khung, chờ vòng chạy full.
 Chi tiết: [`sprints/ROADMAP.md`](sprints/ROADMAP.md).

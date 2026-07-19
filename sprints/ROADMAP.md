@@ -125,7 +125,7 @@
 
 ## Sprint 11 — Cleanup + Documentation ⏳ (user chốt thứ tự 18/7: SAU S10, TRƯỚC S12)
 - **Theme:** dọn repo (archive nháp, chuẩn hoá docs/, README) + bộ tài liệu thi. Nguồn
-  methodology: `../battle/de-archive/METHODOLOGY-132.md` → port `docs/METHODOLOGY.md` (khuôn:
+  methodology: `../battle/de-archive/METHODOLOGY-132.md` → port `docs/methodology/README.md` (khuôn:
   định kiến → cơ chế thật → lựa chọn → trade-off khai thật).
 - **Đối chiếu THẬT khi port (S11 chạy TRƯỚC S12):** §3 RAG 4 tầng khai trạng thái thật tại
   thời điểm viết — "4 tầng thiết kế + build CERTIFIED ở LAB (DOER 5/5, QA 7 hướng), tầng

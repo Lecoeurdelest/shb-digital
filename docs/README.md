@@ -11,6 +11,9 @@
 | [`patterns/00-INDEX.md`](patterns/00-INDEX.md) | Mục lục 5 pattern build: `claude-sdk` · `multi-agent` · `streaming-sse` · `canvas-present` · `lab-joint` | Trước khi build/sửa phần tương ứng — đọc đúng file theo task |
 | [`demo-script.md`](demo-script.md) | Kịch bản demo thi ~10-13 phút, 2 cửa sổ (khách ‖ ngân hàng), kèm đường thoát hiểm | Chuẩn bị demo / muốn hiểu happy-path end-to-end |
 | [`deploy.md`](deploy.md) | Deploy production: Docker compose + cloudflared → `digital.tinhdev.com`, seed snapshot, reset demo, rollback | Deploy / vận hành server |
+| [`business-case.md`](business-case.md) | Khả thi kinh doanh + pilot 3 pha + trách nhiệm pháp lý | Hỏi về triển khai thực tế / giá trị nghiệp vụ |
+| [`methodology/`](methodology/README.md) | **Bộ phương pháp luận** — [`README.md`](methodology/README.md) vì sao chọn từng công nghệ (8 mục) · [`skill-training.md`](methodology/skill-training.md) huấn luyện chuyên gia AI như train model · [`loop-engineering.md`](methodology/loop-engineering.md) đội AI build có phanh · [`ux-design.md`](methodology/ux-design.md) tư duy thiết kế UX AI-native | Hỏi "vì sao làm thế này" — kiến trúc, công nghệ, quy trình build, UX |
+| [`../bench/`](../bench/README.md) | Bench single-agent vs hệ: 15 case (đơn-phòng · liên-phòng · bẫy · phanh) + 2 runner + grader | Muốn số liệu deliverable #5 / chạy lại bench |
 | `assets/` | Ảnh chụp sản phẩm dùng cho README | — |
 
 Tài liệu cấp repo (ngoài `docs/`):

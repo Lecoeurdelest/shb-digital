@@ -34,12 +34,12 @@ const CONTROLS = [
   { icon: '🗺', title: 'Live orchestration map', desc: 'Thấy realtime ai đang làm gì: node đổi màu, beam giao việc, task-tree với dependency.' },
   { icon: '🔍', title: 'Trace từng bước', desc: 'Mỗi quyết định có vết: agent nào, tool nào, input/output JSON — click là xem.' },
   { icon: '⏸', title: 'Human-approval gate', desc: 'Hành động ranh giới bị chặn ở tầng tool bằng phiếu payload-hash, single-use — không phải lời dặn trong prompt.' },
-  { icon: '📋', title: 'Audit log append-only', desc: 'Mọi LLM call, tool call, quyết định người duyệt — kèm chi phí. Mọi con số click về nguồn.' },
-  { icon: '🏆', title: 'Certify board', desc: 'Bảng điểm per-agent từ bộ test độc lập: chứng minh đúng bao nhiêu phần trăm trước khi lên môi trường thật.' },
-  { icon: '🔔', title: 'Alert đa kênh', desc: 'Chờ-duyệt, ca xong, sự cố — bắn Discord, email, Zalo theo ma trận cấu hình. Không ai phải ngồi canh màn hình.' },
+  { icon: '📋', title: 'Audit log append-only', desc: 'Mọi LLM call, tool call, quyết định người duyệt — lọc theo ca, truy ngược từng bước, ghi cả call đứt giữa chừng.' },
+  { icon: '⚖', title: 'So sánh 1 AI vs cả đội', desc: 'Cùng một câu hỏi chạy 2 chế độ — cột đội chạy luồng thật, đếm tool call, card, thời gian. Khác biệt đo được.' },
+  { icon: '🔔', title: 'Thông báo chờ duyệt', desc: 'Phiếu chờ duyệt, ca xong — chuông in-app real-time + email cho người duyệt. Không ai phải ngồi canh màn hình.' },
 ];
 
-const MARQUEE = ['🧮 DSCR · LTV · CIC có nguồn tool', '⚖ Pháp chế soát từng giấy tờ', '🔒 Giải ngân chờ người duyệt', '📋 Audit log append-only', '⚡ 3–5 ngày → 4 phút', '📤 Alert Discord · Email · Zalo'];
+const MARQUEE = ['🧮 DSCR · LTV · CIC có nguồn tool', '⚖ Pháp chế soát từng giấy tờ', '🔒 Giải ngân chờ người duyệt', '📋 Audit log append-only', '⚡ Nhiều ngày chờ → vài phút', '🔔 Chuông + email chờ duyệt'];
 
 export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
   const [authOpen, setAuthOpen] = useState(false);
