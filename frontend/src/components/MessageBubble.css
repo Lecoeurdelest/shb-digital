@@ -66,7 +66,10 @@
 
 /* ── markdown trong bubble assistant (react-markdown + gfm) — dùng tokens, gọn cho chat ── */
 /* T15-1: user chê spacing xa → SIẾT line-height + margin block (đặc hơn rõ, vẫn không dính chữ). */
-.md { font-size: inherit; line-height: 1.45; }
+/* FIX gap trắng lớn (user 19/7): .msg-bubble có `white-space: pre-wrap` (cần cho USER giữ xuống dòng
+   text thuần) — nhưng markdown ĐÃ có block <p>/<li>, pre-wrap làm mọi `\n` sót thành xuống-dòng THẬT
+   CỘNG DỒN với margin block → gap kép. Assistant markdown KHÔNG cần pre-wrap → normalize. */
+.md { font-size: inherit; line-height: 1.45; white-space: normal; }
 .md > *:first-child { margin-top: 0; }
 .md > *:last-child { margin-bottom: 0; }
 .md p { margin: 0 0 5px; }
@@ -100,6 +103,7 @@
   border: 1px solid var(--bd);
   border-radius: 8px;
   overflow-x: auto;
+  white-space: pre; /* code block GIỮ format (bù lại .md normalize white-space) */
 }
 .md pre code { background: none; color: var(--dim); padding: 0; font-weight: 400; }
 .md blockquote {
