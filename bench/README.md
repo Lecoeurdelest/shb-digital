@@ -1,5 +1,17 @@
 # bench/ — single-agent-full-tool vs hệ action-oriented (Sprint 17, deliverable #5 dạng số liệu)
 
+## ⚡ KẾT QUẢ COMPARE Ở ĐÂU (đọc mục này trước)
+- **`bench/REPORT.md`** — bảng so sánh tổng (đúng/sai theo key · tokens/cost/duration · tool-calls
+  · tuân-thủ-phanh) + **ĐÁNH GIÁ của architect** — sinh ở **Phase 2 RUN** (đang chạy 19/7; trước
+  đó file chưa tồn tại là ĐÚNG trạng thái, không phải thiếu sót).
+- **`bench/responses/multi/<case>.md`** vs **`bench/responses/single/<case>.md`** — response
+  NGUYÊN VĂN từng bên từng case (đối chiếu tay được).
+- **`bench/grades/*.json`** — điểm autograde theo key từng case.
+- Vì sao không chạy sớm hơn: hệ đổi liên tục trong ngày (2 regression F2/F3 vừa vá) — benchmark
+  chỉ có nghĩa khi world + code ĐỨNG YÊN (quyển 00 §rollout đo sạch). Phần dưới ("bài học build")
+  là log của Phase 1 harness — giữ làm phụ lục.
+
+
 Harness đo có-số-liệu, chạy qua TOOL THẬT (không mock), theo `sprints/plan_sprint_17.md`. Xây ở
 Phase 1 (worktree riêng, KHÔNG đụng backend/frontend/roles) — Phase 2 mới RUN FULL 15 case × 2
 runner.
