@@ -35,7 +35,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://shb:shb@db:5432/shb
-      SHB_PROVIDER: zai      # container KHÔNG có CLI login máy → provider keyed (zai)
+      SHB_PROVIDER: wrap     # user chốt 19/7: default prod = wrap/gpt-5.4 cho ổn định (đảo: về zai)
+      MAIN_MODEL: gpt-5.4    # per-conv model vẫn đè được (picker) — đây chỉ là default ca mới
       # FIX C: container KHÔNG có CLI auth → claude-cli = nút chết → ẩn khỏi picker (public_view lọc).
       # D-66: local (Ollama) chỉ-trong-repo, prod không có Ollama → disable khỏi picker.
       # LƯU Ý: dòng environment này ĐÈ .env (env_file) — sửa ở ĐÂY, đừng sửa .env rồi thắc mắc.

@@ -16,6 +16,7 @@ permission_mode='dontAsk' (headless). D-29: SDK live = bonus, mechanics gate kh�
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +32,9 @@ log = logging.getLogger("orch.session")
 # cwd gốc per-conversation — neo transcript resume (landmine #2)
 CONV_ROOT = Path(__file__).resolve().parents[2] / "data" / "conversations"
 
-MAIN_MODEL = "sonnet"
+# S17/prod: env-driven (user nhờ đổi default prod → wrap/gpt-5.4 — đảo bằng env; per-conv model
+# vẫn đè default nên bench S17 pin sonnet per-conv KHÔNG nhiễm). Default giữ "sonnet" (D-16).
+MAIN_MODEL = os.environ.get("MAIN_MODEL", "sonnet")
 SUB_MODEL = "haiku"
 MAIN_MAX_TURNS = 40
 SUB_MAX_TURNS = 20
