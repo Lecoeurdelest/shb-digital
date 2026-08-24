@@ -246,3 +246,28 @@ song song; PM review hai evidence riêng.
 - T23-4 → `dev-2` — D-82 counter-offer C009 có same-amount tool reassessment + active wiki proof.
 - T23-5 → `tester-1` — contract/security/DB adversarial gate độc lập + review PM.
 - T23-6 → `tester-2` — operator/E2E/CO-01/full regression gate độc lập + review PM.
+
+### History — PM cross-review closure (2026-08-24)
+
+- **Implementation verdict: PASS.** T23-1→T23-6 đều đạt acceptance sau freeze cuối. Chữ ký
+  regression là **677 BE pass + 17 skip + 348 FE pass = 1.025 pass + 17 skip**, cao hơn
+  baseline `949 + 17 skip`. Lượt FE default-parallel trước chữ ký đạt `346/348` do hai
+  timing-flake đã biết trong `App.test.tsx`; lượt serial ký đạt `348/348`. Không dùng
+  rerun để xóa evidence fail.
+- **Defect history được giữ nguyên:** Tester-1 bắt lượt đầu `1 failed, 4 passed` do
+  equal `source_version` băm `missing_fields` sau normalize, làm hai raw payload khác nhau bị
+  coi là duplicate. Root chuyển identity hash về raw case; regression rerun `23 passed` và gate
+  targeted cuối `118 passed`. Privacy RFI cũng được harden để chuỗi/mã CIC chỉ còn
+  sentinel an toàn.
+- **Evidence T23-6 được remediated trước close:** báo cáo đầu có HTTP/SQL và FE
+  tests nhưng thiếu literal browser screenshot mà plan yêu cầu. PM giữ gate mở; Tester-2
+  bổ sung curl + Selenium trên stack local, chứng minh exact RFI target active/focused và explicit
+  operator turn không có assistant/model output. Hai ảnh đã được PM mở kiểm trước
+  khi ký.
+- **Process verdict: PASS.** Dispatch dùng plan kickoff `825776d`; hai tester chỉ phụ thuộc task
+  dev, chạy độc lập trên DB `:55432` và `:56432`, review ngược source-of-truth riêng. PM
+  chờ cả hai evidence, review riêng và không lặp PM-01/PM-02 của S20.
+- **Non-claims/defer:** không có provider credential nên không chạy/claim live-model; CO-01 là
+  owner nội bộ C009 với tool/card/audit proof, không phải case LOS. External identity, full LOS
+  four-role và adapter nguồn defer S24. Optional `pyvi` và Vitest timing-flake vẫn là nợ môi
+  trường. Theo D-80, pilot dữ liệu thật vẫn **NO-GO**.

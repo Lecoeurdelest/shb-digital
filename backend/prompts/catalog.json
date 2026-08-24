@@ -5,7 +5,14 @@
       "file": "main/system.md",
       "scope": "main",
       "description": "System prompt for the MAIN orchestrator",
-      "variables": ["credit_memo_min_roles", "credit_memo_title", "credit_memo_section_lines"]
+      "variables": [
+        "credit_memo_min_roles",
+        "credit_memo_title",
+        "credit_memo_section_lines",
+        "reason_taxonomy_version",
+        "reason_taxonomy_checksum",
+        "reason_taxonomy_lines"
+      ]
     },
     "event.user_message": {
       "file": "events/user_message.txt",

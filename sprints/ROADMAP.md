@@ -236,18 +236,27 @@
 - **Plan:** `plan_sprint_20.md` · **End:** `end_sprint_20.md` · **Evidence:**
   `evidence/s20-tester-1.md`, `evidence/s20-tester-2.md`.
 
-## Sprint 23 — Segment = config 🚧 KICKOFF (24/8)
+## Sprint 23 — Segment = config ✅ ĐÓNG KỸ THUẬT (24/8)
 
 - **Theme:** nhận segment tín chấp qua config v2 tenant-bound; reason-code/RFI/counter-offer có
   runtime proof nhưng không mở auto-approval.
-- **Gate:** source credential bind `tenant_slug`; invalid config/taxonomy fail trước agent boot;
-  intake chỉ tạo durable link/conversation rỗng. Operator start rõ ràng, context allowlist; mọi
-  linked conversation bị tool guard chặn hành động nhạy cảm. Memo reason code validate trước write;
-  RFI đúng hai key sau commit + exact-case; C009 CO-01 có candidate + same-amount credit reassessment
-  + active wiki citation. Hai tester gate song song, PM review riêng.
+- **Gate:** PASS — source credential bind `tenant_slug`; invalid config/taxonomy fail trước agent
+  boot; intake chỉ tạo durable link/conversation rỗng. Operator start rõ ràng, context allowlist;
+  mọi linked conversation bị tool guard chặn hành động nhạy cảm. Memo reason code validate
+  trước write; RFI đúng hai key sau commit + exact-case; C009 CO-01 có candidate +
+  same-amount credit reassessment + active wiki citation. Curl/Selenium chứng minh exact target
+  focus và explicit operator turn sau khi PM yêu cầu bổ sung artifact còn thiếu.
 - **Ranh:** D-81 tách intake shadow khỏi approval `shadow_reviews`; external party chưa là internal
   owner, full LOS four-role defer S24. D-83 best-effort không claim exactly-once; D-82 tool catalog
   sở hữu số. Không outbox/bảng/start endpoint/card/scoring mới.
-- **Baseline:** **613 BE pass + 17 skip + 336 FE pass = 949 pass + 17 skip**; caveat optional
-  `pyvi` và default-parallel Vitest timing-flake phải xuất hiện trong evidence.
-- **Plan:** `plan_sprint_23.md`.
+- **Mốc:** **677 BE pass + 17 skip + 348 FE pass = 1.025 pass + 17 skip**. Lượt FE
+  default-parallel `346/348` và optional `pyvi` được giữ nguyên trong evidence; serial
+  `348/348` là lượt ký. Hai tester độc lập và PM process đều PASS.
+- **Plan:** `plan_sprint_23.md` · **End:** `end_sprint_23.md` · **Evidence:**
+  `evidence/s23-tester-1.md`, `evidence/s23-tester-2.md` và hai PNG exact-case/operator.
+
+## Sprint 24 — Source adapters + external identity 🧱 NEXT (chưa plan/kickoff)
+
+- **Đặt gạch duy nhất:** contract/adapter non-claim CIC/C06/BHXH, external→internal identity
+  có provenance và gate full LOS four-role. Chưa có schema/credential thì không fake live;
+  không mở auto-approve hay gỡ D-80. B-05 + t9go1 vẫn chờ gu user, không trộn vào S24.

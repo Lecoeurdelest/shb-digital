@@ -40,6 +40,7 @@
 }
 .casewb__row:hover { border-color: var(--dim); }
 .casewb__row--active { border-color: var(--acc); background: var(--acc-bg); }
+.casewb__row--focused { box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 38%, transparent); }
 .casewb__row-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .casewb__source { color: var(--mute); font: 700 10px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
 .casewb__case-id { overflow: hidden; color: var(--tx); font: 700 12.5px var(--mono); text-overflow: ellipsis; white-space: nowrap; }

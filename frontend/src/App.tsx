@@ -19,9 +19,18 @@ type BootState =
   | { phase: 'authed'; user: AuthUser };
 
 interface ApprovalDeepLink {
+  kind: 'approval';
   approvalId: string;
   nextPath: string;
 }
+
+interface CaseDeepLink {
+  kind: 'case';
+  caseId: string;
+  nextPath: string;
+}
+
+type AdminDeepLink = ApprovalDeepLink | CaseDeepLink;
 
 const APPROVAL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -36,7 +45,25 @@ function parseApprovalDeepLink(pathname: string, search: string, hash = ''): App
   }
   const approvalId = params.get('approval') ?? '';
   if (params.get('tab') !== 'approvals' || !APPROVAL_ID.test(approvalId)) return null;
-  return { approvalId, nextPath: `${pathname}${search}` };
+  return { kind: 'approval', approvalId, nextPath: `${pathname}${search}` };
+}
+
+// D-83 exact-case URL dùng cùng kỷ luật parser với approval nhưng là contract độc lập. Hai parser
+// không dùng alias chéo: tab/id sai cặp hoặc param thừa/lặp đều không tạo exact fetch.
+function parseCaseDeepLink(pathname: string, search: string, hash = ''): CaseDeepLink | null {
+  if (pathname !== '/' || hash) return null;
+  const params = new URLSearchParams(search);
+  const keys = Array.from(params.keys());
+  if (keys.length !== 2 || new Set(keys).size !== 2 || keys.some((key) => key !== 'tab' && key !== 'case')) {
+    return null;
+  }
+  const caseId = params.get('case') ?? '';
+  if (params.get('tab') !== 'cases' || !APPROVAL_ID.test(caseId)) return null;
+  return { kind: 'case', caseId, nextPath: `${pathname}${search}` };
+}
+
+function parseAdminDeepLink(pathname: string, search: string, hash = ''): AdminDeepLink | null {
+  return parseApprovalDeepLink(pathname, search, hash) ?? parseCaseDeepLink(pathname, search, hash);
 }
 
 // App = ErrorBoundary bọc AppInner: 1 lỗi render bất kỳ nhánh nào (Login/Tower/Workspace)
@@ -51,7 +78,7 @@ export default function App() {
 
 function AppInner() {
   const [deepLink] = useState(() =>
-    parseApprovalDeepLink(window.location.pathname, window.location.search, window.location.hash),
+    parseAdminDeepLink(window.location.pathname, window.location.search, window.location.hash),
   );
   const [boot, setBoot] = useState<BootState>({ phase: 'checking' });
   const [view, setView] = useState<'workspace' | 'tower'>(() => (deepLink ? 'tower' : 'workspace'));
@@ -117,8 +144,9 @@ function AppInner() {
     return (
       <ControlTower
         onBack={returnToWorkspace}
-        initialTab={deepLink ? 'queue' : undefined}
-        focusedApprovalId={deepLink?.approvalId}
+        initialTab={deepLink?.kind === 'approval' ? 'queue' : deepLink?.kind === 'case' ? 'assessments' : undefined}
+        focusedApprovalId={deepLink?.kind === 'approval' ? deepLink.approvalId : undefined}
+        focusedCaseId={deepLink?.kind === 'case' ? deepLink.caseId : undefined}
         onOpenCaseConversation={openCaseConversation}
       />
     );

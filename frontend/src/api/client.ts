@@ -276,6 +276,11 @@ export const apiClient = {
     return request<CaseSummary[]>(`/api/cases${query ? `?${query}` : ''}`);
   },
 
+  // D-83: fetch one exact tenant-scoped case for the admin-only Tower deep-link.
+  getCase(id: string): Promise<CaseSummary> {
+    return request<CaseSummary>(`/api/cases/${encodeURIComponent(id)}`);
+  },
+
   // Submit form + grant consent D-80. Wording/version/hash/tenant/subject đều do server/card
   // sở hữu; client chỉ có quyền gửi literal consent_granted=true.
   submitForm(

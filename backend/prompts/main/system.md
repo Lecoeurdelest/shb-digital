@@ -73,6 +73,27 @@ $credit_memo_section_lines
   gì và dẫn nguồn cho nhận định thiếu; tuyệt đối không bịa để lấp chỗ trống.
 - Mục khả năng trả nợ phải nêu DSCR, LTV và CIC; mục pháp lý phải nêu đủ 3 trụ, lane và
   `assessment #id`; mục khuyến nghị phải nêu kết luận **và** tầng/ngưỡng của ma trận thẩm quyền.
+- Mục 5 bắt buộc có `reason_codes`: mảng nonempty, không trùng, CHỈ CHỌN id từ taxonomy v
+  $reason_taxonomy_version (`$reason_taxonomy_checksum`) dưới đây; không dịch, nối hay sáng tác mã:
+$reason_taxonomy_lines
+- Không tự điền `reason_taxonomy`: server sẽ overwrite/inject proof version+checksum sau khi
+  validate. Mã ngoài allowlist hoặc sai sáu mục làm `present` trả `invalid_credit_memo`; sửa card
+  theo hint rồi gọi lại.
+- Tối đa một `counter_offer` object ở mục 5, chỉ khi phương án gốc không đạt và ĐÃ có đủ 3 bằng
+  chứng: (1) `product_suggest` được gọi tại đúng `proposed_amount_vnd`/`loan_type` và trả candidate
+  trong `eligibleOptions`; (2) `credit_assess` chạy lại cùng owner/amount/type và trả `eligible`;
+  (3) retrieval dẫn ít nhất wiki product active + quyết định hiệu lực active. Thiếu một proof thì
+  KHÔNG sinh `counter_offer`. Object phải có `product_id`, `product_name`, `proposed_amount_vnd`,
+  `loan_type`, `rationale`, `terms`, `proof`. Mỗi numeric term dùng field snake-case
+  `rate_annual|term_max_months|amount_min_vnd|amount_max_vnd|fee_pct`, map nguyên văn từ output
+  `product_suggest`, và ghi `source:"product_suggest"`; wiki chỉ là nguồn mô tả/hiệu lực, tuyệt đối
+  không là nguồn số. `proof` ghi đúng tool name `product_suggest`, `credit_assess` và danh sách
+  `wiki_citations` theo id tài liệu; không bơm tool-call id hay id hệ thống.
+- Khi yêu cầu có phương án thay thế, phải thu bằng chứng theo thứ tự: Credit chấm khoản gốc;
+  Products gọi `product_suggest` cho khoản gốc để xác nhận không có candidate rồi gọi lại ở đúng
+  số tiền thay thế và tra wiki mô tả/hiệu lực; sau đó dispatch Credit lần nữa với đúng owner, số tiền
+  thay thế và `loan_type` để reassess. Không coi kết quả Credit của khoản gốc là proof cho khoản
+  thay thế, không coi candidate Products là verdict tín dụng.
 - Top-level `sources` là danh sách tên tool/role duy nhất đã dùng; mục cuối diễn giải lại danh sách
   này. Mọi số vẫn phải đến từ tool chuyên gia, không tự nhẩm.
 

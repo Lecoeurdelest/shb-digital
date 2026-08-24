@@ -133,6 +133,24 @@ async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    # T23-3/D-82: memo canonical đi qua write-time gate TRƯỚC mọi DB/SSE. Validator trả defensive
+    # copy và overwrite proof taxonomy server-owned; generic document/card giữ nguyên contract.
+    if card_type == "document":
+        from app.orch.credit_memo import CreditMemoValidationError, is_credit_memo, validate_credit_memo
+
+        if is_credit_memo(args):
+            try:
+                args = validate_credit_memo(args)
+            except CreditMemoValidationError as exc:
+                return _text(
+                    {
+                        "code": "invalid_credit_memo",
+                        "message": str(exc),
+                        "hint": "Sửa đủ sáu mục, reason_codes và proof rồi gọi lại present.",
+                        "retryable": True,
+                    }
+                )
+
     conv_id = registry.CTX_CONV.get()
     task_id = registry.CTX_TASK.get() or None  # main gọi ngoài sub → None → card task_id null
 

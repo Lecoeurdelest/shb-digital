@@ -1,8 +1,8 @@
 """Chuông cửa webhook cho bàn duyệt (D-71) — allowlist nhỏ, best-effort sau commit.
 
-Webhook chỉ báo có việc và mang deep-link về Control Tower. Adapter không nhận nguyên approval
-row làm body: mọi message đều dựng mới từ năm scalar được phép để tránh vô tình đẩy dữ liệu tín
-dụng ra ngoài bank DC. Không outbox; retry hữu hạn có thể tạo bản tin trùng theo CONTRACT §8.
+Webhook chỉ báo có việc và mang deep-link về Control Tower. Approval và RFI đều dựng body mới từ
+allowlist riêng, không nhận nguyên row nghiệp vụ. Không outbox; retry hữu hạn có thể tạo bản tin
+trùng theo CONTRACT §8/§11f.
 """
 
 from __future__ import annotations
@@ -13,9 +13,11 @@ import os
 from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlencode
+from uuid import UUID
 
 import httpx
 
+from app.case_intake.normalization import normalize_missing_fields
 from app.notify.hooks import app_url
 
 log = logging.getLogger("notify.channels")
@@ -191,3 +193,35 @@ def notify_channel_approval_decided(approval: dict[str, Any]) -> None:
     if status not in {"approved", "rejected"}:
         return
     _schedule(approval, status)
+
+
+def notify_channel_case_rfi(case_id: str, missing_fields: list[str]) -> None:
+    """Schedule a minimized D-83 generic webhook after the caller's intake commit."""
+    webhook_url = os.environ.get("SHB_NOTIFY_WEBHOOK_URL", "").strip()
+    if not webhook_url:
+        return
+    channel = os.environ.get("SHB_NOTIFY_CHANNEL", "generic").strip()
+    if channel != "generic":
+        log.warning("RFI webhook disabled channel=%s case=%s", channel or "invalid", str(case_id)[:8])
+        return
+    try:
+        canonical_case_id = str(UUID(str(case_id)))
+    except (TypeError, ValueError, AttributeError):
+        log.warning("RFI webhook drop invalid case id")
+        return
+    normalized = normalize_missing_fields(missing_fields)
+    if not normalized:
+        return
+    body = {
+        "missing_fields": normalized,
+        "deep_link": f"{app_url().rstrip('/')}/?{urlencode({'tab': 'cases', 'case': canonical_case_id})}",
+    }
+    event = {"status": "rfi", "conv_id": canonical_case_id[:8]}
+    try:
+        loop = asyncio.get_running_loop()
+        task = loop.create_task(_deliver_guarded(webhook_url, "generic", event, body))
+    except Exception as exc:  # noqa: BLE001 — best-effort sau commit
+        log.warning("RFI webhook schedule lỗi case=%s exception=%s", canonical_case_id[:8], type(exc).__name__)
+        return
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
