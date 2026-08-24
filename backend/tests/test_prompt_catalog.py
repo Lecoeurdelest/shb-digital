@@ -93,6 +93,16 @@ def test_repository_sync_is_idempotent_and_active_prompt_renders():
     assert second["versions_created"] == 0
     service = PromptService(ttl_seconds=0)
     assert service.render("event.user_message", {"content": "xin chào"}) == "Tin nhắn người dùng: xin chào\n"
+    ready = service.render(
+        "event.credit_memo.ready",
+        {
+            "role_count": 2,
+            "role_text": "credit, legal",
+            "title": CREDIT_MEMO_TITLE,
+            "sections": "six canonical sections",
+        },
+    )
+    assert "`reason_codes`" in ready
 
 
 @requires_db

@@ -1,6 +1,7 @@
-version: 1
+version: 2
 sources:
   los:
+    tenant_slug: bank-digital-default
     enabled: false
     modes: [api]
     accepted_schema_versions: [1]
@@ -10,6 +11,13 @@ sources:
       - case.cancelled
     workflow_profile: preassessment_only
     auto_start: shadow
-    allowed_products: [SME_SECURED]
+    allowed_products: [SME_SECURED, UNSECURED_CONSUMER, UNSECURED_PUBLIC]
+    product_profiles:
+      UNSECURED_CONSUMER:
+        workflow_profile: preassessment_only
+        auto_start: shadow
+      UNSECURED_PUBLIC:
+        workflow_profile: preassessment_only
+        auto_start: shadow
     max_payload_bytes: 262144
     api_key_env: SHB_LOS_CASE_INTAKE_API_KEY

@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import hmac
 import json
+import logging
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -13,13 +15,14 @@ from pydantic import ValidationError
 
 from app.auth.deps import require_admin
 from app.case_intake.config import CaseIntakeConfigError, SourceConfig, load_case_intake_config
-from app.case_intake.read_model import list_cases
+from app.case_intake.read_model import get_case, list_cases
 from app.case_intake.schemas import CaseEventV1
 from app.case_intake.service import ingest_case_event
 from app.errors import ApiError
 from app.tenancy import tenant_id_from_claims
 
 router = APIRouter(tags=["case-intake"])
+log = logging.getLogger("api.case_intake")
 _ABSOLUTE_MAX_BYTES = 1_048_576
 _CASE_STATUSES = {
     "received",
@@ -87,6 +90,26 @@ def _parse_payload(raw: bytes) -> dict[str, Any]:
     return payload
 
 
+def _notify_rfi(case_id: str, missing_fields: tuple[str, ...]) -> None:
+    """Post-commit best effort: transport failure must never rewrite an accepted receipt."""
+    try:
+        from app.notify.channels import notify_channel_case_rfi
+
+        notify_channel_case_rfi(case_id, list(missing_fields))
+    except Exception as exc:  # noqa: BLE001 — transaction đã commit; chuông không được đổi receipt
+        log.warning("notify case RFI lỗi case=%s exception=%s", case_id[:8], type(exc).__name__)
+
+
+def _case_not_found() -> ApiError:
+    return ApiError(
+        404,
+        "not_found",
+        "Không tìm thấy hồ sơ trong phạm vi đơn vị.",
+        "Kiểm tra lại liên kết hồ sơ.",
+        retryable=False,
+    )
+
+
 @router.post("/api/integrations/v1/case-events")
 async def receive_case_event(request: Request) -> JSONResponse:
     raw = await request.body()
@@ -116,8 +139,18 @@ async def receive_case_event(request: Request) -> JSONResponse:
         raise ApiError(403, "event_not_allowed", "Loại event không được phép.", "Kiểm tra source allowlist.")
     if event.case.product_code not in source_config.allowed_products:
         raise ApiError(403, "product_not_allowed", "Sản phẩm không được phép intake.", "Kiểm tra product allowlist.")
-    receipt = await asyncio.to_thread(ingest_case_event, event, shadow=source_config.auto_start == "shadow")
-    return JSONResponse(status_code=202, content=receipt)
+    profile = source_config.profile_for(event.case.product_code)
+    result = await asyncio.to_thread(
+        ingest_case_event,
+        event,
+        tenant_slug=source_config.tenant_slug,
+        shadow=profile.auto_start == "shadow",
+    )
+    # Service chỉ trả candidate sau commit; serialize receipt public trước rồi mới schedule chuông.
+    response = JSONResponse(status_code=202, content=result.receipt)
+    if result.rfi_candidate is not None:
+        _notify_rfi(result.rfi_candidate.case_id, result.rfi_candidate.missing_fields)
+    return response
 
 
 @router.get("/api/cases")
@@ -138,3 +171,15 @@ async def get_cases(
         limit=limit,
         tenant_id=tenant_id_from_claims(claims),
     )
+
+
+@router.get("/api/cases/{case_id}")
+async def get_exact_case(case_id: str, claims: dict = Depends(require_admin)) -> dict[str, Any]:
+    try:
+        canonical_case_id = str(UUID(case_id))
+    except (ValueError, AttributeError) as exc:
+        raise _case_not_found() from exc
+    row = await asyncio.to_thread(get_case, canonical_case_id, tenant_id=tenant_id_from_claims(claims))
+    if row is None:
+        raise _case_not_found()
+    return row

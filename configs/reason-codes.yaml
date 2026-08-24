@@ -1,0 +1,44 @@
+version: 1
+codes:
+  - id: HS_THIEU_DINH_DANH_NOI_BO
+    group: HS_THIEU
+    description: Thiếu mã định danh nội bộ để đối chiếu hồ sơ.
+  - id: HS_THIEU_CHUNG_TU_BAT_BUOC
+    group: HS_THIEU
+    description: Chưa đủ chứng từ bắt buộc cho bước sơ thẩm.
+  - id: CIC_CAN_RA_SOAT
+    group: CIC
+    description: Kết quả CIC cần cán bộ có thẩm quyền rà soát thêm.
+  - id: CIC_DAT_DIEU_KIEN
+    group: CIC
+    description: Kết quả CIC đạt điều kiện dùng cho bước sơ thẩm.
+  - id: CIC_KHONG_DAT_CHINH_SACH
+    group: CIC
+    description: Kết quả CIC không đạt điều kiện chính sách đang áp dụng.
+  - id: THU_NHAP_CHUA_DU_CAN_CU
+    group: THU_NHAP
+    description: Chưa đủ căn cứ xác minh thu nhập dùng cho sơ thẩm.
+  - id: THU_NHAP_DA_XAC_MINH
+    group: THU_NHAP
+    description: Thu nhập dùng trong sơ thẩm đã có căn cứ xác minh.
+  - id: THU_NHAP_KHONG_DU_KHA_NANG_TRA_NO
+    group: THU_NHAP
+    description: Khả năng trả nợ chưa đạt điều kiện của sản phẩm đề nghị.
+  - id: PHAP_LY_CAN_BO_SUNG
+    group: PHAP_LY
+    description: Hồ sơ pháp lý cần bổ sung trước khi tiếp tục.
+  - id: PHAP_LY_DA_KIEM_TRA
+    group: PHAP_LY
+    description: Các trụ pháp lý trong phạm vi sơ thẩm đã được kiểm tra.
+  - id: PHAP_LY_CAN_CHUYEN_CHUYEN_GIA
+    group: PHAP_LY
+    description: Có điểm pháp lý cần chuyên gia xem xét.
+  - id: TSDB_CHUA_DU_HO_SO
+    group: TSDB
+    description: Chưa đủ hồ sơ tài sản bảo đảm để đánh giá.
+  - id: TSDB_DAT_DIEU_KIEN
+    group: TSDB
+    description: Tài sản bảo đảm đạt điều kiện dùng cho bước sơ thẩm.
+  - id: TSDB_KHONG_DAT_DIEU_KIEN
+    group: TSDB
+    description: Tài sản bảo đảm chưa đạt điều kiện của sản phẩm đề nghị.

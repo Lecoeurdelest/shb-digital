@@ -21,6 +21,9 @@ import type {
   ModelsResponse,
   NotificationItem,
   OrchTask,
+  ShadowMatchStats,
+  ShadowMismatchFilters,
+  ShadowMismatchPage,
   SSEEnvelope,
   StatsResponse,
   StatsWindow,
@@ -28,7 +31,17 @@ import type {
   CostTrendResponse,
 } from '../types';
 import { ApiErrorLike, MOCK_LATENCY_MS, delay, envelope, nowIso, uid } from './mockShared';
-import { mockGetCost, mockGetCostTrend, mockGetModels, mockGetStats, mockListAssessments, mockListCases, mockRunCompare } from './mockData';
+import {
+  mockGetCost,
+  mockGetCostTrend,
+  mockGetModels,
+  mockGetShadowMatch,
+  mockGetStats,
+  mockListAssessments,
+  mockListCases,
+  mockListShadowMismatches,
+  mockRunCompare,
+} from './mockData';
 
 interface MockRoom {
   conversation: Conversation;
@@ -211,12 +224,18 @@ class MockBackend {
   }
 
   // ── Form intake khách mới (T9-3): submitForm flip card pending→submitted + emit card update ──
-  async submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult> {
+  async submitForm(
+    convId: string,
+    cardId: string,
+    values: Record<string, string>,
+    consentGranted: true,
+  ): Promise<FormSubmitResult> {
     await delay(MOCK_LATENCY_MS);
     const r = this.room(convId);
     const card = r.cards.find((c) => c.id === cardId && c.type === 'form');
     if (!card) throw new ApiErrorLike(404, 'not_found', 'Không tìm thấy form hồ sơ (mock).');
     if (card.status === 'submitted') throw new ApiErrorLike(409, 'form_already_submitted', 'Hồ sơ đã được nộp (mock).');
+    if (consentGranted !== true) throw new ApiErrorLike(400, 'consent_required', 'Cần xác nhận đồng ý trước khi nộp (mock).');
     // validate thiếu field bắt buộc (mock: full_name + monthly_income tiêu biểu)
     const required = ((card.fields as { name: string; required: boolean }[]) ?? []).filter((f) => f.required).map((f) => f.name);
     const missing = required.filter((n) => !String(values[n] ?? '').trim());
@@ -243,6 +262,14 @@ class MockBackend {
     return mockGetStats(window);
   }
 
+  async getShadowMatch(): Promise<ShadowMatchStats> {
+    return mockGetShadowMatch();
+  }
+
+  async listShadowMismatches(filters: ShadowMismatchFilters = {}): Promise<ShadowMismatchPage> {
+    return mockListShadowMismatches(filters);
+  }
+
   async getCost(window: StatsWindow = '24h'): Promise<CostResponse> {
     return mockGetCost(window);
   }
@@ -257,6 +284,12 @@ class MockBackend {
 
   async listCases(filters: CaseListFilters = {}): Promise<CaseSummary[]> {
     return mockListCases(filters);
+  }
+
+  async getCase(id: string): Promise<CaseSummary> {
+    const item = (await mockListCases({ limit: 50 })).find((row) => row.id === id);
+    if (!item) throw new ApiErrorLike(404, 'not_found', 'Hồ sơ không tồn tại (mock).');
+    return item;
   }
 
   async runCompare(question: string): Promise<CompareResult> {
@@ -354,6 +387,13 @@ class MockBackend {
           { name: 'monthly_income', label: 'Thu nhập hàng tháng (VND)', type: 'number', required: true },
           { name: 'loan_purpose', label: 'Mục đích vay', type: 'text', required: true },
         ],
+        consent: {
+          required: true,
+          purpose: 'pre_pilot_shadow_preassessment',
+          wording_version: 'v1',
+          wording_checksum: '2cf4dd7ff556fab628f5ee930825a1d40faf193a83373e93ad23f5354093781d',
+          content_markdown: '**Pre-pilot:** Tôi đồng ý dữ liệu trong form được dùng cho sơ thẩm shadow theo nội dung do ngân hàng cung cấp.',
+        },
       };
       this.pushCard(convId, card);
       return;

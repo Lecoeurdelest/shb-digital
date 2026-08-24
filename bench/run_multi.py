@@ -36,15 +36,29 @@ OUT_DIR = BENCH_DIR / "responses" / "multi"
 
 # account mặc định NGÂN HÀNG (RM) — thấy mọi ca, đủ quyền audit (admin cần cho GET /api/audit).
 # case disclosure-khách cần persona KHÁCH riêng — xem CUSTOMER_CASES.
-DEFAULT_LOGIN = ("admin", "admin")  # admin: vừa require_admin (audit) vừa require_user (chat) — 1 account đủ cả 2
-CUSTOMER_LOGIN = ("c019", "c019")  # persona khách có owner_id thật (C019) cho case cần role=customer
+DEFAULT_LOGIN = (
+    "admin",
+    "admin",
+)  # admin: vừa require_admin (audit) vừa require_user (chat) — 1 account đủ cả 2
+CUSTOMER_LOGIN = (
+    "c019",
+    "c019",
+)  # persona khách có owner_id thật (C019) cho case cần role=customer
 CUSTOMER_CASES = {"TRAP-03-disclosure-khach"}
 
 POLL_INTERVAL_S = 3
-POLL_BUDGET_S = 600  # 10 phút/case — đủ cho chuỗi tuần tự D-52 (4 role) + haiku sub chậm nhất
+POLL_BUDGET_S = (
+    600  # 10 phút/case — đủ cho chuỗi tuần tự D-52 (4 role) + haiku sub chậm nhất
+)
 
 
-def _req(method: str, path: str, token: str | None = None, body: dict | None = None, timeout: int = 30) -> Any:
+def _req(
+    method: str,
+    path: str,
+    token: str | None = None,
+    body: dict | None = None,
+    timeout: int = 30,
+) -> Any:
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -60,21 +74,35 @@ def _req(method: str, path: str, token: str | None = None, body: dict | None = N
             payload = json.loads(raw)
         except json.JSONDecodeError:
             payload = {"raw": raw.decode(errors="replace")}
-        raise RuntimeError(f"{method} {path} -> HTTP {e.code}: {json.dumps(payload, ensure_ascii=False)}") from e
+        raise RuntimeError(
+            f"{method} {path} -> HTTP {e.code}: {json.dumps(payload, ensure_ascii=False)}"
+        ) from e
 
 
 def login(username: str, password: str) -> str:
-    result = _req("POST", "/api/auth/login", body={"username": username, "password": password})
+    result = _req(
+        "POST", "/api/auth/login", body={"username": username, "password": password}
+    )
     return result["token"]
 
 
 def create_conversation(token: str, title: str) -> str:
-    conv = _req("POST", "/api/conversations", token=token, body={"title": title, "provider": "claude-cli", "model": "sonnet"})
+    conv = _req(
+        "POST",
+        "/api/conversations",
+        token=token,
+        body={"title": title, "provider": "claude-cli", "model": "sonnet"},
+    )
     return conv["id"]
 
 
 def send_chat(token: str, conv_id: str, content: str) -> None:
-    _req("POST", f"/api/conversations/{conv_id}/chat", token=token, body={"content": content})
+    _req(
+        "POST",
+        f"/api/conversations/{conv_id}/chat",
+        token=token,
+        body={"content": content},
+    )
 
 
 def get_conversation(token: str, conv_id: str) -> dict[str, Any]:
@@ -87,7 +115,10 @@ def _fetch_audit(token: str, conv_id: str) -> list[dict[str, Any]]:
     try:
         return _req("GET", f"/api/audit?conv_id={conv_id}&limit=500", token=token)
     except RuntimeError as e:
-        print(f"  [WARN] audit fetch lỗi (cần admin — tiếp tục không có audit): {e}", file=sys.stderr)
+        print(
+            f"  [WARN] audit fetch lỗi (cần admin — tiếp tục không có audit): {e}",
+            file=sys.stderr,
+        )
         return []
 
 
@@ -117,7 +148,9 @@ def _team_settled(conv: dict[str, Any]) -> bool:
     return True
 
 
-def poll_until_done(token: str, conv_id: str, budget_s: int = POLL_BUDGET_S) -> dict[str, Any]:
+def poll_until_done(
+    token: str, conv_id: str, budget_s: int = POLL_BUDGET_S
+) -> dict[str, Any]:
     """Poll tới khi đội THẬT xong — ỔN ĐỊNH qua 2 lần đọc liên tiếp (advisor: main flip
     idle→running→idle nhiều đợt cho chuỗi tuần tự D-52; 1 lần idle có thể là khoảng nghỉ giữa
     dispatch Credit xong / trước khi giao Legal). approval_required (brake case) → conversation.
@@ -146,7 +179,10 @@ def poll_until_done(token: str, conv_id: str, budget_s: int = POLL_BUDGET_S) -> 
         else:
             stable_count = 0
         time.sleep(POLL_INTERVAL_S)
-    print(f"  [WARN] poll budget {budget_s}s hết — trả trạng thái CUỐI CÙNG đọc được (có thể chưa xong)", file=sys.stderr)
+    print(
+        f"  [WARN] poll budget {budget_s}s hết — trả trạng thái CUỐI CÙNG đọc được (có thể chưa xong)",
+        file=sys.stderr,
+    )
     return last or {}
 
 
@@ -157,7 +193,9 @@ def _load_case(case_id: str) -> dict[str, Any]:
         if len(matches) == 1:
             path = matches[0]
         else:
-            raise FileNotFoundError(f"case '{case_id}' không tìm thấy trong {CASES_DIR}")
+            raise FileNotFoundError(
+                f"case '{case_id}' không tìm thấy trong {CASES_DIR}"
+            )
     return yaml.safe_load(path.read_text())
 
 
@@ -167,7 +205,9 @@ def run_case(case_id: str) -> Path:
     prompt = case["prompt"].strip()
     use_customer = real_id in CUSTOMER_CASES
     username, password = CUSTOMER_LOGIN if use_customer else DEFAULT_LOGIN
-    print(f"[{real_id}] login={username} (persona={'khách' if use_customer else 'ngân hàng-admin'})")
+    print(
+        f"[{real_id}] login={username} (persona={'khách' if use_customer else 'ngân hàng-admin'})"
+    )
     token = login(username, password)
     # audit cần quyền admin (T4-1 require_admin) — persona khách KHÔNG có quyền audit; dùng token
     # admin RIÊNG để fetch audit sau khi case chạy xong (không ảnh hưởng persona lúc chat).
@@ -184,17 +224,52 @@ def run_case(case_id: str) -> Path:
 
     out_path = OUT_DIR / f"{real_id}.md"
     _write_response(out_path, case, conv, audit, elapsed, persona=username)
-    print(f"[{real_id}] DONE — {elapsed}s — {len(conv.get('tasks', []))} task(s) — ghi {out_path}")
+    if isinstance(case.get("counter_offer_expected"), dict):
+        # T23-4: grade the fresh DB card + structured tool_calls, never the truncated markdown above.
+        from check_counter_offer import CounterOfferCheckError, check_conversation
+
+        proof_path = OUT_DIR / f"{real_id}.proof.json"
+        try:
+            proof = check_conversation(conv_id, case["counter_offer_expected"])
+        except CounterOfferCheckError as exc:
+            proof_path.write_text(
+                json.dumps(
+                    {"ok": False, "conv_id": conv_id, "issues": exc.issues},
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            raise RuntimeError(f"counter-offer proof FAIL; xem {proof_path}") from exc
+        proof_path.write_text(
+            json.dumps({**proof, "conv_id": conv_id}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        print(f"[{real_id}] counter-offer proof PASS — {proof_path}")
+    print(
+        f"[{real_id}] DONE — {elapsed}s — {len(conv.get('tasks', []))} task(s) — ghi {out_path}"
+    )
     return out_path
 
 
 def _final_answer(conv: dict[str, Any]) -> str:
     # store.py Message field = 'sender' (user/assistant/system), KHÔNG 'role' (đó là field Task).
-    msgs = [m for m in (conv.get("messages") or []) if m.get("sender") in ("assistant", "system")]
+    msgs = [
+        m
+        for m in (conv.get("messages") or [])
+        if m.get("sender") in ("assistant", "system")
+    ]
     return msgs[-1]["content"] if msgs else "(không có message assistant/system)"
 
 
-def _write_response(out_path: Path, case: dict[str, Any], conv: dict[str, Any], audit: list[dict], elapsed_s: float, persona: str) -> None:
+def _write_response(
+    out_path: Path,
+    case: dict[str, Any],
+    conv: dict[str, Any],
+    audit: list[dict],
+    elapsed_s: float,
+    persona: str,
+) -> None:
     conversation = conv.get("conversation") or {}
     tasks = conv.get("tasks") or []
     cards = conv.get("cards") or []
@@ -203,7 +278,9 @@ def _write_response(out_path: Path, case: dict[str, Any], conv: dict[str, Any], 
     lines.append("")
     lines.append(f"- conv_id: `{conversation.get('id')}`")
     lines.append(f"- login persona: `{persona}`")
-    lines.append(f"- provider/model: `{conversation.get('provider')}` / `{conversation.get('model')}`")
+    lines.append(
+        f"- provider/model: `{conversation.get('provider')}` / `{conversation.get('model')}`"
+    )
     lines.append(f"- conversation.status cuối: `{conversation.get('status')}`")
     lines.append(f"- thời gian tới khi settled: {elapsed_s}s")
     lines.append("")
@@ -221,10 +298,17 @@ def _write_response(out_path: Path, case: dict[str, Any], conv: dict[str, Any], 
         lines.append("| role | status | started | ended | cost |")
         lines.append("|---|---|---|---|---|")
         for t in tasks:
-            cost = json.dumps(t.get("cost"), ensure_ascii=False) if t.get("cost") else "—"
-            lines.append(f"| {t.get('role')} | {t.get('status')} | {t.get('started_at') or '—'} | {t.get('ended_at') or '—'} | {cost} |")
+            cost = (
+                json.dumps(t.get("cost"), ensure_ascii=False) if t.get("cost") else "—"
+            )
+            lines.append(
+                f"| {t.get('role')} | {t.get('status')} | {t.get('started_at') or '—'} | "
+                f"{t.get('ended_at') or '—'} | {cost} |"
+            )
     else:
-        lines.append("(không có task nào — MAIN có thể đã trả lời trực tiếp không dispatch)")
+        lines.append(
+            "(không có task nào — MAIN có thể đã trả lời trực tiếp không dispatch)"
+        )
     lines.append("")
     lines.append("## Cards (canvas)")
     lines.append("")
@@ -232,8 +316,14 @@ def _write_response(out_path: Path, case: dict[str, Any], conv: dict[str, Any], 
         for c in cards:
             # _card_to_dict (store.py) spread data lên TOP-LEVEL (title/items/sources...) — KHÔNG
             # có key 'data' lồng trong response REST (khác raw DB row).
-            preview = {k: v for k, v in c.items() if k not in ("id", "conv_id", "task_id", "ts")}
-            lines.append(f"- **{c.get('type')}** — {json.dumps(preview, ensure_ascii=False)[:600]}")
+            preview = {
+                k: v
+                for k, v in c.items()
+                if k not in ("id", "conv_id", "task_id", "ts")
+            }
+            lines.append(
+                f"- **{c.get('type')}** — {json.dumps(preview, ensure_ascii=False)[:600]}"
+            )
     else:
         lines.append("(không có card nào)")
     lines.append("")
@@ -243,9 +333,11 @@ def _write_response(out_path: Path, case: dict[str, Any], conv: dict[str, Any], 
         lines.append("| actor | tool | ts |")
         lines.append("|---|---|---|")
         for row in audit[:100]:
-            lines.append(f"| {row.get('actor')} | {row.get('tool')} | {row.get('ts')} |")
+            lines.append(
+                f"| {row.get('actor')} | {row.get('tool')} | {row.get('ts')} |"
+            )
         if len(audit) > 100:
-            lines.append(f"... (+{len(audit)-100} dòng nữa, cắt bớt)")
+            lines.append(f"... (+{len(audit) - 100} dòng nữa, cắt bớt)")
     else:
         lines.append("(không có audit row — hoặc account không đủ quyền admin)")
     lines.append("")
@@ -261,7 +353,9 @@ def _write_response(out_path: Path, case: dict[str, Any], conv: dict[str, Any], 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Chạy bench case qua hệ THẬT (API :8000)")
     ap.add_argument("--case", help="case id (vd CR-01-floor) hoặc filename không .yaml")
-    ap.add_argument("--all", action="store_true", help="chạy TẤT CẢ case trong bench/cases/")
+    ap.add_argument(
+        "--all", action="store_true", help="chạy TẤT CẢ case trong bench/cases/"
+    )
     args = ap.parse_args()
 
     if not args.case and not args.all:

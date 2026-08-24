@@ -20,6 +20,33 @@
 .formcard__input:focus { border-color: var(--acc); }
 .formcard__input:disabled { opacity: 0.6; }
 .formcard__field--missing .formcard__input { border-color: var(--fail); background: var(--tone-fail-bg); }
+.formcard__consent {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  border: 1px solid var(--bd2);
+  border-radius: 10px;
+  background: var(--bg2);
+  padding: 11px 12px;
+}
+.formcard__consent-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--tx); font-size: 11.5px; font-weight: 700; }
+.formcard__consent-proof { color: var(--mute); font: 600 9.5px var(--mono); }
+.formcard__consent-proof code { color: var(--dim); }
+.formcard__consent-wording {
+  max-height: 190px;
+  overflow-y: auto;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--p1);
+  padding: 9px 11px;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.formcard__consent-wording .md > :first-child { margin-top: 0; }
+.formcard__consent-wording .md > :last-child { margin-bottom: 0; }
+.formcard__consent-check { display: flex; align-items: flex-start; gap: 8px; color: var(--tx); font-size: 11.5px; line-height: 1.45; cursor: pointer; }
+.formcard__consent-check input { margin-top: 2px; accent-color: var(--acc); flex: none; }
 .formcard__error {
   font-size: 11.5px;
   color: var(--fail);

@@ -103,6 +103,12 @@ describe('App approval deep-link auth handoff', () => {
       ...focusedPending,
       status: 'approved',
     });
+    const shadowStatsSpy = vi.spyOn(conversationApi, 'getShadowMatch').mockResolvedValue({
+      total: 0, comparable: 0, matched: 0, rate: 0, by_lane: [], by_day: [],
+    });
+    const shadowMismatchSpy = vi.spyOn(conversationApi, 'listShadowMismatches').mockResolvedValue({
+      items: [], next_cursor: null,
+    });
 
     render(<App />);
 
@@ -112,6 +118,8 @@ describe('App approval deep-link auth handoff', () => {
     expect(listSpy).not.toHaveBeenCalled();
     expect(exactSpy).not.toHaveBeenCalled();
     expect(decideSpy).not.toHaveBeenCalled();
+    expect(shadowStatsSpy).not.toHaveBeenCalled();
+    expect(shadowMismatchSpy).not.toHaveBeenCalled();
   });
 
   it.each([

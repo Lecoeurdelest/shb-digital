@@ -286,6 +286,43 @@ Endpoint chỉ dành cho `admin`, không nhận query param. Success `200` trả
 - Ledger rỗng trả chính xác
   `{"total":0,"comparable":0,"matched":0,"rate":0.0,"by_lane":[],"by_day":[]}`.
 
+### 7d. `GET /api/stats/shadow-match/mismatches` (S20 · D-79)
+
+Endpoint chỉ dành cho `admin`, tenant luôn lấy từ JWT/account và không nhận `tenant_id` từ query
+hoặc body. Success `200` là page object trần:
+
+```ts
+interface ShadowMismatch {
+  approval_id: string;
+  conv_id: string;
+  system_lane: 'green' | 'yellow' | 'red' | null;
+  system_recommendation: 'auto-eligible' | 'human-review' | 'reject-recommended';
+  human_decision: 'approved' | 'rejected';
+  human_reason: string | null;
+  decided_at: string; // ISO-8601 UTC
+}
+interface ShadowMismatchPage {
+  items: ShadowMismatch[];
+  next_cursor: string | null;
+}
+```
+
+Query contract:
+
+- `from` và `to` là ISO-8601 có timezone; server chuẩn hóa UTC. `from` inclusive, `to` exclusive;
+  nếu cả hai có mặt thì bắt buộc `from < to`.
+- `lane` nếu có chỉ nhận `green|yellow|red`. `limit` mặc định `50`, nhỏ nhất `1`, lớn nhất `200`.
+- Chỉ row `match=false`, sort ổn định `decided_at DESC, approval_id DESC`. Phân trang dùng keyset,
+  không dùng offset; trang cuối và trang rỗng trả `next_cursor:null`.
+- `cursor` là chuỗi opaque có integrity check, bind với tenant cùng canonical filter
+  `from/to/lane`; reuse ở tenant khác hoặc đổi bất kỳ filter nào trả `400 invalid_cursor`, không
+  được biến thành danh sách của context mới.
+- Timestamp/lane/limit/cursor sai hoặc `from >= to` trả `400` error 4-field §0. Thiếu phiên `401`,
+  role `customer|user` trả `403`. Tenant khác không bao giờ thấy row.
+
+Endpoint này chỉ đọc ledger. Write seam duy nhất của `shadow_reviews` vẫn là
+`store_shadow.insert_review()` trong transaction `approvals.decide`; không có API update/delete.
+
 ## 8. Outbound webhook doorbell (S19 · D-71)
 
 Config: `SHB_NOTIFY_WEBHOOK_URL` rỗng/thiếu = tắt; `SHB_NOTIFY_CHANNEL=lark|generic`
@@ -501,22 +538,42 @@ Broker consumer, pull/read-through adapter và batch loader (legacy/backfill) l�
 khi có, chúng phải gọi cùng service `ingest_case_event`, không tự ghi case hoặc conversation. Kênh
 Lark/Teams/webhook §8 chỉ là chuông cửa outbound và không bao giờ là transport intake.
 
-Mỗi source nằm trong `configs/case-intake.yaml`, commit **không chứa secret**, ví dụ:
+Mỗi source nằm trong `configs/case-intake.yaml`, commit **không chứa secret**. Schema v2 bind
+credential của một source vào đúng một tenant và cho phép override profile theo product:
 
 ```yaml
-version: 1
+version: 2
 sources:
   los:
+    tenant_slug: bank-digital-default
     enabled: false
     modes: [api]
     accepted_schema_versions: [1]
     allowed_event_types: [case.snapshot_upserted, case.preassessment_requested, case.cancelled]
     workflow_profile: preassessment_only
     auto_start: shadow
-    allowed_products: [SME_SECURED]
+    allowed_products: [SME_SECURED, UNSECURED_CONSUMER, UNSECURED_PUBLIC]
+    product_profiles:
+      UNSECURED_CONSUMER: {workflow_profile: preassessment_only, auto_start: shadow}
+      UNSECURED_PUBLIC: {workflow_profile: preassessment_only, auto_start: shadow}
     max_payload_bytes: 262144
     api_key_env: SHB_LOS_CASE_INTAKE_API_KEY
 ```
+
+V1 vẫn được parse nguyên hành vi: server gán `tenant_slug=bank-digital-default` và
+`product_profiles={}`. Với v2, `tenant_slug` và `product_profiles` bắt buộc; slug khớp
+`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`. Mỗi profile product có **đúng** hai khóa
+`{workflow_profile, auto_start}`; product không có override fallback tuyệt đối về hai field cấp
+source. Product config chỉ thuộc allowlist `SME_SECURED | UNSECURED_CONSUMER | UNSECURED_PUBLIC`.
+Mọi product ngoài `SME_SECURED` phải resolve thành đúng `preassessment_only + shadow`; cấu hình
+khác bị từ chối lúc load, không được dùng YAML để mở auto.
+
+Loader cấu trúc chạy khi startup ngay sau runtime-security và trước registry reset, orphan cleanup
+hay boot agent. Loader không hỏi DB lúc startup. Mỗi request đã khớp service credential mới resolve
+`tenant_slug` sang `tenants.id` **bên trong transaction ingest**; slug không tồn tại hoặc DB lỗi trả
+`503 case_intake_not_ready` và không có partial write. Tenant không nhận từ body/query/header tùy ý.
+Mọi lookup/lock/write inbox, link và conversation dùng tenant đã resolve; conversation mới ghi
+`tenant_id` tường minh. Một alias source cho nhiều tenant và đổi unique key DB được defer.
 
 `enabled:false` là default an toàn. `api_key_env` chỉ là connector demo/test sau API Gateway;
 giá trị thật nằm trong env/secret manager, không vào YAML, response hay log. Trong `bank_dc`,
@@ -561,6 +618,13 @@ thái sẵn sàng sơ thẩm và, ở source `shadow`, tạo/lấy lại **một
 `case.cancelled` dừng case chưa được bàn giao nhưng không xóa inbox/audit. P0 chưa chạy MAIN tự động
 và không gửi dữ liệu ra ngoài; cán bộ mở đúng case/phiên để bắt đầu quy trình có kiểm soát.
 
+`missing_fields` được server chuẩn hóa thành sorted unique code. Allowlist v1 là
+`identity_document`, `internal_identity_mapping`, `income_proof`, `employment_proof`,
+`residence_proof`, `tax_return`, `financial_statements`, `financial_statements_2025`,
+`collateral_document`, `collateral_valuation`, `legal_document`. Mã liên quan CIC và một hay nhiều giá
+trị ngoài allowlist chỉ còn đúng sentinel `additional_information`; raw value không được đưa vào
+linked context, read-model hoặc webhook.
+
 Success là resource trần `202`:
 
 ```ts
@@ -581,6 +645,12 @@ interface CaseEventReceipt {
 `GET /api/cases?status=&source=&limit=` dành cho `admin`/middle-office trong Control Tower; P0 chưa
 mở trực tiếp cho customer hoặc RM. RM làm việc trong LOS/portal đã được ngân hàng cấp quyền; khi có
 IdP mapping thật, endpoint sẽ scope theo assignee thay vì trust `assigned_rm_subject` từ payload.
+
+`GET /api/cases/{id}` cũng chỉ dành cho `admin`, trong đó `id` là UUID nội bộ của
+`external_case_links`, và trả một resource `CaseSummary` trần cùng shape bên dưới. Không thấy hoặc
+khác tenant đều trả `404 not_found` để hide existence; anonymous trả `401`, role khác trả `403`.
+Endpoint exact-case không nhận tenant/source từ query và không dùng identity legacy
+`internal_operations:<id>`.
 
 Khi lọc `source`, `internal_operations` là nguồn read-only hợp lệ. Source không có trong config trả
 `404 source_not_configured`; source đã cấu hình nhưng đang tắt trả `403 source_disabled`. Hai lỗi chỉ
@@ -645,6 +715,9 @@ tạo/lookup conversation (nếu event/profile cho phép). Hai identity độc l
 - inbox `UNIQUE(source_system, event_id)` để retry không tạo event/case/phiên đôi;
 - case link `UNIQUE(source_system, external_case_id)` để version mới cập nhật đúng một case.
 
+Hai unique key vật lý vẫn global trong S23 vì một source config chỉ thuộc một tenant; dù vậy mọi SQL
+runtime phải kèm `tenant_id`, advisory-lock phải bind tenant, và link/conversation phải khớp tenant.
+
 Cùng event id + cùng payload hash trả receipt cũ với `status:'duplicate'`; cùng event id + hash khác
 trả `409 idempotency_conflict`. Version nhỏ hơn version đã nhận trả `202 stale_ignored`; version bằng
 nhau nhưng content khác trả `409 source_version_conflict`. Case/event payload hỏng, source không
@@ -655,3 +728,216 @@ Không rõ assignee/party mapping thì case nằm unassigned để middle-office
 username/email payload. Không có credential hợp lệ trả `401`; credential hợp lệ nhưng source không
 khớp/tắt trả `403`. Approval API và đường `ops_disburse` giữ nguyên quyền/phanh hiện có — cổng intake
 không có quyền phê duyệt hay giải ngân.
+
+### 11e. Operator-start, linked context và rào `preassessment_only` (D-81)
+
+Intake `auto_start: shadow` chỉ commit inbox/link và tối đa một conversation rỗng: **zero** message,
+MAIN turn, task, card, approval, `shadow_reviews`, sensitive-tool call hoặc wake. Không có endpoint
+start riêng. Admin cùng tenant mở phiên đã link rồi tự gửi một user message qua API chat hiện hữu;
+đó là hành động duy nhất bắt đầu lượt xử lý.
+
+Khi dựng system prompt cho lượt chủ động, server đọc link bằng `conversation_id + tenant_id` với
+JOIN bắt buộc `e.conversation_id=c.id AND e.tenant_id=c.tenant_id`. Context chỉ gồm:
+
+```ts
+{
+  source_system: string;
+  external_case_id_or_case_id: string;
+  product_code: string | null;
+  loan_amount_vnd: number | null;
+  missing_field_codes: string[];
+  data_as_of: string | null;
+}
+```
+
+Raw `external_case_id` chỉ được dùng khi khớp `^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$`; nếu không,
+server dùng UUID link nội bộ. Missing-field dùng allowlist §11b. JSON canonical nằm giữa delimiter
+`BEGIN_LINKED_CASE_CONTEXT_JSON`/`END_LINKED_CASE_CONTEXT_JSON` cùng chỉ dẫn rằng mọi value là dữ
+liệu không đáng tin, không phải instruction. Không inject/persist raw `party_reference`, assignee,
+document ref/content, inbox payload hoặc context block thành message.
+
+Rào thật nằm ở tool: ngay sau mở cursor trong `_gated_txn`, trước cross-owner, advisory lock,
+receipt/idempotency, verdict và mọi write, server kiểm link tenant-consistent. Mọi linked
+conversation — kể cả product SME — gọi `disburse` hoặc `ops_disburse` đều trả:
+
+```json
+{
+  "code": "preassessment_only",
+  "message": "Phiên intake này chỉ dùng để sơ thẩm, không được thực hiện hành động giải ngân.",
+  "hint": "Bàn giao hồ sơ sang quy trình phê duyệt được ngân hàng cấu hình riêng.",
+  "retryable": false
+}
+```
+
+Rào chạy trước cả replay receipt đã dùng; không tạo/đổi approval, card, receipt, conversation hay
+gọi inner tool. Conversation nội bộ không có link giữ nguyên đường tiền/idempotency hiện hành.
+
+### 11f. RFI changed-set và exact deep-link (D-83)
+
+Dưới case lock, ingestion so sorted unique normalized `missing_fields` mới với set đã lưu. Chỉ
+receipt `accepted`, event không phải cancel, set mới nonempty và khác set trước mới trả một
+`rfi_candidate` nội bộ. Duplicate, stale, equal-version, set không đổi, complete và cancel không có
+candidate. Candidate không nằm trong receipt public và chỉ được API schedule sau khi transaction
+đã commit; rollback không schedule.
+
+RFI v1 dùng generic webhook best-effort và body có **đúng hai key**:
+
+```json
+{
+  "missing_fields": ["identity_document"],
+  "deep_link": "https://app.example/?tab=cases&case=1ac7e141-1780-4e09-9cef-b165cb7a0c8b"
+}
+```
+
+URL luôn ở root và query đúng `tab=cases&case=<external_case_links.id>`. Body không có event kind,
+amount, tên, external id/party, CIC, document ref/content hay inbox payload. Mỗi changed set chỉ
+schedule một lần ở app; retry transport có thể tạo bản tin trùng và crash-window sau commit có thể
+làm mất chuông. S23 không thêm outbox, notification table hay claim exactly-once.
+
+## 12. Consent pre-pilot tại cửa form khách (S20 · D-80)
+
+Đây là proof kỹ thuật versioned, **không phải DPIA, đánh giá chuyển dữ liệu hay bằng chứng tuân thủ
+đầy đủ**. Wording canonical nằm ở `configs/consent/pre-pilot.vi.md`; server parse metadata và tính
+SHA-256 trên đúng bytes UTF-8 của phần `content_markdown` được snapshot vào card. Đổi một byte nội
+dung phải bump version qua PR/maker-checker và tạo checksum mới; row cũ không bị viết lại.
+
+`present_form` tiếp tục không nhận argument từ model và snapshot vào `card.data`:
+
+```ts
+interface ConsentSnapshot {
+  required: true;
+  purpose: 'pre_pilot_shadow_preassessment';
+  wording_version: 'v1';
+  wording_checksum: string; // lowercase SHA-256, 64 hex
+  content_markdown: string;
+}
+// Card form hiện hữu được bổ sung: { ..., consent: ConsentSnapshot }
+```
+
+Client phải render nguyên snapshot, checkbox riêng mặc định `false`, và chỉ được gửi trạng thái
+đồng ý. Request form mới:
+
+```ts
+interface FormSubmitBody {
+  card_id: string;
+  values: Record<string, unknown>;
+  consent_granted: true;
+}
+```
+
+Body không có field version/checksum/tenant/subject/actor. Extra field bị schema từ chối. Server lấy
+tenant, actor và `subject_ref` từ claims; metadata proof chỉ lấy từ card server-owned rồi đối chiếu
+lại wording canonical. Thiếu/`false` trả `400 consent_required`; snapshot malformed hoặc không khớp
+canonical trả `400 consent_wording_invalid`; card form legacy không có snapshot trả
+`409 consent_wording_unavailable`. Mọi error dùng đúng envelope 4-field §0 và không tạo partial row.
+Endpoint form-submit chỉ dành cho role `customer`: thiếu phiên trả `401`; `user`/`admin` trả `403`
+trước khi đọc hoặc ghi form. `subject_ref` và `actor` đều là nguyên văn claim `sub` phía server.
+
+Khi hợp lệ, một transaction duy nhất thực hiện card `pending→submitted`, tạo `customers`, link
+`users.owner_id` và append đúng một `consent_records` với:
+
+```ts
+{
+  tenant_id: '<JWT tenant>',
+  subject_type: 'user',
+  subject_ref: '<JWT sub>',
+  purpose: 'pre_pilot_shadow_preassessment',
+  wording_version: 'v1',
+  wording_checksum: '<snapshot SHA-256>',
+  granted: true,
+  recorded_at: '<server UTC>',
+  granted_at: '<server UTC>',
+  actor: '<JWT sub>',
+  source: 'customer_form',
+  source_ref: '<card_id>'
+}
+```
+
+`consent_records` là append-only ở cả app và DB: direct `UPDATE`/`DELETE` bị trigger từ chối;
+unique `(tenant_id, source, source_ref, purpose)` chặn double-submit. `source_ref` là proof link
+dạng text, không FK cascade về card. Wake MAIN chỉ chạy sau commit. V1 chỉ ghi grant; rút lại sau
+này phải là event row mới, không update row lịch sử.
+
+Consent LOS/SAHA thuộc trách nhiệm hệ nguồn; event envelope §11b không đổi và không chứng minh nguồn
+đã thu consent. Trước pilot dữ liệu thật bắt buộc có bank data-protection/legal owner ký wording,
+xác nhận controller/contact, purpose, data/source/recipient, retention+xóa, withdrawal và cloud/
+chuyển dữ liệu; đồng thời hoàn tất DPIA cùng đánh giá chuyển dữ liệu áp dụng. Cho tới đó kết luận là
+**PILOT NO-GO**.
+
+## 13. Taxonomy, tờ trình và liên kết đúng hồ sơ (S23 · D-82/D-83)
+
+### 13a. Reason-code taxonomy và write-time gate
+
+Artifact canonical `configs/reason-codes.yaml` có đúng root `{version, codes}`. V1 dùng
+`version: 1`; mỗi phần tử `codes` có đúng `{id, group, description}`. `group` chỉ thuộc
+`HS_THIEU | CIC | THU_NHAP | PHAP_LY | TSDB`; `id` là uppercase snake-case, bắt đầu bằng đúng
+`<group>_`, duy nhất toàn file. Mã `HS_THIEU_DINH_DANH_NOI_BO` là bắt buộc.
+
+Loader fail-closed nếu root/entry thừa hoặc thiếu field, version/group/id sai, description rỗng,
+id trùng hay thiếu mã bắt buộc. Sau khi parse, server sort codes theo `id`, serialize canonical JSON
+UTF-8 bằng sorted keys và separator compact, rồi công bố checksum `sha256:<64 lowercase hex>`.
+Khoảng trắng/comment/thứ tự YAML không làm đổi checksum. Taxonomy phải load thành công ở startup
+sau runtime-security nhưng trước cleanup/boot, đồng thời được render vào prompt MAIN ở runtime.
+
+`present(type='document', title='Tờ trình sơ thẩm')` có write-time gate trước DB/SSE. `items` phải
+có đúng sáu mục theo đúng thứ tự canonical ở `backend/prompts/main/credit_memo.json`; mỗi mục có
+`section`, `content`, `source` là string khác rỗng. Riêng mục 5 có thêm `reason_codes`: mảng
+nonempty các id duy nhất, tất cả thuộc taxonomy đang chạy. Client/model không sở hữu proof:
+server luôn overwrite/inject vào mục 5:
+
+```ts
+reason_taxonomy: {
+  version: 1;
+  checksum: `sha256:${string}`;
+}
+```
+
+Vi phạm trả tool result lỗi 4-field `invalid_credit_memo`, `retryable:true`; không ghi card và
+không phát SSE. Gate không áp dụng cho document có title khác hoặc card type khác.
+
+### 13b. Counter-offer v1 trong mục khuyến nghị
+
+Mục 5 được có tối đa một `counter_offer` object (không dùng array), song song với `content` để
+người đọc hiểu được. Shape v1:
+
+```ts
+interface CounterOfferV1 {
+  product_id: string;
+  product_name: string;
+  proposed_amount_vnd: number;
+  loan_type: string;
+  rationale: string;
+  terms: Array<{
+    field: 'rate_annual' | 'term_max_months' | 'amount_min_vnd' | 'amount_max_vnd' | 'fee_pct';
+    value: number;
+    source: 'product_suggest';
+  }>;
+  proof: {
+    product_tool: 'product_suggest';
+    reassessment_tool: 'credit_assess';
+    wiki_citations: string[];
+  };
+}
+```
+
+Offer chỉ hợp lệ khi audit của chính conversation có `product_suggest` tại đúng
+`proposed_amount_vnd`/`loan_type` trả product đó trong `eligibleOptions`, và `credit_assess` chạy
+lại cùng owner/amount/type trả `verdict:'eligible'`. `wiki_citations` phải gồm tài liệu product
+đang `status: active` cho mô tả và tài liệu quyết định đang active cho hiệu lực. Mọi numeric term
+phải map đúng field của eligible option từ `product_suggest`; wiki không phải nguồn số. Thiếu một
+trong ba proof thì không được sinh offer; checker đọc fresh card cùng `tool_calls` theo conversation,
+không chấm response markdown.
+
+### 13c. Exact-case API và URL
+
+`GET /api/cases/{id}` nhận UUID và chỉ dành cho admin. Success trả resource `CaseSummary` trần như
+§11c. Không có phiên trả `401`; RM/customer trả `403`; id không tồn tại hoặc thuộc tenant khác đều
+trả `404` để không lộ sự tồn tại.
+
+Public URL duy nhất để mở đúng hồ sơ là `/?tab=cases&case=<uuid>`. Parser chỉ nhận pathname `/`,
+không hash, đúng hai key `tab` và `case`, mỗi key xuất hiện đúng một lần, `tab=cases` và case UUID
+hợp lệ; param thừa/lặp/malformed là URL thường và không exact-fetch. URL hợp lệ được giữ nguyên qua
+login. Sau khi xác thực, chỉ admin mount Tower ở tab `assessments`, gọi exact endpoint rồi merge
+theo `CaseSummary.id`, chọn và highlight row kể cả target không nằm trong list 50 ban đầu. Lỗi exact
+không phá danh sách tải độc lập. RM/customer không mount Tower và không gọi list/exact-case API.
+Deep-link approval `/?tab=approvals&approval=<uuid>` giữ nguyên.

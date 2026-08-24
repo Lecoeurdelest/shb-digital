@@ -45,19 +45,23 @@ bench/grades/<case>__<runner>.json         # kết quả chấm layer1 (+layer2 
 ```bash
 cd backend/        # PHẢI từ đây — venv .venv có claude_agent_sdk + import roles.*/app.* qua sys.path
 uv run python3 ../bench/run_multi.py --case CR-01-floor      # 1 case
+uv run python3 ../bench/run_multi.py --case CO-01-counter-offer # fresh card + DB proof tự chấm
 uv run python3 ../bench/run_multi.py --all                   # Phase 2: 15 case
 
 uv run python3 ../bench/run_single.py --case CR-01-floor
 uv run python3 ../bench/run_single.py --all
 
 uv run python3 ../bench/grade.py --all                       # chấm mọi response đã có
+
+# Chấm lại một conversation CO-01 đã chạy; chỉ đọc fresh card + tool_calls DB, không đọc markdown
+uv run python3 ../bench/check_counter_offer.py --conv-id <uuid>
 ```
 
 Yêu cầu: server thật đang chạy `:8000` (`curl localhost:8000/api/health`) cho `run_multi.py`; DB
 Postgres `shb` sống (`docker compose up -d db`). `run_single.py` KHÔNG cần server :8000 (SDK session
 độc lập) nhưng CẦN cùng DB (tool đọc/ghi Postgres thật).
 
-## Bộ đề (15 case — dispatch gọi "~14", đủ mọi category nêu tên)
+## Bộ đề (16 case — gồm proof counter-offer S23)
 
 | id | category | role(s) | nguồn |
 |---|---|---|---|
@@ -72,6 +76,7 @@ Postgres `shb` sống (`docker compose up -d db`). `run_single.py` KHÔNG cần 
 | XD-01-vay-tron-goi | cross-dept | credit→legal→products→operations | TỰ XÂY, khách C009 sạch |
 | XD-02-luong-lech-hoa-giai | cross-dept | credit↔legal | LAB SS-report §1 C017, re-verify (600tr, +25% lệch khớp) |
 | XD-03-ho-so-toi-dau | cross-dept | operations+legal | application THẬT APP03 (legal_ok=false) |
+| CO-01-counter-offer | cross-dept | credit→products→credit | C009: 600m fail → P001 500m reassess pass + wiki proof |
 | TRAP-01-tran-nhom-C013 | trap | legal | TỰ XÂY từ party_relations THẬT (C013→B002/B004) |
 | TRAP-02-pha-he-tet-68 | trap | products | TỰ XÂY, biến thể sâu hơn PR-02 (không lộ từ khoá 6.8%) |
 | TRAP-03-disclosure-khach | trap | legal | TỰ XÂY, C018 financial_fraud/2024 + wiki disclosure |

@@ -15,9 +15,11 @@ interface Props {
   onFormSubmit?: FormSubmitFn; // T9-3 — khách nộp hồ sơ (card type 'form')
   formDrafts?: Record<string, Record<string, string>>; // DF-A-04 — form values sống qua đổi tab
   onFormDraftChange?: (cardId: string, values: Record<string, string>) => void;
+  formConsentDrafts?: Record<string, boolean>;
+  onFormConsentChange?: (cardId: string, granted: boolean) => void;
 }
 
-export function Canvas({ cards, tasks, onInterruptTask, onFormSubmit, formDrafts, onFormDraftChange }: Props) {
+export function Canvas({ cards, tasks, onInterruptTask, onFormSubmit, formDrafts, onFormDraftChange, formConsentDrafts, onFormConsentChange }: Props) {
   const [tab, setTab] = useState<'work' | 'progress'>('work');
   const [cited, setCited] = useState<string | null>(null);
   const [interruptingTaskId, setInterruptingTaskId] = useState<string | null>(null);
@@ -73,7 +75,8 @@ export function Canvas({ cards, tasks, onInterruptTask, onFormSubmit, formDrafts
             <div className="canvas__cards">
               {cards.map((card) => (
                 <CardRenderer key={card.id} card={card} onCite={onCite} canDecide={false} onFormSubmit={onFormSubmit}
-                  formDrafts={formDrafts} onFormDraftChange={onFormDraftChange} />
+                  formDrafts={formDrafts} onFormDraftChange={onFormDraftChange}
+                  formConsentDrafts={formConsentDrafts} onFormConsentChange={onFormConsentChange} />
               ))}
             </div>
           )}

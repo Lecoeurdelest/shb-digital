@@ -2,11 +2,11 @@
 tạo customers C9xx + link users.owner_id + đánh thức MAIN. Tách khỏi conversations.py (PROD modular).
 
 VÒNG ĐỜI: register (owner_id=NULL) → MAIN present_form → khách điền → form-submit ĐÂY:
-  (a) mint C9xx (advisory-lock serialize) → INSERT customers → UPDATE users.owner_id  [1 tx, COMMIT]
-  (b) card status 'pending'→'submitted' atomic (double-submit → 409)
-  (c) bơm message '[HỒ SƠ ĐÃ NỘP]' + wake MAIN qua handle_room_event (CÙNG đường approval — §4.4)
+  (a) khóa card + kiểm wording consent snapshot + đổi 'pending'→'submitted'
+  (b) mint C9xx → link users.owner_id → append consent_records  [CÙNG 1 tx, COMMIT]
+  (c) sau COMMIT mới bơm message '[HỒ SƠ ĐÃ NỘP]' + wake MAIN (§4.4)
 
-Ordering (advisor): COMMIT owner_id TRƯỚC wake — wake trước thì turn đọc owner_id=NULL → re-present form.
+Ordering: COMMIT card/customer/link/consent TRƯỚC wake — wake trước thì turn có thể đọc trạng thái dở dang.
 loan_purpose KHÔNG vào customers (không có cột) → vào message wake (loan intent, không master data).
 """
 
@@ -14,17 +14,20 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from uuid import UUID
 
 import psycopg2
 import psycopg2.extras
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, StrictBool
 
+from app import consent
 from app.auth.deps import can_access_conv, require_user
 from app.errors import ApiError
 from app.orch.common_tools import FORM_REQUIRED
 from app.orch.store import get_conversation
 from app.storage import connect_core
+from app.tenancy import tenant_id_from_claims
 
 log = logging.getLogger("api.form_intake")
 
@@ -39,8 +42,11 @@ _CUSTOMER_COLS = ("full_name", "id_number", "address", "occupation", "monthly_in
 
 
 class FormSubmitBody(BaseModel):
-    card_id: str
+    model_config = ConfigDict(extra="forbid")
+
+    card_id: UUID
     values: dict[str, Any]
+    consent_granted: StrictBool = False
 
 
 @router.post("/{conv_id}/form-submit")
@@ -49,9 +55,37 @@ async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends
 
     Khách nộp hồ sơ → tạo customers C9xx + link + wake MAIN. 404-hide ca người khác · card sai
     ca/không tồn tại 404 · thiếu field bắt buộc 400 · income không phải số 400 · đã submit 409."""
+    if claims.get("role") != "customer":
+        raise ApiError(
+            403,
+            "forbidden",
+            "Chỉ khách hàng mới được nộp form hồ sơ này.",
+            "Đăng nhập bằng tài khoản khách hàng sở hữu phiên xử lý.",
+            retryable=False,
+        )
+
     conv = await get_conversation(conv_id)
     if conv is None or not can_access_conv(conv, claims):
         raise ApiError(404, "not_found", "Không tìm thấy hội thoại.", "Kiểm lại id.", retryable=False)
+
+    if body.consent_granted is not True:
+        raise ApiError(
+            400,
+            "consent_required",
+            "Cần đồng ý nội dung xử lý dữ liệu trước khi nộp hồ sơ.",
+            "Đọc wording trên form và tick ô đồng ý nếu bạn chấp thuận.",
+            retryable=True,
+        )
+    try:
+        wording = consent.load_wording()
+    except consent.ConsentWordingError as exc:
+        raise ApiError(
+            400,
+            "consent_wording_invalid",
+            "Nội dung đồng ý phía server không hợp lệ.",
+            "Tạm dừng nộp form và báo quản trị kiểm tra wording.",
+            retryable=False,
+        ) from exc
 
     values = body.values or {}
     missing = [f for f in FORM_REQUIRED if not str(values.get(f, "")).strip()]
@@ -67,37 +101,77 @@ async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends
     # tx-sync trong to_thread (D-22 — psycopg2 sync không block loop 1-worker).
     import asyncio
 
-    result = await asyncio.to_thread(_submit_txn, conv_id, claims.get("sub"), body.card_id, values, income)
+    result = await asyncio.to_thread(
+        _submit_txn,
+        conv_id,
+        str(claims.get("sub") or ""),
+        tenant_id_from_claims(claims),
+        str(body.card_id),
+        values,
+        income,
+        wording,
+    )
     if result == "already_submitted":
         raise ApiError(409, "form_already_submitted", "Hồ sơ đã được nộp.", "Không nộp lại.", retryable=False)
     if result == "card_not_found":
         raise ApiError(404, "not_found", "Không tìm thấy form hồ sơ.", "Tải lại trang.", retryable=False)
+    if result == "consent_wording_unavailable":
+        raise ApiError(
+            409,
+            "consent_wording_unavailable",
+            "Form cũ chưa có snapshot nội dung đồng ý.",
+            "Tải lại và yêu cầu hệ thống tạo form mới.",
+            retryable=False,
+        )
+    if result == "consent_wording_invalid":
+        raise ApiError(
+            400,
+            "consent_wording_invalid",
+            "Snapshot nội dung đồng ý trên form không hợp lệ.",
+            "Tải lại form; nếu còn lỗi, báo quản trị.",
+            retryable=False,
+        )
 
     # (c) wake MAIN SAU khi owner_id đã COMMIT (advisor: wake trước → turn đọc owner_id=NULL → re-present)
     await _wake_main(conv_id, result, values)
     return {"owner_id": result["owner_id"], "customer_created": True}
 
 
-def _submit_txn(conv_id: str, user_id: str | None, card_id: str, values: dict, income: int) -> Any:
-    """1 tx: mint C9xx (advisory-lock) → INSERT customers → UPDATE users.owner_id → flip card atomic.
-    Trả dict{owner_id, full_name} khi ok; 'already_submitted' / 'card_not_found' khi chặn."""
+def _submit_txn(
+    conv_id: str,
+    user_id: str,
+    tenant_id: str,
+    card_id: str,
+    values: dict,
+    income: int,
+    wording: consent.ConsentWording,
+) -> Any:
+    """1 tx: lock+validate card → flip → customer → user link → consent append."""
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # (b-guard) card flip ATOMIC TRƯỚC (idempotent double-submit): pending→submitted, cùng ca.
-            # jsonb_set data.status; WHERE status != submitted → rowcount 0 = đã nộp (409) hoặc card sai ca.
             cur.execute(
-                "UPDATE cards SET data = jsonb_set(data, '{status}', '\"submitted\"') "
-                "WHERE id=%s AND conv_id=%s AND type='form' AND data->>'status' IS DISTINCT FROM 'submitted' "
-                "RETURNING id",
+                "SELECT data FROM cards WHERE id=%s AND conv_id=%s AND type='form' FOR UPDATE",
                 (card_id, conv_id),
             )
-            if cur.fetchone() is None:
-                # phân biệt: card tồn tại (đã submitted) vs không tồn tại/sai ca
-                cur.execute("SELECT data->>'status' AS s FROM cards WHERE id=%s AND conv_id=%s", (card_id, conv_id))
-                row = cur.fetchone()
+            card = cur.fetchone()
+            if card is None:
                 conn.rollback()
-                return "already_submitted" if row else "card_not_found"
+                return "card_not_found"
+            card_data = card["data"] if isinstance(card["data"], dict) else {}
+            if card_data.get("status") == "submitted":
+                conn.rollback()
+                return "already_submitted"
+            if "consent" not in card_data:
+                conn.rollback()
+                return "consent_wording_unavailable"
+            if card_data.get("status") != "pending" or not consent.snapshot_matches(card_data["consent"], wording):
+                conn.rollback()
+                return "consent_wording_invalid"
+            cur.execute(
+                "UPDATE cards SET data = jsonb_set(data, '{status}', '\"submitted\"') WHERE id=%s",
+                (card_id,),
+            )
 
             # (a) mint C9xx serialize (advisory-xact-lock — tự release ở commit/rollback)
             cur.execute("SELECT pg_advisory_xact_lock(%s)", (_MINT_LOCK_KEY,))
@@ -114,7 +188,20 @@ def _submit_txn(conv_id: str, user_id: str | None, card_id: str, values: dict, i
                 ),
             )
             # link account đang login → owner_id mới (JOIN by users.id = claims.sub)
-            cur.execute("UPDATE users SET owner_id=%s WHERE id::text=%s", (owner_id, user_id))
+            cur.execute(
+                "UPDATE users SET owner_id=%s WHERE id::text=%s AND tenant_id=%s",
+                (owner_id, user_id, tenant_id),
+            )
+            if cur.rowcount != 1:
+                raise RuntimeError("form submit actor is not present in the JWT tenant")
+            consent.insert_record(
+                cur,
+                tenant_id=tenant_id,
+                subject_ref=user_id,
+                actor=user_id,
+                source_ref=card_id,
+                wording=wording,
+            )
             conn.commit()  # owner_id COMMIT TRƯỚC wake (advisor ordering)
             return {"owner_id": owner_id, "full_name": values["full_name"]}
     except Exception:

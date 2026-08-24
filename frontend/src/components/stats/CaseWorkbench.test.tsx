@@ -55,4 +55,30 @@ describe('CaseWorkbench D-77', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Áp dụng' }));
     await waitFor(() => expect(screen.getByText(/chưa được kết nối hoặc đang tắt/i)).toBeInTheDocument());
   });
+
+  it('exact fetch merges and highlights a linked case outside the first list page', async () => {
+    const focused = { ...row, id: '0198a4e1-7b6c-7abc-0012-1234567890ab', external_case_id: 'LOS-OUTSIDE-050' };
+    vi.spyOn(conversationApi, 'listCases').mockResolvedValue([row]);
+    const exact = vi.spyOn(conversationApi, 'getCase').mockResolvedValue(focused);
+
+    render(<CaseWorkbench focusedCaseId={focused.id} />);
+
+    const target = await screen.findByTestId(`case-row-${focused.id}`);
+    expect(exact).toHaveBeenCalledWith(focused.id);
+    expect(target).toHaveClass('casewb__row--focused', 'casewb__row--active');
+    expect(screen.getByTestId('case-row-case-1')).toBeInTheDocument();
+    expect(screen.getByTestId('case-detail')).toHaveTextContent('LOS-OUTSIDE-050');
+  });
+
+  it('exact 404 does not erase the independently loaded list', async () => {
+    vi.spyOn(conversationApi, 'listCases').mockResolvedValue([row]);
+    vi.spyOn(conversationApi, 'getCase').mockRejectedValue(new ApiRequestError(404, {
+      code: 'not_found', message: 'Không có hồ sơ.', hint: 'Kiểm tra liên kết.', retryable: false,
+    }, 'not found'));
+
+    render(<CaseWorkbench focusedCaseId="0198a4e1-7b6c-7abc-0012-1234567890ab" />);
+
+    expect(await screen.findByTestId('case-row-case-1')).toBeInTheDocument();
+    expect(await screen.findByTestId('focused-case-error')).toBeInTheDocument();
+  });
 });

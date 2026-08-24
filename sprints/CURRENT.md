@@ -95,11 +95,37 @@ full-suite, Docker, REST/SSE backend thật và browser standalone đều PASS; 
 reference host, không phải dependency SDK. Mốc: **531 BE pass + 17 skip, 276 FE pass**, SDK
 **35 file / 86.298 byte**. Source-system MCP tách process và CIC/core live vẫn là non-claim.
 
-**Hàng đợi:** Sprint 20 shadow match dashboard + pre-pilot consent wording · B-05 + t9go1 chờ gu user.
+**Sprint 20 — ĐÓNG KỸ THUẬT** (2026-08-24, D-80): mismatch API + tab “Đối chiếu shadow”
+admin-only + exact-ticket drill-down và consent wording/proof/append-only/atomic form đều PASS hai
+gate độc lập. Tester-1: 6/6 đối kháng + migration hai chiều; tester-2: live `2/3 = 66,7%`, consent
+và fresh post-change **613 BE pass + 17 skip + 336 FE pass = 949 pass + 17 skip**. PM đã review
+riêng cả hai. PM-01 (không fresh baseline trước dispatch) và PM-02 (plan từng serial hóa hai tester)
+được ghi/sửa in-place; `807 + 17 skip` chỉ là historical reference, không phải baseline hồi tố.
+Technical sprint không phải DPIA/compliance; pilot dữ liệu thật vẫn **NO-GO** cho tới bank sign-off
+và các đánh giá tác động áp dụng. Plan: `sprints/plan_sprint_20.md` · End:
+`sprints/end_sprint_20.md`.
+
+**Sprint 23 — ĐÓNG KỸ THUẬT** (2026-08-24, D-81/D-82/D-83): segment tín chấp đi qua
+config v2 tenant-bound nhưng zero-auto; operator start chủ động, linked context allowlist và
+tool guard chặn cả `disburse|ops_disburse`. Taxonomy runtime/write-time, RFI two-key
+post-commit, exact-case admin deep-link và CO-01 tool/wiki proof đều PASS hai gate độc lập.
+Tester-1 giữ lại defect `1 failed, 4 passed` rồi verify fix; tester-2 ký **677 BE pass + 17
+skip + 348 FE pass = 1.025 pass + 17 skip**. Lượt FE default-parallel `346/348` và optional
+`pyvi` vẫn là nợ reproducibility. PM review riêng cả hai, chặn close cho tới khi Tester-2 bổ
+sung curl/Selenium và hai browser screenshot. Process PASS, không lặp PM-01/02.
+External identity/full LOS four-role defer S24; pilot dữ liệu thật vẫn **NO-GO** theo D-80.
+Plan: `sprints/plan_sprint_23.md` · End: `sprints/end_sprint_23.md`.
+
+**Hàng đợi tiếp theo — S24, chưa kickoff:** contract + adapter non-claim cho CIC/C06/BHXH,
+external→internal identity mapping và gate full LOS four-role. Không mở source live, auto-approve
+hay pilot dữ liệu thật nếu chưa có credential/schema/bank sign-off và evidence tương ứng.
+B-05 + t9go1 vẫn chờ gu user.
 
 **Golden path:** `sprints/ROADMAP.md`. **Plans:** `sprints/plan_sprint_18.md` ·
-`sprints/plan_sprint_19.md` · `sprints/plan_sprint_21.md`. **End records:**
-`sprints/end_sprint_18.md` · `sprints/end_sprint_19.md` · `sprints/end_sprint_21.md`.
+`sprints/plan_sprint_19.md` · `sprints/plan_sprint_20.md` · `sprints/plan_sprint_21.md` ·
+`sprints/plan_sprint_23.md`. **End records:**
+`sprints/end_sprint_18.md` · `sprints/end_sprint_19.md` · `sprints/end_sprint_20.md` ·
+`sprints/end_sprint_21.md` · `sprints/end_sprint_23.md`.
 
 **Lịch sử:**
 
@@ -125,3 +151,5 @@ reference host, không phải dependency SDK. Mốc: **531 BE pass + 17 skip, 27
 | 18 | working tree · đóng | Threshold fail-closed + shadow review/match stats + middle-office positioning + Tờ trình sơ thẩm 6 mục; live schema/provenance gate PASS. 691 pass + 17 skip tại mốc S18. |
 | 19 | working tree · đóng | Doorbell generic/Lark tối thiểu dữ liệu + exact-ticket deep-link/auth resume + lifecycle đúng-một-lần; receiver/browser evidence. 738 pass + 17 skip. |
 | 21 | working tree · đóng | Lõi headless bank-DC guard/readiness + Embed SDK ESM/CJS/React/Web Component/IIFE; real REST/SSE/browser/Docker gates. 807 pass + 17 skip. |
+| 20 | 48fa51b · đóng kỹ thuật | Shadow mismatch/Tower exact-ticket + consent proof/append-only/atomic form. Hai tester PASS; fresh post-change gate 949 pass + 17 skip. PM-01/02 remediated; pilot dữ liệu thật NO-GO theo D-80. |
+| 23 | working tree · đóng kỹ thuật | Segment config tenant-bound/zero-auto + operator guard + taxonomy/RFI/exact-case + CO-01 proof. Hai tester PASS; 1.025 pass + 17 skip; process PASS; pilot dữ liệu thật NO-GO. |

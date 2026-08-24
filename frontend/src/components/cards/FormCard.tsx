@@ -2,12 +2,13 @@
 // Fields SERVER định nghĩa (card.data.fields) — FE render ĐÚNG theo, KHÔNG hardcode. Nộp → form-submit.
 // status='submitted' (SSE update / reload) → read-only "đã nộp". Defensive: fields rỗng → fallback.
 import { useState } from 'react';
-import type { Card, FormField } from '../../types';
+import type { Card, ConsentSnapshot, FormField } from '../../types';
 import { userFacingErrorMessage } from '../../workspaceUtil';
+import { Markdown } from '../Markdown';
 import { cardField } from './cardUtil';
 import './FormCard.css';
 
-export type FormSubmitFn = (cardId: string, values: Record<string, string>) => Promise<void>;
+export type FormSubmitFn = (cardId: string, values: Record<string, string>, consentGranted: true) => Promise<void>;
 
 // đọc fields defensive: đúng shape {name,label,type,required} mới nhận; loại field lạ.
 function readFields(card: Card): FormField[] {
@@ -23,6 +24,25 @@ function formStatus(card: Card): string {
   return String(cardField<string>(card, 'status') ?? 'pending');
 }
 
+// Snapshot do server đóng vào card. FE chỉ render nếu proof metadata đúng shape; không
+// fallback sang wording hardcode vì như vậy sẽ tạo nguồn sự thật thứ hai (D-80).
+function readConsent(card: Card): ConsentSnapshot | null {
+  const raw = cardField<unknown>(card, 'consent');
+  if (!raw || typeof raw !== 'object') return null;
+  const value = raw as Partial<ConsentSnapshot>;
+  if (
+    value.required !== true
+    || value.purpose !== 'pre_pilot_shadow_preassessment'
+    || typeof value.wording_version !== 'string'
+    || !value.wording_version.trim()
+    || typeof value.wording_checksum !== 'string'
+    || !/^[0-9a-f]{64}$/.test(value.wording_checksum)
+    || typeof value.content_markdown !== 'string'
+    || !value.content_markdown.trim()
+  ) return null;
+  return value as ConsentSnapshot;
+}
+
 interface FormCardProps {
   card: Card;
   onSubmit?: FormSubmitFn;
@@ -31,10 +51,20 @@ interface FormCardProps {
   // (test standalone) → local state fallback. busy/error/missing giữ local (không cần sống qua tab).
   draftValues?: Record<string, string>;
   onDraftChange?: (cardId: string, values: Record<string, string>) => void;
+  consentGranted?: boolean;
+  onConsentChange?: (cardId: string, granted: boolean) => void;
 }
 
-export function FormCard({ card, onSubmit, draftValues, onDraftChange }: FormCardProps) {
+export function FormCard({
+  card,
+  onSubmit,
+  draftValues,
+  onDraftChange,
+  consentGranted,
+  onConsentChange,
+}: FormCardProps) {
   const fields = readFields(card);
+  const consent = readConsent(card);
   const status = formStatus(card);
   const submitted = status === 'submitted';
 
@@ -48,13 +78,20 @@ export function FormCard({ card, onSubmit, draftValues, onDraftChange }: FormCar
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<Set<string>>(new Set());
+  const [localConsentGranted, setLocalConsentGranted] = useState(false);
+  const consentManaged = consentGranted !== undefined && onConsentChange !== undefined;
+  const granted = consentManaged ? consentGranted : localConsentGranted;
+  const setGranted = (next: boolean) => {
+    if (consentManaged) onConsentChange!(card.id, next);
+    else setLocalConsentGranted(next);
+  };
 
   if (fields.length === 0) {
     return <div className="formcard__invalid" data-testid="form-invalid">Form hồ sơ không hợp lệ (thiếu định nghĩa trường).</div>;
   }
 
   const submit = () => {
-    if (!onSubmit || busy || submitted) return;
+    if (!onSubmit || busy || submitted || !consent || !granted) return;
     // validate client-side (server vẫn validate lại — đây chỉ UX sớm): required trống → highlight
     const req = fields.filter((f) => f.required).map((f) => f.name);
     const miss = new Set(req.filter((n) => !String(values[n] ?? '').trim()));
@@ -66,7 +103,7 @@ export function FormCard({ card, onSubmit, draftValues, onDraftChange }: FormCar
     setMissing(new Set());
     setBusy(true);
     setError(null);
-    onSubmit(card.id, values)
+    onSubmit(card.id, values, true)
       .then(() => { /* SSE card update → status submitted → re-render read-only */ })
       .catch((e: unknown) => {
         // Chỉ hiện lỗi nhập liệu/nghiệp vụ người dùng sửa được; lỗi runtime/transport giữ generic.
@@ -100,12 +137,38 @@ export function FormCard({ card, onSubmit, draftValues, onDraftChange }: FormCar
               </label>
             ))}
           </div>
+          {consent ? (
+            <section className="formcard__consent" aria-labelledby={`consent-title-${card.id}`}>
+              <div className="formcard__consent-head">
+                <span id={`consent-title-${card.id}`}>Nội dung đồng ý pre-pilot</span>
+                <span className="formcard__consent-proof">
+                  Phiên bản {consent.wording_version} · SHA-256 <code title={consent.wording_checksum}>{consent.wording_checksum.slice(0, 12)}…</code>
+                </span>
+              </div>
+              <div className="formcard__consent-wording" data-testid="consent-wording">
+                <Markdown text={consent.content_markdown} />
+              </div>
+              <label className="formcard__consent-check">
+                <input
+                  type="checkbox"
+                  checked={granted}
+                  disabled={busy}
+                  onChange={(event) => setGranted(event.target.checked)}
+                />
+                <span>Tôi đã đọc nội dung trên và đồng ý cho mục đích được nêu.</span>
+              </label>
+            </section>
+          ) : (
+            <div className="formcard__error" role="alert" data-testid="consent-unavailable">
+              Nội dung đồng ý chưa sẵn sàng. Không thể nộp form này; vui lòng tải lại phiên xử lý.
+            </div>
+          )}
           {error && <div className="formcard__error" role="alert">{error}</div>}
           <button
             type="button"
             className="btn btn--primary formcard__submit"
             onClick={submit}
-            disabled={busy || !onSubmit}
+            disabled={busy || !onSubmit || !consent || !granted}
             data-testid="form-submit"
           >
             {busy ? 'Đang nộp…' : 'Nộp hồ sơ'}

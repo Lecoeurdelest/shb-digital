@@ -16,6 +16,13 @@ function formCard(over: Partial<Card> = {}): Card {
       { name: 'monthly_income', label: 'Thu nhập (VND)', type: 'number', required: true },
       { name: 'note', label: 'Ghi chú', type: 'text', required: false },
     ],
+    consent: {
+      required: true,
+      purpose: 'pre_pilot_shadow_preassessment',
+      wording_version: 'v1',
+      wording_checksum: 'a'.repeat(64),
+      content_markdown: '**Mục đích:** sơ thẩm shadow pre-pilot. Dữ liệu được xử lý theo nội dung này.',
+    },
     ...over,
   };
 }
@@ -27,11 +34,14 @@ describe('FormCard', () => {
     expect(screen.getByLabelText('Thu nhập (VND)')).toHaveAttribute('type', 'number');
     expect(screen.getByLabelText('Ghi chú')).toBeInTheDocument();
     expect(screen.getByTestId('form-submit')).toBeInTheDocument();
+    expect(screen.getByTestId('form-submit')).toBeDisabled();
+    expect(screen.getByText('Phiên bản v1', { exact: false })).toBeInTheDocument();
   });
 
   it('thiếu field bắt buộc → không gọi onSubmit, hiện lỗi + highlight', () => {
     const onSubmit = vi.fn();
     render(<FormCard card={formCard()} onSubmit={onSubmit} />);
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByTestId('form-submit'));
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByRole('alert')).toHaveTextContent(/điền đủ/i);
@@ -42,8 +52,13 @@ describe('FormCard', () => {
     render(<FormCard card={formCard()} onSubmit={onSubmit} />);
     fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'Nguyễn Văn A' } });
     fireEvent.change(screen.getByLabelText('Thu nhập (VND)'), { target: { value: '15000000' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByTestId('form-submit'));
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('card_f1', { full_name: 'Nguyễn Văn A', monthly_income: '15000000' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(
+      'card_f1',
+      { full_name: 'Nguyễn Văn A', monthly_income: '15000000' },
+      true,
+    ));
   });
 
   it('lỗi submit từ server (body 4-field) → hiện message', async () => {
@@ -59,6 +74,7 @@ describe('FormCard', () => {
     render(<FormCard card={formCard()} onSubmit={onSubmit} />);
     fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'A' } });
     fireEvent.change(screen.getByLabelText('Thu nhập (VND)'), { target: { value: '15000000' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByTestId('form-submit'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Hồ sơ đã được nộp.'));
@@ -69,6 +85,7 @@ describe('FormCard', () => {
     render(<FormCard card={formCard()} onSubmit={onSubmit} />);
     fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'A' } });
     fireEvent.change(screen.getByLabelText('Thu nhập (VND)'), { target: { value: '15000000' } });
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByTestId('form-submit'));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Nộp hồ sơ thất bại'));
     expect(screen.queryByText(/provider|model|token|stacktrace/i)).not.toBeInTheDocument();
@@ -84,6 +101,35 @@ describe('FormCard', () => {
   it('fields rỗng/thiếu → fallback "không hợp lệ", không crash (defensive)', () => {
     render(<FormCard card={formCard({ fields: [] })} onSubmit={vi.fn()} />);
     expect(screen.getByTestId('form-invalid')).toBeInTheDocument();
+  });
+
+  it('consent server-owned: render markdown an toàn, checkbox mặc định false và chỉ tick mới cho nộp', () => {
+    render(<FormCard card={formCard({
+      consent: {
+        required: true,
+        purpose: 'pre_pilot_shadow_preassessment',
+        wording_version: 'v2',
+        wording_checksum: 'b'.repeat(64),
+        content_markdown: '**Phạm vi dữ liệu**\n\n<script>alert("x")</script>',
+      },
+    })} onSubmit={vi.fn()} />);
+
+    const checkbox = screen.getByRole('checkbox');
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByTestId('form-submit')).toBeDisabled();
+    expect(screen.getByText('Phạm vi dữ liệu')).toBeInTheDocument();
+    expect(document.querySelector('script')).toBeNull();
+    expect(screen.getByText('Phiên bản v2', { exact: false })).toBeInTheDocument();
+
+    fireEvent.click(checkbox);
+    expect(screen.getByTestId('form-submit')).toBeEnabled();
+  });
+
+  it('consent snapshot thiếu/hỏng → fail-closed, không có checkbox và nút luôn disabled', () => {
+    render(<FormCard card={formCard({ consent: undefined })} onSubmit={vi.fn()} />);
+    expect(screen.getByTestId('consent-unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByTestId('form-submit')).toBeDisabled();
   });
 
   it('CardRenderer type=form → render FormCard (WIDE)', () => {
@@ -110,9 +156,26 @@ describe('FormCard', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(
       <FormCard card={formCard()} onSubmit={onSubmit}
-        draftValues={{ full_name: 'X', monthly_income: '9000000' }} onDraftChange={vi.fn()} />,
+        draftValues={{ full_name: 'X', monthly_income: '9000000' }} onDraftChange={vi.fn()}
+        consentGranted onConsentChange={vi.fn()} />,
     );
     fireEvent.click(screen.getByTestId('form-submit'));
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('card_f1', { full_name: 'X', monthly_income: '9000000' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(
+      'card_f1',
+      { full_name: 'X', monthly_income: '9000000' },
+      true,
+    ));
+  });
+
+  it('managed consent sống qua unmount/remount theo state caller', () => {
+    const onConsentChange = vi.fn();
+    const { rerender } = render(
+      <FormCard card={formCard()} onSubmit={vi.fn()} consentGranted={false} onConsentChange={onConsentChange} />,
+    );
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(onConsentChange).toHaveBeenCalledWith('card_f1', true);
+
+    rerender(<FormCard card={formCard()} onSubmit={vi.fn()} consentGranted onConsentChange={onConsentChange} />);
+    expect(screen.getByRole('checkbox')).toBeChecked();
   });
 });

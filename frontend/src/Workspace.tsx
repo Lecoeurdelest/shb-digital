@@ -42,9 +42,9 @@ export function Workspace({
 }: Props) {
   const {
     conversations, conversationGroups, activeId, messages, tasks, cards,
-    convStatus, streaming, creating, drafting, formDrafts,
+    convStatus, streaming, creating, drafting, formDrafts, formConsentDrafts,
     loadError, listError, scrollRef,
-    openConversation, startDraft, sendChat, handleInterruptTask, handleFormDraftChange,
+    openConversation, startDraft, sendChat, handleInterruptTask, handleFormDraftChange, handleFormConsentChange,
     handleFormSubmit, handleRename, handleDelete, handleCreateGroup, handleMoveConversation, handleLogout,
     activeConv, busy, hasContent, pendingApprovals,
   } = useWorkspaceController({ user, onAuthExpired });
@@ -160,7 +160,8 @@ export function Workspace({
         </section>
 
         <Canvas cards={cards} tasks={tasks} onInterruptTask={handleInterruptTask} onFormSubmit={handleFormSubmit}
-          formDrafts={formDrafts} onFormDraftChange={handleFormDraftChange} />
+          formDrafts={formDrafts} onFormDraftChange={handleFormDraftChange}
+          formConsentDrafts={formConsentDrafts} onFormConsentChange={handleFormConsentChange} />
       </div>
     </div>
   );

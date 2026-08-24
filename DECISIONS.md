@@ -4,6 +4,49 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-83 · RFI = allowlist hai-key, best-effort sau commit + exact-case admin deep-link** (kickoff
+  S23 ngày 24/8) — `missing_fields` từ nguồn được normalize về allowlist code an toàn; code lạ chỉ
+  thành một sentinel `additional_information`, không forward raw. Chỉ version `accepted`, không
+  cancel, có normalized set nonempty **thay đổi** so với link trước mới schedule một lần ở tầng app
+  sau commit. Payload generic đúng `{missing_fields, deep_link}`; link trỏ
+  `/?tab=cases&case=<internal UUID>`, không amount/tên/external party/CIC/document/content hay event
+  kind. Đây là chuông best-effort: retry transport có thể trùng, crash sau commit có thể mất; không
+  thêm outbox/bảng chỉ để claim exactly-once. `GET /api/cases/{id}` là admin-only, tenant khác
+  404-hide và URL exact được giữ qua login. — cách đổi: khi bank có yêu cầu delivery SLO + consumer
+  idempotency, thêm transactional outbox/delivery key qua benchmark+runbook D-76; mở payload/quyền
+  chỉ sau data-boundary review mới.
+- **D-82 · Reason taxonomy được validate runtime/write-time; counter-offer chỉ hợp lệ với tool
+  candidate + same-amount reassessment + wiki active citation** (kickoff S23 ngày 24/8) — prompt
+  chỉ hướng dẫn, còn credit memo được validator chặn trước card insert/SSE: item 5 phải chọn mã từ
+  taxonomy version/checksum server-owned. Counter-offer v1 tối đa một; `product_suggest` phải trả
+  candidate eligible tại đúng số tiền đề xuất và `credit_assess` cùng amount/type phải eligible.
+  Lãi/phí/hạn mức/kỳ hạn do catalog tool sở hữu; wiki chỉ chứng minh mô tả/hiệu lực, không là nguồn
+  số. Checker đọc fresh card + tool_calls DB, không tin markdown/model memory. — cách đổi: taxonomy
+  hoặc product đổi qua PR maker-checker; mở nhiều offer chỉ sau checker xếp hạng/trade-off có bench,
+  không nới bằng sửa prompt.
+- **D-81 · Case-intake shadow khác approval-counterfactual shadow; segment config tuyệt đối
+  zero-auto** (kickoff S23 ngày 24/8) — `auto_start: shadow` D-77 chỉ ghi inbox/link/linked
+  conversation rỗng, không chạy MAIN/approval/tool và không ghi `shadow_reviews`. Operator phải gửi
+  chat chủ động. Config v2 bind source credential vào một `tenant_slug`; non-SME chỉ được
+  `preassessment_only + shadow`. Quan trọng hơn, mọi conversation link từ intake — kể cả SME — bị
+  guard ở đầu gated transaction chặn `disburse|ops_disburse` trước receipt/verdict/approval, nên
+  threshold hay phiếu cũ không mở được đường tiền. External party không phải internal owner; không
+  tạo sample S20 giả. — cách đổi: bank ký risk matrix + identity/adapters segment, có bench rollout
+  và contract riêng thì thêm profile qua `off → shadow → selected → on`; không sửa YAML để lách
+  tool guard.
+- **D-80 · Consent pre-pilot = proof kỹ thuật versioned, KHÔNG phải DPIA/đánh giá chuyển dữ liệu
+  hay bằng chứng tuân thủ pháp luật** (kickoff S20 ngày 24/8) — cửa form khách tham gia mục đích
+  `pre_pilot_shadow_preassessment` phải hiện wording server-owned không pre-tick, ghi version +
+  SHA-256 của đúng nội dung đã hiện và một row `consent_records` append-only trong cùng transaction
+  với hồ sơ; client chỉ được gửi `consent_granted:true`, không chọn version/tenant/subject. Consent
+  do LOS/SAHA thu ở hệ nguồn là trách nhiệm của hệ nguồn; envelope case-intake D-77 v1 không đổi và
+  không được suy rằng event vào cổng đồng nghĩa đã có consent. Đây chỉ là móng kỹ thuật. Trước pilot
+  dữ liệu thật, bank data-protection/legal owner phải chốt controller/contact, mục đích tách biệt,
+  loại + nguồn + bên nhận dữ liệu, retention/xóa, kênh rút lại và cloud/chuyển dữ liệu; đồng thời
+  hoàn tất DPIA và đánh giá chuyển dữ liệu áp dụng. Cho tới lúc có evidence đó, kết luận bắt buộc là
+  **PILOT NO-GO**, không claim compliance với Luật 91/2025 hay NĐ 356/2025. — cách đổi: bank ký
+  wording mới thì bump version qua PR/maker-checker, giữ row/hash cũ bất biến; mở withdrawal bằng
+  event row mới, không update lịch sử.
 - **D-79 · Multi-tenant nền tảng = tenant là isolation/partition key; conversation group chỉ là
   thư mục UX, chưa phải horizontal scaling** (người yêu cầu 24/8, agent đánh giá + thi hành) — live
   DB còn nhỏ và runtime vẫn 1 worker/SSE in-process/transcript local disk, nên thêm tenant không tự

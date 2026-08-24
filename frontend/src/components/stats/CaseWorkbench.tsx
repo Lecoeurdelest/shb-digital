@@ -5,6 +5,7 @@ import { conversationApi } from '../../api';
 import { ApiRequestError } from '../../api/client';
 import type { CaseListFilters, CaseStatus, CaseSummary } from '../../types';
 import './CaseWorkbench.css';
+import { useExactCaseFocus } from './useExactCaseFocus';
 
 const STATUS_META: Record<CaseStatus, { label: string; tone: string }> = {
   received: { label: 'Đã tiếp nhận', tone: 'casewb__status--idle' },
@@ -60,10 +61,11 @@ const SOURCE_ISSUE_CODES = new Set([
 type LoadIssue = { kind: 'source' | 'generic'; message: string };
 
 interface Props {
+  focusedCaseId?: string;
   onOpenCaseConversation?: (conversationId: string) => void;
 }
 
-export function CaseWorkbench({ onOpenCaseConversation }: Props = {}) {
+export function CaseWorkbench({ focusedCaseId, onOpenCaseConversation }: Props = {}) {
   const [rows, setRows] = useState<CaseSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState<CaseStatus | ''>('');
@@ -73,6 +75,7 @@ export function CaseWorkbench({ onOpenCaseConversation }: Props = {}) {
   const [loading, setLoading] = useState(true);
   const [issue, setIssue] = useState<LoadIssue | null>(null);
   const requestGeneration = useRef(0);
+  const { focusIssue, mergeFocused } = useExactCaseFocus(focusedCaseId, setRows, setSelectedId);
 
   const loadCases = useCallback(() => {
     const generation = ++requestGeneration.current;
@@ -86,20 +89,24 @@ export function CaseWorkbench({ onOpenCaseConversation }: Props = {}) {
       .listCases(filters)
       .then((result) => {
         if (generation !== requestGeneration.current) return;
-        const list = Array.isArray(result) ? result : [];
+        const list = mergeFocused(Array.isArray(result) ? result : []);
         setRows(list);
-        setSelectedId((current) => list.some((item) => item.id === current) ? current : list[0]?.id ?? null);
+        setSelectedId((current) => {
+          if (focusedCaseId && list.some((item) => item.id === focusedCaseId)) return focusedCaseId;
+          return list.some((item) => item.id === current) ? current : list[0]?.id ?? null;
+        });
       })
       .catch((error: unknown) => {
         if (generation !== requestGeneration.current) return;
-        setRows([]);
-        setSelectedId(null);
+        const fallback = mergeFocused([]);
+        setRows(fallback);
+        setSelectedId(fallback[0]?.id ?? null);
         setIssue(classifyLoadIssue(error));
       })
       .finally(() => {
         if (generation === requestGeneration.current) setLoading(false);
       });
-  }, [activeSource, activeStatus]);
+  }, [activeSource, activeStatus, focusedCaseId, mergeFocused]);
 
   useEffect(() => {
     loadCases();
@@ -157,6 +164,7 @@ export function CaseWorkbench({ onOpenCaseConversation }: Props = {}) {
       </div>
 
       {loading && rows.length === 0 && <div className="ct__empty" role="status">Đang tải hồ sơ từ nguồn nghiệp vụ…</div>}
+      {focusIssue && <div className="ct__notice" data-testid="focused-case-error">{focusIssue}</div>}
       {!loading && issue && <LoadIssueState issue={issue} source={activeSource} onRetry={loadCases} />}
       {!loading && !issue && rows.length === 0 && (
         <EmptyCases activeSource={activeSource} activeStatus={activeStatus} onClear={clearFilters} />
@@ -164,7 +172,15 @@ export function CaseWorkbench({ onOpenCaseConversation }: Props = {}) {
       {rows.length > 0 && (
         <div className={`casewb__split${loading ? ' casewb__split--loading' : ''}`} aria-busy={loading} data-testid="case-first-viewport">
           <div className="casewb__list" aria-label="Danh sách hồ sơ">
-            {rows.map((item) => <CaseRow key={item.id} item={item} selected={selected?.id === item.id} onSelect={setSelectedId} />)}
+            {rows.map((item) => (
+              <CaseRow
+                key={item.id}
+                item={item}
+                selected={selected?.id === item.id}
+                focused={focusedCaseId === item.id}
+                onSelect={setSelectedId}
+              />
+            ))}
           </div>
           {selected && <CaseDetail item={selected} onOpenCaseConversation={onOpenCaseConversation} />}
         </div>
@@ -173,15 +189,26 @@ export function CaseWorkbench({ onOpenCaseConversation }: Props = {}) {
   );
 }
 
-function CaseRow({ item, selected, onSelect }: { item: CaseSummary; selected: boolean; onSelect: (id: string) => void }) {
+function CaseRow({ item, selected, focused, onSelect }: {
+  item: CaseSummary;
+  selected: boolean;
+  focused: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const rowRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView?.({ block: 'center' });
+  }, [focused]);
   const status = STATUS_META[item.case_status] ?? { label: 'Trạng thái chưa xác định', tone: 'casewb__status--idle' };
   const missingCount = safeMissingFields(item).length;
   return (
     <button
+      ref={rowRef}
       type="button"
-      className={`casewb__row${selected ? ' casewb__row--active' : ''}`}
+      className={`casewb__row${selected ? ' casewb__row--active' : ''}${focused ? ' casewb__row--focused' : ''}`}
       onClick={() => onSelect(item.id)}
       aria-pressed={selected}
+      aria-current={focused ? 'true' : undefined}
       data-testid={`case-row-${item.id}`}
     >
       <span className="casewb__row-top">

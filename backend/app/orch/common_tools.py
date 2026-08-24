@@ -133,6 +133,24 @@ async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    # T23-3/D-82: memo canonical đi qua write-time gate TRƯỚC mọi DB/SSE. Validator trả defensive
+    # copy và overwrite proof taxonomy server-owned; generic document/card giữ nguyên contract.
+    if card_type == "document":
+        from app.orch.credit_memo import CreditMemoValidationError, is_credit_memo, validate_credit_memo
+
+        if is_credit_memo(args):
+            try:
+                args = validate_credit_memo(args)
+            except CreditMemoValidationError as exc:
+                return _text(
+                    {
+                        "code": "invalid_credit_memo",
+                        "message": str(exc),
+                        "hint": "Sửa đủ sáu mục, reason_codes và proof rồi gọi lại present.",
+                        "retryable": True,
+                    }
+                )
+
     conv_id = registry.CTX_CONV.get()
     task_id = registry.CTX_TASK.get() or None  # main gọi ngoài sub → None → card task_id null
 
@@ -201,16 +219,29 @@ async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
 
     present_form THẬT: persist card type 'form' (fields server-side + status='pending') → SSE.
     id/conv/task VỎ-inject (§15). Model KHÔNG bơm fields — chống model tự chế shape hồ sơ."""
+    from app import consent
     from app.orch import registry, store
     from app.sse.emit import emit
 
     conv_id = registry.CTX_CONV.get()
     task_id = registry.CTX_TASK.get() or None
+    try:
+        wording = consent.load_wording()
+    except consent.ConsentWordingError:
+        return _text(
+            {
+                "code": "consent_wording_unavailable",
+                "message": "Nội dung đồng ý pre-pilot chưa sẵn sàng.",
+                "hint": "Báo quản trị kiểm tra artifact wording trước khi mở form.",
+                "retryable": False,
+            }
+        )
     card_data = {
         "type": "form",
         "title": "Hồ sơ vay — thông tin khách hàng",
         "fields": FORM_FIELDS,
         "status": "pending",
+        "consent": wording.snapshot(),
     }
     try:
         card_row = await store.insert_card(conv_id, task_id, "form", card_data)

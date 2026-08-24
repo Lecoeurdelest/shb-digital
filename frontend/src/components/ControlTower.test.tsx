@@ -1,5 +1,5 @@
 // ControlTower.test.tsx — admin tách nghiệp vụ, kiểm soát, kỹ thuật và phòng thử nghiệm.
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ControlTower } from './ControlTower';
 import { conversationApi } from '../api';
@@ -41,9 +41,26 @@ beforeEach(() => {
   });
   vi.spyOn(conversationApi, 'listAssessments').mockResolvedValue([]);
   vi.spyOn(conversationApi, 'listCases').mockResolvedValue([]);
+  vi.spyOn(conversationApi, 'getShadowMatch').mockResolvedValue({
+    total: 3, comparable: 3, matched: 2, rate: 2 / 3,
+    by_lane: [], by_day: [],
+  });
+  vi.spyOn(conversationApi, 'listShadowMismatches').mockResolvedValue({ items: [], next_cursor: null });
 });
 
 describe('ControlTower', () => {
+  it('tab Đối chiếu shadow chỉ fetch khi admin mở tab', async () => {
+    render(<ControlTower onBack={vi.fn()} />);
+    expect(conversationApi.getShadowMatch).not.toHaveBeenCalled();
+    expect(conversationApi.listShadowMismatches).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Đối chiếu shadow'));
+
+    await waitFor(() => expect(conversationApi.getShadowMatch).toHaveBeenCalledTimes(1));
+    expect(conversationApi.listShadowMismatches).toHaveBeenCalledWith({ limit: 50 });
+    expect(within(await screen.findByTestId('kpi-Độ khớp tổng')).getByText('66,7%')).toBeInTheDocument();
+  });
+
   it('tab Cơ sở sơ thẩm dùng case read-model, không mount AssessmentsView legacy', async () => {
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Cơ sở sơ thẩm'));
