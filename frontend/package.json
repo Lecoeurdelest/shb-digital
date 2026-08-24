@@ -5,11 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:reference && npm run sdk:build",
+    "build:reference": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit && npm run sdk:typecheck",
+    "sdk:typecheck": "tsc -p sdk/tsconfig.json --noEmit",
+    "sdk:test": "vitest run sdk/src",
+    "sdk:build": "npm run sdk:typecheck && vite build --config sdk/vite.config.ts && vite build --config sdk/vite.standalone.config.ts && tsc -p sdk/tsconfig.build.json",
+    "sdk:consumer-smoke": "node sdk/scripts/consumer-smoke.mjs",
+    "sdk:smoke": "npm run sdk:build && npm run sdk:consumer-smoke",
+    "sdk:pack": "npm run sdk:build && npm pack ./sdk --dry-run"
   },
   "dependencies": {
     "@types/three": "^0.185.1",

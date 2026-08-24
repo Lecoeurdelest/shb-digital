@@ -1,7 +1,7 @@
-// CitationChip.tsx — chip nguồn (tên tool) trên card. S2: hiện tên + tooltip + bấm được
-// (onCite gọi lại với taskId+source). Trace view đầy đủ = S4. "Mọi con số có nguồn" — điểm
-// demo bank (canvas-present §3). DRY: dùng chung mọi card type.
+// CitationChip.tsx — chip nguồn nghiệp vụ. Raw source chỉ dùng làm khóa/callback nội bộ;
+// bề mặt RM/khách hàng chỉ hiện nhãn nghiệp vụ (D-75).
 import './CitationChip.css';
+import { sourceLabel } from './sourceLabels';
 
 interface Props {
   source: string;
@@ -10,16 +10,17 @@ interface Props {
 }
 
 export function CitationChip({ source, taskId, onCite }: Props) {
+  const label = sourceLabel(source);
   return (
     <button
       type="button"
       className="cite-chip"
-      title={`Nguồn: ${source}${taskId ? ` (trace task ${taskId.slice(0, 8)}…)` : ''} — bấm để soi tool-call`}
+      title={`Nguồn nghiệp vụ: ${label}`}
       onClick={() => onCite?.(taskId, source)}
       data-testid={`cite-${source}`}
     >
       <span className="cite-chip__icon" aria-hidden="true">⛬</span>
-      {source}
+      {label}
     </button>
   );
 }

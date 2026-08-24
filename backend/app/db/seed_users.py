@@ -14,6 +14,7 @@ import psycopg2
 
 from app.auth.security import hash_password
 from app.db.config import DATABASE_URL
+from app.runtime_security import validate_runtime_security
 
 # (username, password, role, owner_id). Password demo = username; owner_id: bank=None, khách=mã owner.
 SEED_ACCOUNTS = [
@@ -29,6 +30,8 @@ SEED_ACCOUNTS = [
 
 def seed_users(database_url: str = DATABASE_URL) -> dict[str, str]:
     """Insert account (idempotent). Trả {username: role} đã đảm bảo tồn tại. owner_id set cho khách."""
+    # bank_dc phải từ chối secret/demo config trước khi seed chạm DB, không để lại state nửa vời.
+    validate_runtime_security()
     conn = psycopg2.connect(database_url)
     out: dict[str, str] = {}
     try:

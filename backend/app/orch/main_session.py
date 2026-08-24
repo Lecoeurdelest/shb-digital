@@ -20,12 +20,13 @@ import os
 from pathlib import Path
 from typing import Any
 
-from app.mount.mount_role import ROLES_DIR, mount_role
+from app.mount.mount_role import mount_role
 from app.orch import registry, store
 from app.orch.audit_emit import _audit_main_tool_call, _audit_tool_call, _emit_thinking  # S8: tách audit/SSE
 from app.orch.main_prompts import _build_event_prompt, _customer_prompt_block  # S8: tách prompt-building
-from app.orch.main_skill import MAIN_SKILL  # S8: tách MAIN_SKILL ra module (main_session <400 LOC)
+from app.orch.main_skill import get_main_skill
 from app.orch.store import Task
+from app.prompting import get_prompt_service
 
 log = logging.getLogger("orch.session")
 
@@ -170,7 +171,7 @@ def _build_main_options(
 
     # D-56 MAIN identity inject: ca creator = KHÁCH → prepend block khách (xưng anh/chị, mặc định về
     # khách này, KHÔNG tra hồ sơ người khác). creator = ngân hàng → MAIN_SKILL như cũ (không block).
-    skill = MAIN_SKILL + _customer_prompt_block(conv_id)
+    skill = get_main_skill() + _customer_prompt_block(conv_id)
 
     return ClaudeAgentOptions(
         system_prompt=skill,
@@ -368,8 +369,12 @@ async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
         attempt = await store_approvals.claim_exec_attempt(grant["id"])
         payload_summary = ", ".join(f"{k}={v}" for k, v in (grant.get("payload") or {}).items())
         brief = (
-            f"Thực hiện {action} ĐÃ ĐƯỢC DUYỆT: {payload_summary}. Gọi lại tool {action} "
-            f"ĐÚNG tham số này để hoàn tất (phiếu đã duyệt, lần này chạy thật)."
+            get_prompt_service()
+            .render(
+                "task.approved_execution",
+                {"action": action, "payload_summary": payload_summary},
+            )
+            .rstrip("\n")
         )
         title = f"Thực thi {action} đã duyệt ({payload_summary})"
         log.info("resume-guard B: re-dispatch %s claim %s lần %d (conv %s)", role, action, attempt, conv_id)
@@ -443,6 +448,6 @@ def boot() -> None:
 
 
 def roles_available() -> list[str]:
-    if not ROLES_DIR.exists():
-        return []
-    return [p.name for p in ROLES_DIR.iterdir() if p.is_dir() and (p / "functions.py").exists()]
+    from app.orch.sub_runner import discovered_roles
+
+    return sorted(discovered_roles())

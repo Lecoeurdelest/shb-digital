@@ -18,11 +18,20 @@ import psycopg2
 import psycopg2.extras
 
 from app.db.config import DATABASE_URL
+from app.storage import connect_core
 
 log = logging.getLogger("orch.audit")
 
 # filter hợp lệ cho GET /api/audit (whitelist — chống SQL injection qua tên cột động).
 _AUDIT_FILTERS = {"task_id", "conv_id", "tool", "actor"}
+_DEFAULT_DATABASE_URL = DATABASE_URL
+
+
+def _connect():
+    # Test cũ monkeypatch module DSN để ép error-path; runtime bình thường dùng pool D-76.
+    if DATABASE_URL != _DEFAULT_DATABASE_URL:
+        return psycopg2.connect(DATABASE_URL)
+    return connect_core()
 
 
 def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
@@ -67,7 +76,7 @@ def _record_sync(
     KHÔNG làm mất cả row (audit không được mất record vì output tool lạ)."""
     in_j, out_j, cost_j = _safe_json(tool_input), _safe_json(output), _safe_json(cost)
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = _connect()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(
@@ -86,7 +95,7 @@ def _record_sync(
         return None
 
 
-def _query_sync(filters: dict[str, str], limit: int) -> list[dict[str, Any]]:
+def _query_sync(filters: dict[str, str], limit: int, tenant_id: str | None = None) -> list[dict[str, Any]]:
     """Query tool_calls theo filter (whitelist cột). Mới nhất trước. limit cap."""
     where = []
     params: list[Any] = []
@@ -94,9 +103,12 @@ def _query_sync(filters: dict[str, str], limit: int) -> list[dict[str, Any]]:
         if k in _AUDIT_FILTERS and v:
             where.append(f"{k} = %s")
             params.append(v)
+    if tenant_id is not None:
+        where.append("tenant_id = %s")
+        params.append(tenant_id)
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     params.append(limit)
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = _connect()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -123,6 +135,8 @@ async def record_tool_call(
     return await asyncio.to_thread(_record_sync, task_id, conv_id, actor, tool, tool_input, output, cost)
 
 
-async def query_tool_calls(filters: dict[str, str], limit: int = 200) -> list[dict[str, Any]]:
+async def query_tool_calls(
+    filters: dict[str, str], limit: int = 200, tenant_id: str | None = None
+) -> list[dict[str, Any]]:
     """GET /api/audit — list tool_calls theo filter (whitelist cột)."""
-    return await asyncio.to_thread(_query_sync, filters, limit)
+    return await asyncio.to_thread(_query_sync, filters, limit, tenant_id)

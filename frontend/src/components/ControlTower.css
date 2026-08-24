@@ -79,7 +79,16 @@
 .ct__refresh:hover { color: var(--tx); }
 
 .ct__error { color: var(--fail); background: var(--tone-fail-bg); border: 1px solid var(--tone-fail-bd); border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
+.ct__notice { color: var(--warn); background: var(--tone-warn-bg); border: 1px solid var(--tone-warn-bd); border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-bottom: 12px; }
 .ct__empty { color: var(--faint); font-size: 12.5px; padding: 40px 0; text-align: center; }
+.ct__config-env, .ct__config-version { font: 600 11px var(--mono); color: var(--mute); }
+.ct__config-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; }
+.ct__config-grid aside, .ct__config-grid section { border: 1px solid var(--bd); background: var(--p1); border-radius: 8px; padding: 14px; }
+.ct__config-grid label { display: grid; gap: 7px; font-size: 12px; color: var(--dim); }
+.ct__config-grid select, .ct__config-grid textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--bd2); border-radius: 6px; background: var(--bg2); color: var(--tx); font: 12px var(--mono); padding: 9px; }
+.ct__config-grid textarea { min-height: 320px; resize: vertical; margin: 10px 0; line-height: 1.5; }
+.ct__config-provider { margin-top: 14px; font-size: 11px; color: var(--mute); line-height: 1.5; }
+@media (max-width: 760px) { .ct__config-grid { grid-template-columns: 1fr; } }
 .ct__more { font-size: 11px; color: var(--mute); padding: 10px 0; text-align: center; }
 
 /* approval queue rows */
@@ -98,15 +107,75 @@
 .ct__appr-payload { flex: 1; min-width: 0; font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ct__appr-btns { display: flex; gap: 6px; flex: none; }
 .ct__appr-btn { padding: 6px 12px; font-size: 11.5px; }
+.ct__appr-status { flex: none; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--bd); font: 700 10px var(--mono); }
+.ct__appr-status--pending { color: var(--warn); background: var(--tone-warn-bg); border-color: var(--tone-warn-bd); }
+.ct__appr-status--approved, .ct__appr-status--used { color: var(--pass); background: var(--tone-pass-bg); border-color: var(--tone-pass-bd); }
+.ct__appr-status--rejected, .ct__appr-status--exec_failed { color: var(--fail); background: var(--tone-fail-bg); border-color: var(--tone-fail-bd); }
 
-/* audit table */
-.ct__audit { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-.ct__audit th { text-align: left; padding: 7px 10px; color: var(--faint); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; border-bottom: 1px solid var(--bd); }
-.ct__audit td { padding: 7px 10px; border-bottom: 1px solid var(--bd); vertical-align: top; }
-.ct__audit-ts { font: 500 10px var(--mono); color: var(--mute); white-space: nowrap; }
-.ct__audit-actor { color: var(--main); font-weight: 600; white-space: nowrap; }
-.ct__audit-tool { font: 600 10px var(--mono); color: var(--acc); background: var(--acc-bg); padding: 1px 6px; border-radius: 5px; }
-.ct__audit-in { color: var(--mute); font-family: var(--mono); font-size: 10px; word-break: break-all; }
+/* audit timeline: nghiệp vụ thấy sự kiện kiểm soát, không thấy tool/input JSON thô */
+.ct__audit-list { display: flex; flex-direction: column; gap: 8px; }
+.ct__audit-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 12px 14px;
+  background: var(--p1);
+  border: 1px solid var(--bd);
+  border-radius: 10px;
+}
+.ct__audit-main { min-width: 0; }
+.ct__audit-title { font-size: 12.5px; font-weight: 700; color: var(--tx); }
+.ct__audit-detail { margin-top: 4px; font-size: 11.5px; color: var(--dim); line-height: 1.5; }
+.ct__audit-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.ct__audit-fact {
+  min-width: 0;
+  border: 1px solid var(--bd);
+  background: var(--bg2);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.ct__audit-fact-label {
+  display: block;
+  color: var(--mute);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.ct__audit-fact-value {
+  display: block;
+  color: var(--dim);
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.ct__audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-content: flex-start;
+  gap: 6px;
+  max-width: 360px;
+}
+.ct__audit-meta span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  color: var(--mute);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .ct__audit-card { grid-template-columns: 1fr; }
+  .ct__audit-meta { justify-content: flex-start; max-width: none; }
+  .ct__audit-facts { grid-template-columns: 1fr; }
+}
 
 /* agent status */
 .ct__stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 14px 0; }
@@ -173,7 +242,9 @@
 .ct__appr-row .lane--idle { color: var(--mute); background: var(--bg2); border: 1px solid var(--bd); }
 
 /* DF-B-07: từ chối 2 bước — ô lý do expand inline */
-.ct__appr-wrap { display: flex; flex-direction: column; }
+.ct__appr-wrap { display: flex; flex-direction: column; scroll-margin: 80px; }
+.ct__appr-wrap--focused { border-radius: 12px; outline: 2px solid var(--acc); outline-offset: 3px; box-shadow: 0 0 0 6px var(--acc-bg); }
+.ct__appr-reason { margin-top: -4px; padding: 8px 14px 10px; border: 1px solid var(--bd); border-top: none; border-radius: 0 0 10px 10px; background: var(--p1); color: var(--dim); font-size: 11.5px; }
 .ct__reject {
   display: flex;
   flex-direction: column;

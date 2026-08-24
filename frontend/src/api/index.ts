@@ -5,25 +5,32 @@
 
 import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
+import type { AgentConfigResponse, ApprovalRow, Assessment, AuditRow, AuthUser, CaseListFilters, CaseSummary, CompareResult, Conversation, ConversationFullState, ConversationGroup, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
 
 // True when the app talks to the in-memory mock backend instead of the real REST API.
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
 
 // Backend surface the app depends on — one implementation for mock, one for real REST.
 export interface ConversationApi {
+  getAgentConfig(): Promise<AgentConfigResponse>;
+  saveAgentPrompt(key: string, content: string): Promise<AgentConfigResponse>;
   login(username: string, password: string): Promise<LoginResult>;
   register(username: string, password: string, email?: string): Promise<LoginResult>;
   logout(): Promise<void>;
   me(): Promise<{ user: AuthUser }>;
   getAuthProviders(): Promise<{ password: boolean; google: boolean }>;
   listConversations(): Promise<Conversation[]>;
-  createConversation(title: string, provider?: string, model?: string): Promise<Conversation>;
-  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }): Promise<Conversation>;
+  listConversationGroups(): Promise<ConversationGroup[]>;
+  createConversationGroup(name: string): Promise<ConversationGroup>;
+  updateConversationGroup(id: string, name: string): Promise<ConversationGroup>;
+  deleteConversationGroup(id: string): Promise<void>;
+  createConversation(title: string, provider?: string, model?: string, groupId?: string | null): Promise<Conversation>;
+  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string; group_id?: string | null }): Promise<Conversation>;
   deleteConversation(id: string): Promise<void>;
   getConversation(id: string): Promise<ConversationFullState>;
   sendChat(id: string, content: string): Promise<void>;
-  decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown>;
+  decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<ApprovalRow>;
+  getApproval(id: string): Promise<ApprovalRow>;
   auditByConv(convId: string): Promise<AuditRow[]>;
   auditByTask(taskId: string): Promise<AuditRow[]>;
   interruptTask(convId: string, taskId: string): Promise<unknown>;
@@ -37,6 +44,7 @@ export interface ConversationApi {
   getCost(window?: StatsWindow): Promise<CostResponse>;
   getCostTrend(window: StatsWindow, bucket: 'hour' | 'day', groupBy: 'model' | 'role'): Promise<CostTrendResponse>;
   listAssessments(owner?: string, limit?: number): Promise<Assessment[]>;
+  listCases(filters?: CaseListFilters): Promise<CaseSummary[]>;
   // Form intake + bell (T9-3)
   submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult>;
   getNotifications(): Promise<NotificationItem[]>;
@@ -45,6 +53,8 @@ export interface ConversationApi {
 
 // In-memory mock implementation of the backend surface (used when USE_MOCK_API is true).
 const mockApi: ConversationApi = {
+  async getAgentConfig() { return { environment: 'default', providers: [], prompts: [{ key: 'main.system', scope: 'main', description: 'Điều phối chính', variables: [], active: { version: 1, content: 'Bạn là điều phối viên.', activated_by: 'admin', activated_at: '' } }] }; },
+  async saveAgentPrompt(key: string, content: string) { return { environment: 'default', providers: [], prompts: [{ key, scope: 'main', description: null, variables: [], active: { version: 2, content, activated_by: 'admin', activated_at: '' } }] }; },
   async login(username: string) {
     // mock không auth — chấp nhận mọi credential, trả role theo username (admin→admin, còn lại user).
     return { token: 'mock-token', user: { username, role: username === 'admin' ? 'admin' as const : 'user' as const } };
@@ -68,10 +78,22 @@ const mockApi: ConversationApi = {
   async listConversations() {
     return mockBackend.listConversations();
   },
-  async createConversation(title: string, provider?: string, model?: string) {
-    return mockBackend.createConversation(title, provider, model);
+  async listConversationGroups() {
+    return mockBackend.listConversationGroups();
   },
-  async updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }) {
+  async createConversationGroup(name: string) {
+    return mockBackend.createConversationGroup(name);
+  },
+  async updateConversationGroup(id: string, name: string) {
+    return mockBackend.updateConversationGroup(id, name);
+  },
+  async deleteConversationGroup(id: string) {
+    await mockBackend.deleteConversationGroup(id);
+  },
+  async createConversation(title: string, provider?: string, model?: string, groupId?: string | null) {
+    return mockBackend.createConversation(title, provider, model, groupId);
+  },
+  async updateConversation(id: string, patch: { title?: string; provider?: string; model?: string; group_id?: string | null }) {
     return mockBackend.updateConversation(id, patch);
   },
   async deleteConversation(id: string) {
@@ -84,7 +106,10 @@ const mockApi: ConversationApi = {
     await mockBackend.sendChat(id, content);
   },
   async decideApproval(id: string, decision: 'approved' | 'rejected', reason: string) {
-    await mockBackend.decideApproval(id, decision, reason);
+    return mockBackend.decideApproval(id, decision, reason);
+  },
+  async getApproval(id: string) {
+    return mockBackend.getApproval(id);
   },
   async auditByConv(convId: string) {
     return mockBackend.auditByConv(convId);
@@ -119,6 +144,9 @@ const mockApi: ConversationApi = {
   async listAssessments(owner?: string, limit?: number) {
     return mockBackend.listAssessments(owner, limit);
   },
+  async listCases(filters: CaseListFilters = {}) {
+    return mockBackend.listCases(filters);
+  },
   async submitForm(convId: string, cardId: string, values: Record<string, string>) {
     return mockBackend.submitForm(convId, cardId, values);
   },
@@ -150,18 +178,25 @@ function browserEventSource(convId: string): MinimalEventSource {
 
 // Real REST implementation — delegates to apiClient plus the browser SSE adapter.
 const realApi: ConversationApi = {
+  getAgentConfig: apiClient.getAgentConfig,
+  saveAgentPrompt: apiClient.saveAgentPrompt,
   login: apiClient.login,
   register: apiClient.register,
   logout: apiClient.logout,
   me: apiClient.me,
   getAuthProviders: apiClient.getAuthProviders,
   listConversations: apiClient.listConversations,
+  listConversationGroups: apiClient.listConversationGroups,
+  createConversationGroup: apiClient.createConversationGroup,
+  updateConversationGroup: apiClient.updateConversationGroup,
+  deleteConversationGroup: apiClient.deleteConversationGroup,
   createConversation: apiClient.createConversation,
   updateConversation: apiClient.updateConversation,
   deleteConversation: apiClient.deleteConversation,
   getConversation: apiClient.getConversation,
   sendChat: apiClient.sendChat,
   decideApproval: apiClient.decideApproval,
+  getApproval: apiClient.getApproval,
   auditByConv: apiClient.auditByConv,
   auditByTask: apiClient.auditByTask,
   interruptTask: apiClient.interruptTask,
@@ -173,6 +208,7 @@ const realApi: ConversationApi = {
   getCost: apiClient.getCost,
   getCostTrend: apiClient.getCostTrend,
   listAssessments: apiClient.listAssessments,
+  listCases: apiClient.listCases,
   submitForm: apiClient.submitForm,
   getNotifications: apiClient.getNotifications,
   openEventSource: browserEventSource,

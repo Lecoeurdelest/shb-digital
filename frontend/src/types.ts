@@ -10,6 +10,7 @@ export type UserRole = 'customer' | 'user' | 'admin';
 export interface AuthUser {
   username: string;
   role: UserRole;
+  tenant_id?: string; // D-79 — server-owned; FE chỉ hiển thị/giữ context, không tự gửi tenant.
   owner_id?: string | null; // D-56 — mã khách của account (customer); admin/user = null. Thiếu (server cũ) → null.
 }
 
@@ -23,6 +24,8 @@ export type ConversationStatus = 'running' | 'waiting_approval' | 'done' | 'fail
 
 export interface Conversation {
   id: string;
+  tenant_id?: string;
+  group_id?: string | null;
   user_id?: string;
   title: string;
   status: ConversationStatus;
@@ -30,6 +33,14 @@ export interface Conversation {
   created_at: string;
   provider?: string; // D-45b — provider ca chạy (null = server-default)
   model?: string; // model string trong provider đó
+}
+
+export interface ConversationGroup {
+  id: string;
+  name: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export type MessageSender = 'user' | 'assistant' | 'system';
@@ -161,7 +172,7 @@ export interface AuditRow {
   actor: string;
   tool: string;
   input?: Record<string, unknown> | null;
-  output?: Record<string, unknown> | null;
+  output?: unknown;
   cost?: Record<string, unknown> | null;
 }
 
@@ -181,9 +192,14 @@ export interface ApprovalRow {
   task_id: string | null;
   action: string;
   payload?: Record<string, unknown> | null;
-  status: 'pending' | 'approved' | 'rejected' | 'used';
+  payload_hash?: string;
+  status: 'pending' | 'approved' | 'rejected' | 'used' | 'exec_failed';
   decided_by?: string | null;
+  decided_at?: string | null;
   reason?: string | null;
+  used_at?: string | null;
+  receipt?: Record<string, unknown> | null;
+  exec_attempts?: number;
   display?: ApprovalDisplay | null;
   [key: string]: unknown;
 }
@@ -201,6 +217,19 @@ export interface Provider {
 export interface ModelsResponse {
   providers: Provider[];
   default: string;
+}
+
+export interface AgentPromptConfig {
+  key: string;
+  scope: string;
+  description: string | null;
+  variables: string[];
+  active: { version: number; content: string; activated_by: string; activated_at: string } | null;
+}
+export interface AgentConfigResponse {
+  environment: string;
+  providers: Provider[];
+  prompts: AgentPromptConfig[];
 }
 
 // compare 2-cột (POST /api/compare {question} — deliverable #5). Shape backend mới — đọc defensive.
@@ -270,6 +299,45 @@ export interface NotificationItem {
   title: string;
   ts: string;
   conv_id: string;
+}
+
+// ── Case workbench (CONTRACT §11 · D-77) ──
+// Case có identity nghiệp vụ riêng; tuyệt đối không suy từ conversation title/conv_id.
+export type CaseStatus =
+  | 'received'
+  | 'missing_information'
+  | 'ready_for_preassessment'
+  | 'preassessment_in_progress'
+  | 'needs_specialist'
+  | 'ready_for_handover'
+  | 'cancelled';
+
+export interface CaseSummary {
+  id: string;
+  source_system: string;
+  external_case_id: string;
+  internal_application_id: string | null;
+  party_reference: string | null;
+  product_code: string | null;
+  loan_amount_vnd: number | null;
+  case_status: CaseStatus;
+  next_action: string;
+  document_count: number;
+  missing_fields: string[];
+  source_version: number | null;
+  data_as_of: string | null;
+  synced_at: string;
+  conversation_id: string | null;
+  assessment: {
+    lane: 'green' | 'yellow' | 'red' | null;
+    created_at: string | null;
+  };
+}
+
+export interface CaseListFilters {
+  status?: CaseStatus;
+  source?: string;
+  limit?: number;
 }
 
 // ── Stats + assessments (S13 T13-1 · GET /api/stats, /api/assessments — admin) ──

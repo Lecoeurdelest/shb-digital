@@ -174,3 +174,49 @@
   auto nhảy cả UI+API; panel lý-do khớp chính xác assessment thật). 497 test (367+130), CI xanh.
   Rào giữ trọn (chỉ-đọc, 0 bảng mới). False-alarm 8a root-caused: cleanup-DB ≠ bug — note vận
   hành "reset → KPI 0 nhảy live trong demo = kể chuyện" vào scenarios doc.
+
+## Sprint 17 — BENCH Phase 2 ✅ ĐÓNG (`a5dc20e`, 19/7)
+
+- **Theme:** So sánh single-agent-full-tool với hệ action-oriented trên 15 ca cùng model/tool
+  surface, công khai cả ưu và nhược điểm.
+- **Gate:** ✅ 15 case × 2 phía hoàn tất; **Multi 5 · Single 5 · Hoà 5**. Multi thắng lớp
+  liên-phòng tuần tự; single nhanh/rẻ hơn ở ca một-phòng. Report: `bench/REPORT.md`.
+
+## Sprint 18 — Positioning + shadow readiness ✅ ĐÓNG (24/8)
+
+- **Theme:** “Human signs, machine prepares” — configurable fail-closed threshold, counterfactual
+  shadow ledger/match-rate API, standardized credit memo, and middle-office positioning (D-72/D-73).
+- **Gate:** lifecycle thật trên `shb_test` PASS: threshold `0` → pending + snapshot counterfactual,
+  review atomic/match stats, `used` + receipt đúng một lần, replay handler `1→1`, bỏ key → auto
+  mặc định. Live XD-01 bắt schema `present` chưa quảng bá top-level `sources`; fix optional
+  `string[]` rồi fresh-session gate PASS với 4 role, title/6 section và provenance có audit.
+  Mốc suite S18: **460 BE pass + 17 skip + 231 FE pass = 691 pass + 17 skip**.
+- **Plan:** `plan_sprint_18.md` · **End:** `end_sprint_18.md`.
+
+## Sprint 19 — External-chat doorbell ✅ ĐÓNG (24/8)
+
+- **Theme:** Outbound notification data-minimized + exact-ticket deep-link về Control Tower.
+  External chat chỉ là chuông cửa; không dữ liệu tín dụng ngoài bank DC và không duyệt từ chat
+  (D-71, lật hẹp D-15).
+- **Gate riêng T19:** PASS — receiver thật pending **43.544ms**, approved **13.265ms**; đúng 4 key,
+  0 field cấm; exact-ticket/deep-link auth-preserved; lifecycle thật + receipt replay đúng một lần.
+  Browser focus có evidence nhưng khai rõ dùng Vite mock vì `:8000` thuộc service ngoài; API/DB
+  đã verify riêng trên `shb_test`. Suite cuối **487 BE pass + 17 skip + 251 FE pass = 738 pass +
+  17 skip**; T19-4 PASS sau khi gate S18 đóng.
+- **Plan:** `plan_sprint_19.md` · **End:** `end_sprint_19.md` · **Evidence:**
+  `evidence/gate-s19-deeplink-highlight.png`.
+
+## Sprint 21 — Headless Core + Embed SDK ✅ ĐÓNG (24/8)
+
+- **Theme:** sản phẩm chính là lõi agent/phanh/audit on-prem + package nhúng; SPA hiện tại chỉ là
+  reference host và Control Tower (D-74).
+- **Gate:** contract-first readiness/CORS/bank-DC guard; SDK headless không React/DOM; React +
+  Web Component không approval; packed consumer ESM/CJS/types/Vite/browser-IIFE; full suite xanh;
+  REST/SSE ownership chạy với backend thật. Claim CIC/core live và source-system MCP tách process
+  bị cấm cho tới khi có adapter/credential/evidence tương ứng.
+- **Gate thật:** `/api/ready` kiểm DB/migration/provider/MCP; packed SDK được consumer mới import
+  ESM/CJS/types, build Vite và chạy IIFE browser; REST/SSE ownership chạy với backend thật; Docker
+  image chứa artifact riêng và npm/pip audit không còn lỗ hổng đã biết.
+- **Mốc:** **531 BE pass + 17 skip + 276 FE pass = 807 pass + 17 skip**; SDK **35 file /
+  86.298 byte**.
+- **Plan:** `plan_sprint_21.md` · **End:** `end_sprint_21.md`.

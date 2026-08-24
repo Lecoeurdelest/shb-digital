@@ -57,6 +57,7 @@ describe('CostAnomalyTable', () => {
   ];
   it('z≥2 mặc định → cả 2; nút z≥3 → chỉ z cao', () => {
     render(<CostAnomalyTable anomalies={anoms} />);
+    expect(screen.getByText('Phiên xử lý có chi phí bất thường (z-score)')).toBeInTheDocument();
     expect(screen.getByTestId('anom-row-hi')).toBeInTheDocument();
     expect(screen.getByTestId('anom-row-mid')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('anom-z-3'));
@@ -65,13 +66,14 @@ describe('CostAnomalyTable', () => {
   });
   it('rỗng → empty note', () => {
     render(<CostAnomalyTable anomalies={[]} />);
-    expect(screen.getByTestId('anom-empty')).toBeInTheDocument();
+    expect(screen.getByTestId('anom-empty')).toHaveTextContent('Không có phiên xử lý bất thường');
   });
   it('row-click → onOpenAudit(conv_id)', () => {
     const onOpenAudit = vi.fn();
     render(<CostAnomalyTable anomalies={anoms} onOpenAudit={onOpenAudit} />);
     fireEvent.click(screen.getByTestId('anom-row-hi'));
     expect(onOpenAudit).toHaveBeenCalledWith('hi');
+    expect(screen.getByTestId('anom-row-hi')).toHaveAttribute('title', 'Mở nhật ký tool của phiên xử lý này');
   });
 });
 

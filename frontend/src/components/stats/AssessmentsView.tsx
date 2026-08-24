@@ -1,6 +1,5 @@
-// AssessmentsView.tsx — tab "Hồ sơ + lý do AI" (S13 T13-3). Danh sách assessments (lane chip màu +
-// owner + số tiền + thời gian) → click → panel chi tiết: từng tiêu chí 3 trụ (criteria[] level chip +
-// detail) + lane + "Lý do AI" (basis). Theme-aware (var token). Defensive: criteria rỗng/lane lạ → an toàn.
+// AssessmentsView.tsx — cơ sở sơ thẩm: tiêu chí theo hồ sơ và snapshot chính sách, không gắn nhãn
+// “lý do AI”. Đây là căn cứ để cán bộ kiểm tra, không phải quyết định phê duyệt.
 import { useEffect, useState } from 'react';
 import { conversationApi } from '../../api';
 import { ApiRequestError } from '../../api/client';
@@ -75,7 +74,7 @@ export function AssessmentsView() {
   return (
     <div className="ct__section asmt">
       <div className="ct__section-head">
-        <span className="ct__section-title">Hồ sơ thẩm định + lý do AI ({rows.length})</span>
+        <span className="ct__section-title">Cơ sở sơ thẩm ({rows.length})</span>
       </div>
       {error && <div className="ct__error">{error}</div>}
       {rows.length === 0 && !error ? (

@@ -41,6 +41,7 @@ def test_approval_not_in_present_enum():
     sch = present_tool.input_schema
     assert "approval" not in sch["properties"]["type"]["enum"]
     assert set(sch["properties"]["type"]["enum"]) == set(PRESENT_TYPES)
+    assert sch["properties"]["sources"]["items"] == {"type": "string"}
     assert sch["required"] == ["type", "title", "items"]
 
 

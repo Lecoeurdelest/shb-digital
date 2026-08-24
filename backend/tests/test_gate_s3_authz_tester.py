@@ -67,6 +67,7 @@ def _cleanup_approval(approval_id: str) -> None:
     conn = psycopg2.connect(DATABASE_URL)
     try:
         cur = conn.cursor()
+        cur.execute("DELETE FROM shadow_reviews WHERE approval_id=%s", (approval_id,))
         cur.execute("DELETE FROM approvals WHERE id=%s", (approval_id,))
         conn.commit()
     finally:

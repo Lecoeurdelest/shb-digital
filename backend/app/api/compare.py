@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from contextvars import ContextVar
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -22,6 +23,8 @@ from pydantic import BaseModel
 from app.auth.deps import require_admin
 from app.errors import ApiError
 from app.orch import room, store, store_audit
+from app.prompting import get_prompt_service
+from app.tenancy import tenant_id_from_claims
 
 log = logging.getLogger("api.compare")
 
@@ -36,11 +39,7 @@ _POLL_INTERVAL_S = 2.0
 #   waiting_approval/failed (dừng hẳn) · HOẶC idle+done VÀ KHÔNG task nào queued/running (sub xong hết).
 _STOP_STATES = {"waiting_approval", "failed"}  # dừng hẳn, không chờ thêm
 _ACTIVE_TASK = {"queued", "running"}  # còn task đang chạy → CHƯA xong (dù conv idle giữa lượt)
-
-_SINGLE_SKILL = (
-    "Bạn là trợ lý ngân hàng. Trả lời thẳng câu hỏi bằng KIẾN THỨC CỦA BẠN, ngắn gọn. "
-    "Bạn KHÔNG có công cụ tra cứu dữ liệu khách hàng — trả lời dựa trên hiểu biết chung."
-)
+_COMPARE_TENANT: ContextVar[str | None] = ContextVar("compare_tenant", default=None)
 
 
 class CompareBody(BaseModel):
@@ -58,7 +57,7 @@ async def _run_single(question: str) -> dict[str, Any]:
         from claude_agent_sdk import ClaudeAgentOptions
 
         opts = ClaudeAgentOptions(
-            system_prompt=_SINGLE_SKILL,
+            system_prompt=get_prompt_service().render("compare.single.system"),
             model=MAIN_MODEL,
             mcp_servers={},  # KHÔNG tool — single nhẩm chay
             tools=[],
@@ -99,7 +98,9 @@ async def _run_multi(question: str) -> dict[str, Any]:
 
     Timeout → partial {timeout:true, conv_id}. Câu giải ngân → waiting_approval = trả trạng thái đó.
     """
-    conv = await store.create_conversation("compare", "compare-run")
+    tenant_id = _COMPARE_TENANT.get()
+    create_kwargs = {"tenant_id": tenant_id} if tenant_id is not None else {}
+    conv = await store.create_conversation("compare", "compare-run", **create_kwargs)
     conv_id = conv["id"]
     t0 = time.monotonic()
     await store.add_message(conv_id, "user", question)
@@ -126,7 +127,11 @@ async def _run_multi(question: str) -> dict[str, Any]:
                 break
     duration = round(time.monotonic() - t0, 2)
 
-    tool_calls = await store_audit.query_tool_calls({"conv_id": conv_id}, limit=1000)
+    tool_calls = await store_audit.query_tool_calls(
+        {"conv_id": conv_id},
+        limit=1000,
+        tenant_id=tenant_id,
+    )
     cards = await store.list_cards(conv_id)
     if not settled:
         # timeout — partial (single vẫn trả). conv_id để FE xem ca dở.
@@ -166,7 +171,15 @@ async def compare(body: CompareBody, claims: dict = Depends(require_admin)) -> d
     # (không raise) → try/except vô dụng → gather khoá response VÔ HẠN (dù multi xong). wait_for →
     # TimeoutError raise → return_exceptions map → single partial. (multi có poll-timeout 120s nội bộ.)
     single_task = asyncio.wait_for(_run_single(question), timeout=_SINGLE_TIMEOUT_S)
-    single_r, multi_r = await asyncio.gather(single_task, _run_multi(question), return_exceptions=True)
+    tenant_token = _COMPARE_TENANT.set(tenant_id_from_claims(claims))
+    try:
+        single_r, multi_r = await asyncio.gather(
+            single_task,
+            _run_multi(question),
+            return_exceptions=True,
+        )
+    finally:
+        _COMPARE_TENANT.reset(tenant_token)
     if isinstance(single_r, Exception):
         # timeout (SDK treo) HOẶC lỗi khác → single partial, 2 cột vẫn render (đối xứng multi-partial).
         single = {"text": "single-agent không phản hồi (timeout)", "timeout": True, "duration_s": _SINGLE_TIMEOUT_S}

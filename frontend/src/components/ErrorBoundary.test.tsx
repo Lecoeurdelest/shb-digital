@@ -20,7 +20,7 @@ describe('ErrorBoundary', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('child throw → fallback UI + message lỗi + nút tải lại (không crash lên trên)', () => {
+  it('child throw → fallback UI generic + nút tải lại, không lộ exception', () => {
     // React log lỗi ra console khi boundary bắt — nuốt để test output sạch.
     vi.spyOn(console, 'error').mockImplementation(() => {});
     render(
@@ -30,7 +30,7 @@ describe('ErrorBoundary', () => {
     );
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.getByText('Giao diện gặp lỗi')).toBeInTheDocument();
-    expect(screen.getByText('render nổ')).toBeInTheDocument();
+    expect(screen.queryByText('render nổ')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tải lại/ })).toBeInTheDocument();
   });
 });

@@ -84,3 +84,12 @@ jobs:
 
       - name: Typecheck (tsc)
         run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build reference host + Embed SDK
+        run: npm run build
+
+      - name: Packaged SDK consumer smoke
+        run: npm run sdk:consumer-smoke

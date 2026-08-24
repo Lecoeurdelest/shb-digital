@@ -12,6 +12,7 @@ import bcrypt
 import jwt
 
 from app.config import JWT_ALG, JWT_SECRET, JWT_TTL_SECONDS
+from app.tenancy import DEFAULT_TENANT_ID
 
 
 def hash_password(plain: str) -> str:
@@ -27,13 +28,14 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def make_token(*, user_id: str, username: str, role: str) -> str:
-    """JWT HS256: sub=user_id, kèm username+role, exp theo TTL."""
+def make_token(*, user_id: str, username: str, role: str, tenant_id: str = DEFAULT_TENANT_ID) -> str:
+    """JWT HS256: sub=user_id, kèm username+role+tenant, exp theo TTL."""
     now = dt.datetime.now(dt.UTC)
     payload = {
         "sub": user_id,
         "username": username,
         "role": role,
+        "tenant_id": tenant_id,
         "iat": now,
         "exp": now + dt.timedelta(seconds=JWT_TTL_SECONDS),
     }

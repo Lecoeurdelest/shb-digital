@@ -38,7 +38,6 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="errbound__msg">
               Một phần màn hình không hiển thị được. Tải lại trang để tiếp tục — dữ liệu đã lưu ở máy chủ không mất.
             </div>
-            <pre className="errbound__detail">{this.state.error.message}</pre>
             <button type="button" className="btn btn--primary errbound__reload" onClick={this.reset}>
               ⟳ Tải lại trang
             </button>

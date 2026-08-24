@@ -1,4 +1,4 @@
-// AssessmentsView.test.tsx — tab Hồ sơ + lý do AI (T13-3): list + panel criteria 3 trụ + basis + defensive.
+// AssessmentsView.test.tsx — cơ sở sơ thẩm: list + tiêu chí 3 trụ + snapshot chính sách.
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AssessmentsView } from './AssessmentsView';
@@ -29,6 +29,8 @@ describe('AssessmentsView (T13-3)', () => {
     vi.spyOn(conversationApi, 'listAssessments').mockResolvedValue(rows);
     render(<AssessmentsView />);
     await waitFor(() => expect(screen.getByTestId('asmt-row-a1')).toBeInTheDocument());
+    expect(screen.getByText('Cơ sở sơ thẩm (2)')).toBeInTheDocument();
+    expect(screen.queryByText(/lý do AI/i)).not.toBeInTheDocument();
     expect(screen.getByTestId('asmt-row-a2')).toBeInTheDocument();
     // panel hồ sơ đầu (a1 green) chọn sẵn → 3 tiêu chí
     const detail = screen.getByTestId('asmt-detail');

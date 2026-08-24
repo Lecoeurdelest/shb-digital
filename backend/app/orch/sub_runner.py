@@ -52,12 +52,16 @@ def set_default_runner(runner: SubRunner) -> None:
 
 
 def discovered_roles() -> set[str]:
-    """Role có thật (quét roles/ — dispatch validate). S1: credit (mount thật)."""
+    """Role mount được phải có cả functions.py + SKILL.md; bỏ helper package `_retrieval`."""
     from app.mount.mount_role import ROLES_DIR
 
     if not ROLES_DIR.exists():
         return set()
-    return {p.name for p in ROLES_DIR.iterdir() if p.is_dir() and (p / "functions.py").exists()}
+    return {
+        p.name
+        for p in ROLES_DIR.iterdir()
+        if p.is_dir() and not p.name.startswith("_") and (p / "functions.py").exists() and (p / "SKILL.md").exists()
+    }
 
 
 async def _report(task: Task, outcome: str, result: dict[str, Any] | None) -> None:

@@ -179,7 +179,7 @@
 .lp-modal__overlay { position: fixed; inset: 0; background: rgba(10, 9, 8, 0.7); backdrop-filter: blur(4px); z-index: 90; }
 .lp-modal__card {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: min(420px, calc(100vw - 32px)); z-index: 91; animation: lp-up 0.3s;
+  width: min(380px, calc(100vw - 32px)); z-index: 91; animation: lp-up 0.3s;
 }
 .lp-modal__close {
   position: absolute; top: 14px; right: 14px; z-index: 2; width: 26px; height: 26px;

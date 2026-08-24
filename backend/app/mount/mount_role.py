@@ -21,9 +21,13 @@ from typing import Any
 import psycopg2
 from claude_agent_sdk import create_sdk_mcp_server, tool
 from claude_agent_sdk.types import McpSdkServerConfig
+from mcp.types import ToolAnnotations
 
 from app.mount.pg_adapter import PGConnAdapter, acquire, release
 from app.mount.schema import schema_to_input
+from app.prompting import get_prompt_service
+from app.storage import connect_core
+from app.tenancy import DEFAULT_TENANT_ID
 
 # repo root = 3 cấp lên từ backend/app/mount/ ; roles/ nằm tại repo root (D-08/D-26 layout)
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -37,6 +41,11 @@ if str(REPO_ROOT) not in sys.path:
 
 def _text(payload: dict[str, Any]) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}]}
+
+
+def _annotations(meta: dict[str, Any] | None) -> ToolAnnotations | None:
+    """Chuyển contract LAB sang MCP thật; None giữ tool không khai metadata đúng nghĩa."""
+    return ToolAnnotations(**meta) if meta else None
 
 
 def _sig_hint(schemas: dict[str, Any], name: str) -> str:
@@ -71,12 +80,26 @@ def run_labpack_fn(
     pg_conn = acquire()
     adapter = PGConnAdapter(pg_conn)
     try:
+        # D-79: tenant context chỉ lấy từ conversation server-side. Tool LAB không nhận tenant_id
+        # từ model/user; assessment WRITE dùng DB default dựa trên setting transaction-local này.
+        from app.orch import registry
+
+        conv_id = registry.CTX_CONV.get()
+        tenant_id = DEFAULT_TENANT_ID
+        if conv_id:
+            with pg_conn.cursor() as tenant_cur:
+                tenant_cur.execute("SELECT tenant_id::text FROM conversations WHERE id::text=%s", (conv_id,))
+                tenant_row = tenant_cur.fetchone()
+                if tenant_row:
+                    tenant_id = tenant_row[0]
+        with pg_conn.cursor() as tenant_cur:
+            tenant_cur.execute("SELECT set_config('app.tenant_id', %s, true)", (tenant_id,))
+
         # READ-SCOPE guard (FIX E — CHẶN S9): ca KHÁCH chỉ tra hồ sơ CỦA MÌNH. Choke point VỎ TRƯỚC
         # fn LAB (N1). CHỈ role toolpack (customer-profile tool). Common retrieval (wiki/notes) KHÔNG
         # qua read_scope (T12-1 scope OUT; notes_search owner-scope là việc T12-2 — ghi note báo cáo).
         if apply_read_scope:
             from app.mount.read_scope import read_scope_refusal
-            from app.orch import registry
 
             refusal = read_scope_refusal(pg_conn, registry.CTX_CONV.get(), name, args)
             if refusal is not None:
@@ -158,9 +181,22 @@ def build_common_retrieval_tools(names: list[str]) -> list:
                         "retryable": False,
                     }
                 )
+            if _name == "notes_search":
+                from app.retrieval.vector_notes import search_notes_from_vector_index
+
+                indexed = search_notes_from_vector_index(args)
+                if indexed is not None:
+                    return _text(indexed)
             return _text(run_labpack_fn(_fn, _name, args, _known, _hint, apply_read_scope=False))
 
-        tools.append(tool(name=name, description=spec["mô tả"], input_schema=schema_to_input(spec["params"]))(_handler))
+        tools.append(
+            tool(
+                name=name,
+                description=spec["mô tả"],
+                input_schema=schema_to_input(spec["params"]),
+                annotations=_annotations(R.ANNOTATIONS_RETRIEVAL.get(name)),
+            )(_handler)
+        )
     return tools
 
 
@@ -170,14 +206,13 @@ def _is_customer_conv() -> bool:
     vs-khách, không phải leak hồ sơ khách khác — read_scope role-path lo phần đó). conv_id từ CTX."""
     import psycopg2
 
-    from app.db.config import DATABASE_URL
     from app.orch import registry
 
     conv_id = registry.CTX_CONV.get()
     if not conv_id:
         return False
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = connect_core()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -203,6 +238,7 @@ def mount_role(role: str) -> tuple[str, McpSdkServerConfig, list[str]]:
     present_path = ROLES_DIR / role / "SKILL.present.md"
     if present_path.exists():
         skill = skill + "\n\n" + present_path.read_text()
+    skill = get_prompt_service().text(f"role.{role}.system", skill)
 
     from app.orch.gated import GATED_WHITELIST, gated
 
@@ -213,7 +249,14 @@ def mount_role(role: str) -> tuple[str, McpSdkServerConfig, list[str]]:
         # SAME conn vào inner). Read tool giữ handler per-call (mount §2). CHỈ gated whitelist thread-tx.
         handler = gated(name, read_handler) if name in GATED_WHITELIST else read_handler
         input_schema = schema_to_input(mod.SCHEMAS[name].get("params", {}))
-        sdk_tools.append(tool(name=name, description=mod.SCHEMAS[name]["mô tả"], input_schema=input_schema)(handler))
+        sdk_tools.append(
+            tool(
+                name=name,
+                description=mod.SCHEMAS[name]["mô tả"],
+                input_schema=input_schema,
+                annotations=_annotations(mod.ANNOTATIONS.get(name)),
+            )(handler)
+        )
 
     server = create_sdk_mcp_server(f"banking_{role}", version="1.0.0", tools=sdk_tools)
     allowed = [f"mcp__banking_{role}__{n}" for n in mod.REGISTRY]

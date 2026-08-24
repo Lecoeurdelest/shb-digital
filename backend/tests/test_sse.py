@@ -150,7 +150,15 @@ async def test_sse_stream_emits_ping_event_when_idle(monkeypatch):
         async def is_disconnected(self):
             return False
 
-    resp = await sse_mod.sse(conv, _FakeReq(), claims={"role": "admin", "username": "admin"})
+    resp = await sse_mod.sse(
+        conv,
+        _FakeReq(),
+        claims={
+            "role": "admin",
+            "username": "admin",
+            "tenant_id": "00000000-0000-0000-0000-000000000001",
+        },
+    )
     frames = []
     it = resp.body_iterator
     for _ in range(3):  # connected + ≥1 ping (queue rỗng → timeout → ping event)

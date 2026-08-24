@@ -1,7 +1,6 @@
-// hooks/useWorkspaceController.ts — toàn bộ state + effect + callback của Workspace tách khỏi
-// Workspace.tsx (nợ ghi từ S14 — file gốc >400 LOC). MỘT hook gọi 1 lần ở top Workspace() giữ
-// đúng thứ tự hook — component chỉ còn JSX + gọi field trả về từ đây. 0 đổi hành vi: DI CHUYỂN
-// nguyên state/effect/callback, không sửa logic.
+// hooks/useWorkspaceController.ts — state/effect/callback cho Workspace nghiệp vụ (D-75).
+// Runtime, SSE, card, nguồn và phanh duyệt giữ nguyên; telemetry kỹ thuật không được dựng thành
+// state trình bày cho RM/khách hàng.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { conversationApi } from '../api';
@@ -14,13 +13,13 @@ import type {
   Card,
   Conversation,
   ConversationFullState,
+  ConversationGroup,
   ConversationStatus,
   Message,
   OrchTask,
   Phieu,
-  TraceItem,
 } from '../types';
-import { auditToTrace, buildCanvas, describeError, readApiError, upsertById, upsertCardInto } from '../workspaceUtil';
+import { buildCanvas, describeError, readApiError, upsertById, upsertCardInto } from '../workspaceUtil';
 
 interface Params {
   user: AuthUser;
@@ -29,19 +28,15 @@ interface Params {
 
 export function useWorkspaceController({ user, onAuthExpired }: Params) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationGroups, setConversationGroups] = useState<ConversationGroup[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [tasks, setTasks] = useState<OrchTask[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
-  const [trace, setTrace] = useState<TraceItem[]>([]);
-  const [focusSub, setFocusSub] = useState<string | null>(null); // task_id đang xem SubAgentView (F2a)
   const [convStatus, setConvStatus] = useState<ConversationStatus>('idle');
   const [streaming, setStreaming] = useState<StreamingBubble | null>(null);
   const [creating, setCreating] = useState(false);
-  const [pickProvider, setPickProvider] = useState(''); // D-45b — provider/model cho ca MỚI ('' = server-default)
-  const [pickModel, setPickModel] = useState('');
-  // draft mode (D-45b): "+ Ca mới" KHÔNG tạo ca ngay — mở khung soạn (composer + picker hiện) để user
-  // chọn provider/model TRƯỚC, ca tạo LAZY lúc gửi câu đầu (kèm model đã chọn). Fix dây "chọn-sau-khi-tạo".
+  // Draft vẫn lazy-create (D-45b), nhưng cấu hình vận hành do server chọn (D-75).
   const [drafting, setDrafting] = useState(false);
   // DF-A-04: form-draft values NÂNG lên đây (theo card.id) để sống qua đổi tab canvas (FormCard unmount
   // khi đổi tab → local state chết). Clear entry khi submit thành công (không dính form lần sau).
@@ -70,7 +65,7 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     return describeError(err, fallback);
   }, []);
 
-  // ── load danh sách ca lúc mount ──
+  // ── load danh sách phiên xử lý lúc mount ──
   useEffect(() => {
     let alive = true;
     conversationApi
@@ -79,13 +74,22 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
         if (!alive) return;
         setConversations(list);
         setListError(null);
-        // auto-select ca đầu KHI chưa chọn gì — NHƯNG không đè nếu user đã chủ động vào draft "+ Ca mới"
-        // trong lúc list đang tải (DF-A-07 race): draftingRef true → giữ nguyên draft, không select ca cũ.
+        // auto-select phiên đầu KHI chưa chọn gì — không đè nếu user đã chủ động vào draft.
         if (list.length > 0 && !draftingRef.current) setActiveId((cur) => cur ?? list[0].id);
       })
       .catch((err: unknown) => {
         if (!alive) return;
-        setListError(handleError(err, 'Không tải được danh sách ca'));
+        setListError(handleError(err, 'Không tải được danh sách phiên xử lý'));
+      });
+    conversationApi
+      .listConversationGroups()
+      .then((groups) => {
+        if (!alive) return;
+        setConversationGroups(groups);
+      })
+      .catch((err: unknown) => {
+        if (!alive) return;
+        setListError(handleError(err, 'Không tải được nhóm phiên xử lý'));
       });
     return () => {
       alive = false;
@@ -120,16 +124,8 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     );
   }, []);
 
-  // SSE toolcall/thinking → append vào trace (F1). Backend chốt:
-  // - toolcall: CÓ id (khớp audit row.id) → DEDUP upsert (reload GET /api/audit + SSE cùng id không trùng).
-  // - thinking: KHÔNG id, LIVE-only (không persist) → LUÔN append theo thứ tự đến (mất khi reload — trace tạm).
-  const addTrace = useCallback((item: TraceItem) => {
-    setTrace((prev) => {
-      if (item.kind === 'tool' && prev.some((t) => t.kind === 'tool' && t.id === item.id)) return prev;
-      return [...prev, item];
-    });
-  }, []);
-
+  // Transport vẫn nhận đủ event để không đổi contract SSE; Workspace không trình bày telemetry D-75.
+  const ignoreTrace = useCallback(() => {}, []);
 
   const appendText = useCallback((turnId: string, chunk: string) => {
     setStreaming((cur) =>
@@ -185,22 +181,20 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
   }, [applyFullState]);
 
   const handlers: ConversationSSEHandlers = useMemo(
-    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided, addTrace }),
-    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided, addTrace],
+    () => ({ applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided, addTrace: ignoreTrace }),
+    [applyFullState, appendText, turnDone, upsertTask, setConversationStatus, upsertCard, approvalDecided, ignoreTrace],
   );
 
   useConversationSSE(activeId, handlers);
 
-  // ── mở ca: reset view + refetch full state (SSE onopen cũng refetch — đây là đường mở tay) ──
+  // ── mở phiên: reset view + refetch full state (SSE onopen cũng refetch) ──
   const openConversation = useCallback((id: string) => {
-    activeIdRef.current = id; // set NGAY (trước async) — guard trong auditByConv/.then dùng đúng id
+    activeIdRef.current = id;
     setActiveId(id);
-    setDrafting(false); // mở ca thật → rời draft mode
+    setDrafting(false);
     setMessages([]);
     setTasks([]);
     setCards([]);
-    setTrace([]);
-    setFocusSub(null);
     setStreaming(null);
     setConvStatus('idle');
     setFormDrafts({}); // đổi ca → clear form-draft (2 conv không lẫn — DF-A-04 defensive)
@@ -208,23 +202,10 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     conversationApi
       .getConversation(id)
       .then(applyFullState)
-      .catch((err: unknown) => setLoadError(handleError(err, 'Không tải được nội dung ca')));
-    // hydrate trace TOOLCALL từ DB (GET /api/audit?conv_id) — reload/mở lại ca thấy trace lại
-    // (T4-2 fix: thinking live-only không khôi phục; toolcall persist → dựng lại). SSE live sau
-    // upsert dedup theo id (addTrace). id audit row.id khớp toolcall SSE id → không trùng.
-    conversationApi
-      .auditByConv(id)
-      .then((rows) => {
-        if (id !== activeIdRef.current) return; // đổi ca giữa chừng → bỏ
-        setTrace(rows.map(auditToTrace));
-      })
-      .catch(() => {
-        // audit lỗi không chí mạng — trace live vẫn chạy, chỉ mất history khi reload
-      });
+      .catch((err: unknown) => setLoadError(handleError(err, 'Không tải được nội dung phiên xử lý')));
   }, [applyFullState, handleError]);
 
-  // "+ Ca mới" = MỞ KHUNG SOẠN (draft), KHÔNG POST. Ca tạo lazy lúc gửi câu đầu (kèm provider/model
-  // user chọn ở picker). Vậy picker cạnh nút gửi mới THẬT áp vào ca — không còn "chọn sau khi đã tạo".
+  // "+ Phiên xử lý" mở khung soạn, chưa POST; phiên chỉ được tạo khi gửi yêu cầu đầu tiên.
   const startDraft = useCallback(() => {
     activeIdRef.current = null;
     setActiveId(null);
@@ -232,8 +213,6 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     setMessages([]);
     setTasks([]);
     setCards([]);
-    setTrace([]);
-    setFocusSub(null);
     setStreaming(null);
     setConvStatus('idle');
     setLoadError(null);
@@ -241,13 +220,13 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     setFormDrafts({}); // draft mới → clear form-draft ca cũ (DF-A-04)
   }, []);
 
-  // tạo ca THẬT (lazy) với provider/model đã chọn → trả conv để gửi câu đầu vào. Fail → ném cho caller.
+  // Chỉ gửi tiêu đề: provider/model là mặc định server, không trở thành lựa chọn nghiệp vụ của người dùng.
   const createConversationForSend = useCallback(async (): Promise<Conversation> => {
-    const conv = await conversationApi.createConversation('Ca mới', pickProvider || undefined, pickModel || undefined);
+    const conv = await conversationApi.createConversation('Phiên xử lý mới');
     setConversations((prev) => upsertById(prev, conv));
     setListError(null);
     return conv;
-  }, [pickProvider, pickModel]);
+  }, []);
 
   const sendChat = useCallback((text: string) => {
     const pushUserMsg = (convId: string) => {
@@ -271,7 +250,7 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
       return;
     }
 
-    // draft mode: chưa có ca → tạo LAZY với provider/model đã chọn, rồi gửi câu đầu vào ca đó.
+    // draft mode: chưa có phiên → tạo LAZY bằng mặc định server, rồi gửi yêu cầu đầu tiên.
     // KHÔNG dùng openConversation (nó getConversation→applyFullState set messages=[] → xoá optimistic
     // user-msg). Ca vừa tạo rỗng → chỉ cần gắn activeId + push optimistic; SSE lượt này dựng nội dung.
     if (creating) return;
@@ -285,27 +264,35 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
         return conversationApi.sendChat(conv.id, text);
       })
       .catch((err: unknown) => {
-        setListError(handleError(err, 'Không tạo được ca / gửi câu hỏi thất bại'));
+        setListError(handleError(err, 'Không tạo được phiên xử lý / gửi yêu cầu thất bại'));
         setConvStatus('idle');
       })
       .finally(() => setCreating(false));
   }, [creating, handleError, createConversationForSend]);
 
-  // admin quyết phiếu (T3-2 · D-40). SSE approval.decided + card sẽ cập nhật panel (KHÔNG xoá card §6).
-  // 409 approval_already_decided (2 admin bấm) → thông báo + refetch full-state (DB nguồn sự thật §0).
-  const handleDecide = useCallback((approvalId: string, decision: 'approved' | 'rejected', reason: string) => {
-    conversationApi
-      .decideApproval(approvalId, decision, reason)
-      .catch((err: unknown) => {
-        if (err instanceof ApiRequestError && err.status === 409) {
-          setLoadError('Phiếu đã được quyết trước đó — đang đồng bộ lại.');
-          const id = activeIdRef.current;
-          if (id) conversationApi.getConversation(id).then((s) => { if (id === activeIdRef.current) applyFullState(s); }).catch(() => {});
-        } else {
-          setLoadError(handleError(err, 'Quyết phiếu thất bại'));
-        }
-      });
-  }, [handleError, applyFullState]);
+  // D-43: người dùng có thể dừng riêng một bước đang chờ/chạy. API vẫn nhận ID nội bộ, nhưng bề mặt
+  // chỉ trình bày hành động nghiệp vụ và lỗi generic; raw task/runtime không đi ngược lên Workspace.
+  const handleInterruptTask = useCallback(async (taskId: string): Promise<void> => {
+    const id = activeIdRef.current;
+    const fallback = 'Không thể dừng bước xử lý. Vui lòng thử lại hoặc liên hệ bộ phận vận hành.';
+    if (!id) {
+      setLoadError(fallback);
+      return;
+    }
+    setLoadError(null);
+    try {
+      await conversationApi.interruptTask(id, taskId);
+      // SSE là đường realtime; refetch sau lệnh giúp trạng thái tự lành nếu event đến chậm/mất.
+      const state = await conversationApi.getConversation(id);
+      if (id === activeIdRef.current) applyFullState(state);
+    } catch (err: unknown) {
+      if (err instanceof ApiRequestError && err.status === 401) {
+        setLoadError(handleError(err, fallback));
+      } else {
+        setLoadError(fallback);
+      }
+    }
+  }, [applyFullState, handleError]);
 
   // khách nộp hồ sơ (T9-3 D-57). form-submit → SSE card update (status submitted) → FormCard read-only.
   // Ném lỗi lại cho FormCard hiển thị message 4-field (missing_fields/bad_income); 409 → refetch read-only.
@@ -316,7 +303,7 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
 
   const handleFormSubmit = useCallback(async (cardId: string, values: Record<string, string>): Promise<void> => {
     const id = activeIdRef.current;
-    if (!id) throw new Error('Chưa mở ca');
+    if (!id) throw new Error('Chưa mở phiên xử lý');
     try {
       await conversationApi.submitForm(id, cardId, values);
       // submit OK → clear draft entry (không dính sang form/lần sau — defensive DF-A-04)
@@ -330,27 +317,7 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     }
   }, [applyFullState]);
 
-  // ── S15 T15-2: per-turn model switch trong ca đang mở. Đổi → PATCH {provider,model} → lượt chat
-  // sau đi model mới. Optimistic upsert conv (label sống qua re-render). 409 (running) → revert +
-  // báo. Draft mode KHÔNG gọi đây (chỉ set pick* local, tạo ca kèm — createConversationForSend).
-  const handleModelChange = useCallback((provider: string, model: string) => {
-    const id = activeIdRef.current;
-    if (!id) { setPickProvider(provider); setPickModel(model); return; } // draft: chỉ set local
-    const prevConv = conversations.find((c) => c.id === id);
-    // optimistic: cập nhật conv ngay để label đổi tức thì
-    setConversations((prev) => prev.map((c) => (c.id === id ? { ...c, provider, model } : c)));
-    conversationApi
-      .updateConversation(id, { provider, model })
-      .then((conv) => setConversations((prev) => upsertById(prev, conv)))
-      .catch((err: unknown) => {
-        // revert về conv cũ (đặc biệt 409 running — BE chặn đổi giữa lượt)
-        if (prevConv) setConversations((prev) => prev.map((c) => (c.id === id ? prevConv : c)));
-        const { status, message } = readApiError(err);
-        setLoadError(status === 409 ? (message ?? 'Ca đang chạy — không đổi model giữa lượt.') : handleError(err, 'Đổi model thất bại'));
-      });
-  }, [conversations, handleError]);
-
-  // T15-3: rename ca (PATCH {title}). Optimistic + upsert kết quả. Fail → revert + báo.
+  // Rename phiên (PATCH {title}). Optimistic + upsert kết quả. Fail → revert + báo.
   const handleRename = useCallback((id: string, title: string) => {
     const trimmed = title.trim();
     if (!trimmed) return; // rỗng → bỏ (giữ tên cũ)
@@ -362,12 +329,11 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
       .then((conv) => setConversations((prev) => upsertById(prev, conv)))
       .catch((err: unknown) => {
         if (prevConv) setConversations((prev) => prev.map((c) => (c.id === id ? prevConv : c)));
-        setListError(handleError(err, 'Đổi tên ca thất bại'));
+        setListError(handleError(err, 'Đổi tên phiên xử lý thất bại'));
       });
   }, [conversations, handleError]);
 
-  // T15-3: xoá ca (DELETE). 409 (phiếu pending / đang chạy) → hiện hint từ BE, KHÔNG xoá. Xoá ca
-  // đang mở → về draft (rời view ca vừa xoá). Thành công → gỡ khỏi list.
+  // Xoá phiên (DELETE). Phiếu pending/đang chạy vẫn bị backend chặn như cũ.
   const handleDelete = useCallback((id: string) => {
     conversationApi
       .deleteConversation(id)
@@ -378,9 +344,33 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
       })
       .catch((err: unknown) => {
         const { status, message } = readApiError(err);
-        setListError(status === 409 ? (message ?? 'Không xoá được ca (đang chạy / còn phiếu chờ).') : handleError(err, 'Xoá ca thất bại'));
+        setListError(status === 409 ? (message ?? 'Không xoá được phiên xử lý (đang chạy / còn phiếu chờ).') : handleError(err, 'Xoá phiên xử lý thất bại'));
       });
   }, [handleError, startDraft]);
+
+  const handleCreateGroup = useCallback(async (name: string): Promise<void> => {
+    try {
+      const group = await conversationApi.createConversationGroup(name);
+      setConversationGroups((prev) => [...prev, group].sort((a, b) => a.name.localeCompare(b.name)));
+      setListError(null);
+    } catch (err: unknown) {
+      setListError(handleError(err, 'Không tạo được nhóm phiên xử lý'));
+      throw err;
+    }
+  }, [handleError]);
+
+  const handleMoveConversation = useCallback((id: string, groupId: string | null) => {
+    const previous = conversations.find((conv) => conv.id === id);
+    if (!previous || (previous.group_id ?? null) === groupId) return;
+    setConversations((prev) => prev.map((conv) => (conv.id === id ? { ...conv, group_id: groupId } : conv)));
+    conversationApi
+      .updateConversation(id, { group_id: groupId })
+      .then((conv) => setConversations((prev) => upsertById(prev, conv)))
+      .catch((err: unknown) => {
+        setConversations((prev) => prev.map((conv) => (conv.id === id ? previous : conv)));
+        setListError(handleError(err, 'Không chuyển được phiên xử lý sang nhóm'));
+      });
+  }, [conversations, handleError]);
 
   // Đăng xuất THẬT: gọi API xoá cookie httponly TRƯỚC (reload sau = anon, không auto-vào-lại), rồi set
   // anon client-side. logout lỗi/timeout → vẫn set anon (UI về Login; cookie có thể còn nhưng /me sẽ
@@ -401,15 +391,12 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
   const isAdmin = user.role === 'admin';
   // badge phiếu-bay (D-56, admin-only): poll approvals?pending 5s → số phiếu chờ. Non-admin → 0 (hook tự tắt).
   const pendingApprovals = useApprovalBadge(isAdmin);
-  // sub đang xem (F2a). Nếu task biến mất (đổi ca) → focusedTask null → về Canvas.
-  const focusedTask = focusSub ? tasks.find((t) => t.id === focusSub) ?? null : null;
-
   return {
-    conversations, activeId, messages, tasks, cards, trace, focusSub, setFocusSub,
-    convStatus, streaming, creating, pickProvider, pickModel, drafting, formDrafts,
+    conversations, conversationGroups, activeId, messages, tasks, cards,
+    convStatus, streaming, creating, drafting, formDrafts,
     loadError, listError, scrollRef,
-    openConversation, startDraft, sendChat, handleDecide, handleFormDraftChange,
-    handleFormSubmit, handleModelChange, handleRename, handleDelete, handleLogout,
-    activeConv, busy, hasContent, isAdmin, pendingApprovals, focusedTask,
+    openConversation, startDraft, sendChat, handleInterruptTask, handleFormDraftChange,
+    handleFormSubmit, handleRename, handleDelete, handleCreateGroup, handleMoveConversation, handleLogout,
+    activeConv, busy, hasContent, isAdmin, pendingApprovals,
   };
 }

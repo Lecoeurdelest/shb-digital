@@ -14,6 +14,8 @@ from fastapi import Request
 from app.auth.security import decode_token
 from app.config import AUTH_COOKIE, DEV_ADMIN_CLAIMS, DEV_SKIP_AUTH
 from app.errors import ApiError
+from app.storage import connect_core
+from app.tenancy import DEFAULT_TENANT_ID
 
 log = logging.getLogger("auth")
 
@@ -26,11 +28,7 @@ def _dev_admin_claims() -> dict[str, Any]:
     global _dev_admin_sub
     if _dev_admin_sub is None:
         try:
-            import psycopg2
-
-            from app.db.config import DATABASE_URL
-
-            conn = psycopg2.connect(DATABASE_URL)
+            conn = connect_core()
             try:
                 with conn.cursor() as cur:
                     cur.execute("SELECT id FROM users WHERE username='admin' LIMIT 1")
@@ -40,7 +38,45 @@ def _dev_admin_claims() -> dict[str, Any]:
                 conn.close()
         except Exception:  # noqa: BLE001 — DB chưa sẵn lúc dev boot không được chặn skip-auth
             _dev_admin_sub = "dev-admin"
-    return {**DEV_ADMIN_CLAIMS, "sub": _dev_admin_sub}
+    return {**DEV_ADMIN_CLAIMS, "sub": _dev_admin_sub, "tenant_id": DEFAULT_TENANT_ID}
+
+
+def _with_tenant_context(claims: dict[str, Any]) -> dict[str, Any]:
+    """Resolve legacy JWTs that predate D-79 from the user row; never guess another tenant."""
+    if claims.get("tenant_id"):
+        return claims
+    sub, username = claims.get("sub"), claims.get("username")
+    if not sub or not username:
+        raise ApiError(
+            401,
+            "tenant_context_missing",
+            "Phiên đăng nhập thiếu phạm vi đơn vị.",
+            "Đăng nhập lại để làm mới phiên.",
+            retryable=False,
+        )
+    try:
+        conn = connect_core()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT tenant_id FROM users WHERE id::text=%s AND username=%s",
+                    (sub, username),
+                )
+                row = cur.fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001 — auth phải fail closed khi không resolve được tenant
+        log.warning("resolve tenant cho legacy token lỗi: %s", type(exc).__name__)
+        row = None
+    if row is None:
+        raise ApiError(
+            401,
+            "tenant_context_missing",
+            "Không xác định được phạm vi đơn vị của phiên đăng nhập.",
+            "Đăng nhập lại hoặc liên hệ quản trị.",
+            retryable=False,
+        )
+    return {**claims, "tenant_id": str(row[0])}
 
 
 def _claims_from_request(request: Request) -> dict[str, Any]:
@@ -63,7 +99,7 @@ def _claims_from_request(request: Request) -> dict[str, Any]:
             hint="Đăng nhập lại qua POST /api/auth/login.",
             retryable=False,
         )
-    return claims
+    return _with_tenant_context(claims)
 
 
 def require_user(request: Request) -> dict[str, Any]:
@@ -86,7 +122,9 @@ def require_admin(request: Request) -> dict[str, Any]:
 
 
 def can_access_conv(conv: dict[str, Any], claims: dict[str, Any]) -> bool:
-    """D-56 scoping: admin (ngân hàng) → mọi ca; khác → CHỈ ca của mình (conv.user_id == username).
+    """D-56 + D-79: cùng tenant trước; admin thấy tenant mình, role khác chỉ thấy ca mình.
     Ca không thuộc mình → caller trả 404 (hide existence, KHÔNG 403 — không lộ ca người khác tồn tại).
     Dùng chung: conversations (get/chat) · SSE · interrupt."""
+    if str(conv.get("tenant_id")) != str(claims.get("tenant_id")):
+        return False
     return claims.get("role") == "admin" or conv.get("user_id") == claims.get("username")

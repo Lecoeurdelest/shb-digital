@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "stores": [
+    {
+      "name": "core",
+      "driver": "postgresql",
+      "dsn_env": "DATABASE_URL",
+      "required": true,
+      "capabilities": ["relational", "transactions", "audit"]
+    },
+    {
+      "name": "prompts",
+      "driver": "alias",
+      "target": "core",
+      "required": true,
+      "capabilities": ["prompt_catalog"]
+    },
+    {
+      "name": "knowledge",
+      "driver": "alias",
+      "target": "core",
+      "required": true,
+      "capabilities": ["knowledge"]
+    },
+    {
+      "name": "events",
+      "driver": "alias",
+      "target": "core",
+      "required": true,
+      "capabilities": ["outbox"]
+    },
+    {
+      "name": "cache",
+      "driver": "redis",
+      "dsn_env": "REDIS_URL",
+      "required": false,
+      "capabilities": ["cache"],
+      "options": {"key_prefix": "shb:"}
+    },
+    {
+      "name": "note_vectors",
+      "driver": "qdrant",
+      "dsn_env": "QDRANT_URL",
+      "required": false,
+      "capabilities": ["vector", "knowledge_vector"],
+      "options": {"collection_prefix": "shb_"}
+    }
+  ]
+}

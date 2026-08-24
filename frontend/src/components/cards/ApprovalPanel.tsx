@@ -118,7 +118,7 @@ function ApprovalBadge({ status }: { status: string }) {
     used: { cls: 'badge--pass', label: '✓ ĐÃ DÙNG' },
     rejected: { cls: 'badge--fail', label: '✗ TỪ CHỐI' },
   };
-  const m = map[status] ?? { cls: 'badge--warn', label: status.toUpperCase() };
+  const m = map[status] ?? { cls: 'badge--warn', label: 'CHƯA XÁC ĐỊNH' };
   return <span className={`badge ${m.cls} approval__badge`}>{m.label}</span>;
 }
 
@@ -128,9 +128,9 @@ function decidedText(card: Card, status: string): string {
   const reason = cardField<string>(card, 'reason');
   const base =
     status === 'rejected'
-      ? 'Phiếu bị từ chối — Main dừng hành động, RM được thông báo.'
+      ? 'Phiếu bị từ chối — hệ thống dừng hành động, RM được thông báo.'
       : 'Phiếu đã duyệt — hành động thực thi, biên nhận đã lưu.';
-  const who = by ? ` Bởi: ${by}.` : '';
-  const why = reason ? ` Lý do: ${reason}.` : '';
+  const who = by ? ` Bởi: ${renderValue(by)}.` : '';
+  const why = reason ? ` Lý do: ${renderValue(reason)}.` : '';
   return base + who + why;
 }

@@ -1,4 +1,4 @@
-/* Canvas.css — panel phải: tabs, live map 2D, bảng việc, card grid. Màu từ tokens.css. */
+/* Canvas.css — panel phải: sản phẩm công việc + tiến độ xử lý. Màu từ tokens.css. */
 
 .canvas {
   flex: 1;
@@ -32,17 +32,12 @@
   border-color: var(--bd);
 }
 
-/* ── lobby: live map + bảng việc ── */
-.canvas__lobby {
+/* ── tiến độ xử lý ── */
+.canvas__progress {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
 }
-
-/* ── lobby 3D (D-24): khung canvas nằm trong .lobby3d — style inline trong Lobby3D.tsx ── */
 
 .canvas__tasks {
   background: var(--p1);
@@ -57,18 +52,38 @@
   letter-spacing: 0.08em;
   margin-bottom: 8px;
 }
-.canvas__tasks-empty { font-size: 11px; color: var(--faint); }
+.canvas__tasks-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--faint);
+  line-height: 1.45;
+}
+.canvas__tasks-empty-hint { color: var(--dim); }
 .canvas__tasks-list { display: flex; flex-direction: column; gap: 7px; }
 .canvas__task-row { display: flex; align-items: center; gap: 9px; border-radius: 7px; padding: 3px 5px; }
-.canvas__task-row--clickable { cursor: pointer; }
-.canvas__task-row--clickable:hover { background: var(--p2); }
 .canvas__task-title {
+  flex: 1;
+  min-width: 0;
   font-size: 11px;
   color: var(--dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.canvas__task-stop {
+  flex: none;
+  border: 1px solid var(--bd);
+  border-radius: 7px;
+  padding: 4px 8px;
+  background: var(--p2);
+  color: var(--warn);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.canvas__task-stop:disabled { cursor: wait; opacity: 0.6; }
 
 /* ── work: card grid ── */
 .canvas__work {

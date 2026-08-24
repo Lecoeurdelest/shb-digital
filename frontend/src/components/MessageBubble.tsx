@@ -2,23 +2,13 @@
 // trạng thái đang stream). Card/verdict có cấu trúc (7 loại) là S3 — KHÔNG build ở đây (D-13 scope).
 import type { Message } from '../types';
 import { Markdown } from './Markdown';
-import { turnMetrics, fmtDuration } from './stats/traceMetrics';
-import { fmtUsd, fmtTokens } from './stats/costTransforms';
+import { sourceLabel } from './cards/sourceLabels';
 import './MessageBubble.css';
 
-// T16-4: dòng mờ metrics MAIN dưới bubble assistant (meta.metrics — role='main'). null → không hiện.
-function MainMetricsLine({ msg }: { msg: Message }) {
-  const m = turnMetrics(msg);
-  if (!m) return null;
-  const tokens = (Number(m.input_tokens) || 0) + (Number(m.output_tokens) || 0)
-    + (Number(m.cache_read_tokens) || 0) + (Number(m.cache_create_tokens) || 0);
-  const bits: string[] = [];
-  if (m.model) bits.push(`⚙ ${m.model}`);
-  if (m.duration_ms != null) bits.push(`⏱ ${fmtDuration(m.duration_ms)}`);
-  if (m.cost_usd != null) bits.push(`💰 ${fmtUsd(Number(m.cost_usd))} ước tính`);
-  if (tokens > 0) bits.push(`🔢 ${fmtTokens(tokens)} token`);
-  if (bits.length === 0) return null;
-  return <div className="msg-bubble__metrics" data-testid="main-metrics">{bits.join('  ·  ')}</div>;
+const SOURCE_ID = /\b(?:credit_assess|credit_cic_get|cust_get|products_catalog|calc_dscr|calc_ltv|check_documents?|check_regulation|match_package|legal_[a-z0-9_]+|product_[a-z0-9_]+|ops_[a-z0-9_]+|operation_[a-z0-9_]+)\b/gi;
+
+function businessResultText(text: string): string {
+  return text.replace(SOURCE_ID, (source) => sourceLabel(source));
 }
 
 export interface StreamingBubble {
@@ -31,19 +21,18 @@ export function MessageBubble({ msg }: { msg: Message }) {
     return <div className="msg-bubble msg-bubble--user deg-fadein">{msg.content}</div>;
   }
   if (msg.sender === 'system') {
-    // system message lỗi (CONTRACT §4b Gap2 B — main fail) nổi bật hơn note thường.
+    // Lỗi nội bộ vẫn nổi bật nhưng không đẩy tên runtime/telemetry ra bề mặt nghiệp vụ (D-75).
     const isError = Boolean((msg.meta as { error?: boolean } | null | undefined)?.error);
     return (
       <div className={`msg-bubble msg-bubble--note deg-fadein${isError ? ' msg-bubble--note-error' : ''}`}>
-        {msg.content}
+        {isError ? 'Không thể hoàn tất bước xử lý. Vui lòng thử lại hoặc liên hệ bộ phận vận hành.' : msg.content}
       </div>
     );
   }
-  // assistant (Main) → render markdown (bold/heading/bảng/list/code). XSS-safe (react-markdown AST).
+  // Kết quả xử lý → render markdown (bold/heading/bảng/list/code). XSS-safe (react-markdown AST).
   return (
     <div className="msg-bubble msg-bubble--assistant deg-fadein">
-      <Markdown text={msg.content} />
-      <MainMetricsLine msg={msg} />
+      <Markdown text={businessResultText(msg.content)} />
     </div>
   );
 }
@@ -53,7 +42,7 @@ export function StreamingMessageBubble({ bubble }: { bubble: StreamingBubble }) 
   // không crash; con trỏ nhấp nháy cuối.
   return (
     <div className="msg-bubble msg-bubble--assistant msg-bubble--streaming deg-fadein" data-testid="streaming-bubble">
-      <Markdown text={bubble.text} />
+      <Markdown text={businessResultText(bubble.text)} />
       <span className="msg-bubble__cursor" aria-hidden="true" />
     </div>
   );

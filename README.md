@@ -2,11 +2,18 @@
 
 [![CI](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml/badge.svg)](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml)
 
-Hệ thống **chi nhánh ngân hàng số vận hành bằng đội multi-agent AI**: khách hàng chat một câu
-tiếng Việt, đội chuyên gia số (Tín dụng · Pháp chế · Sản phẩm · Vận hành) tự lập kế hoạch, dùng
-tool truy vấn dữ liệu thật, phối hợp với nhau và **thực thi hành động có kiểm soát** — khoản nhỏ
-tự duyệt theo ma trận thẩm quyền, khoản lớn dừng lại chờ người của ngân hàng duyệt. Mọi bước có
-vết, mọi con số có nguồn.
+Hệ thống **copilot sơ thẩm + vận hành middle office bằng đội multi-agent AI** cho bàn
+RM/cán bộ tín dụng xử lý hồ sơ vay phức tạp: một yêu cầu tiếng Việt được Tín dụng · Pháp chế ·
+Sản phẩm · Vận hành phân rã, tra dữ liệu thật, lập tờ trình có nguồn và cảnh báo rủi ro. **Con
+người quyết định và ký; máy chuẩn bị.** Phanh tầng tool giữ mọi hành động nhạy cảm trong kiểm
+soát của ngân hàng. Cửa khách hàng vẫn có để chứng minh luồng end-to-end, nhưng là
+**demo/sandbox**, không phải persona sản phẩm chính và không cạnh tranh máy tự quyết khoản vay nhỏ
+(D-73).
+
+**Đơn vị sản phẩm chính từ S21:** lõi headless FastAPI/orchestrator + package
+`@bank-digital/embed-sdk` để SAHA/website/portal RM/LOS nhúng chat/canvas. SPA hiện tại được giữ
+làm **reference host + Control Tower**, không phải dependency của kênh bank. Contract tích hợp:
+[`docs/EMBED_SDK.md`](docs/EMBED_SDK.md).
 
 Sản phẩm dự thi đề **#132 — Digital Expert Agents** (Vietnam AI Innovation Challenge 2026 /
 Hack CX Together 2026 · SHB). Đề bài: [`docs/problem-statement.md`](docs/problem-statement.md) ·
@@ -29,11 +36,12 @@ curl https://digital.tinhdev.com/api/conversations  # → 401 {"code":"unauthori
 
 1. **Demo sống, chưa cần login (1 phút):** hai lệnh curl phía trên + mở
    https://digital.tinhdev.com — landing, lobby 3D, kiến trúc tự giới thiệu.
-2. **Đăng nhập (tài khoản demo 2 vai — khách · ngân hàng — đã gửi riêng Ban tổ chức; repo
-   không chứa credential).** Không có trong tay? Bấm **Đăng ký** ngay trên UI — tự tạo tài
+2. **Đăng nhập (tài khoản demo 2 vai — khách demo/sandbox · ngân hàng là vai chính — đã gửi
+   riêng Ban tổ chức; repo không chứa credential).** Không có trong tay? Bấm **Đăng ký** ngay trên UI — tự tạo tài
    khoản khách mới, hệ nhận khách lạ bằng form tiếp nhận hồ sơ trong hội thoại.
-3. **Kịch bản 5 phút — vai khách:** gõ *"Công ty tôi muốn vay 5 tỷ mở rộng sản xuất, thế chấp
-   nhà xưởng — khảo sát nhanh: sức khỏe tín dụng, pháp lý hồ sơ, gói vay phù hợp."*
+3. **Kịch bản 5 phút — bàn RM/underwriting:** mở hồ sơ doanh nghiệp B001 rồi gõ *"Lập tờ trình
+   sơ thẩm khoản vay 5 tỷ mở rộng sản xuất, thế chấp nhà xưởng: sức khỏe tín dụng, pháp lý hồ
+   sơ, gói vay phù hợp."*
    → lobby 3D sáng đèn từng chuyên gia, khối diễn tiến stream suy nghĩ + tool-call,
    card DSCR/CIC/pháp-lý-3-trụ đổ về canvas — **mỗi con số có chip nguồn**. Gõ tiếp yêu cầu
    giải ngân → khoản lớn dừng ở **"chờ ngân hàng duyệt"** (phanh tầng tool, không phải lời hứa).
@@ -88,27 +96,15 @@ _[dán link video 2 vào đây]_
 
 ## Tính năng chính
 
-Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
+Hệ thống có **hai bề mặt trên cùng một nền** (D-56), với thứ tự persona được D-73 chốt lại:
 
-**Cửa khách hàng** — như đến chi nhánh thật, nhưng là chi nhánh số:
+**Bàn RM/cán bộ tín dụng + phê duyệt — persona chính:**
 
-- Đăng nhập bằng username/password, **đăng ký tài khoản mới**, hoặc **Sign in with Google**
-  (tài khoản khách tạo tự động).
-- Chat tiếng Việt tự nhiên với đội chuyên gia; hệ tự biết khách là ai (inject danh tính),
-  khách mới thì có **form tiếp nhận hồ sơ** ngay trong hội thoại.
-- Xem đội làm việc trực quan: **lobby 3D** (chi nhánh ngân hàng — từng chuyên gia sáng đèn khi
-  đang chạy), khối "diễn tiến đội" hiện suy nghĩ + tool-call theo thời gian thực (SSE).
-- Nhận kết quả dạng **card có nguồn**: DSCR/LTV/CIC, kết luận pháp lý 3 trụ, gói vay đề xuất —
-  mỗi con số có chip nguồn truy ngược được về tool đã tính ra nó.
-- Yêu cầu giải ngân: **≤ 500 triệu** — agent tự duyệt theo ma trận thẩm quyền (phiếu vẫn ghi
-  `decided_by=auto-rule` + lý do, audit đầy đủ); **> 500 triệu** — tạo phiếu chờ ngân hàng duyệt,
-  khách thấy trạng thái "chờ ngân hàng".
-- **Chọn model từng lượt** ngay trong ô chat (đổi provider/model per-turn, không phải tạo ca
-  mới) · sidebar quản lý hội thoại (đổi tên, xoá — xoá vẫn giữ audit) · theme sáng/tối.
-
-**Bàn ngân hàng (admin)** — giám sát và cầm quyền quyết:
-
-- Thấy mọi ca của mọi khách + **Control Tower**: hàng đợi phiếu duyệt (badge real-time),
+- Nhập yêu cầu hồ sơ phức tạp bằng tiếng Việt; MAIN điều phối đội chuyên gia và dựng **tờ trình
+  sơ thẩm** từ kết quả Tín dụng · Pháp chế · Sản phẩm · Vận hành.
+- Nhận card có nguồn: DSCR/LTV/CIC, kết luận pháp lý 3 trụ, gói vay, điều kiện đề xuất và căn cứ;
+  mỗi con số truy ngược được về tool đã tính ra nó.
+- Thấy mọi ca + **Control Tower**: hàng đợi phiếu duyệt (badge real-time),
   audit log append-only từng LLM call/tool call (input/output — ghi cả call đứt giữa chừng),
   trace timeline.
 - **Tab Thống kê**: 7 KPI ngày + hồ sơ thẩm định + **chi phí LLM theo lượt** (token/cost/model
@@ -116,8 +112,22 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
   thường bằng z-score).
 - Duyệt / từ chối phiếu giải ngân — hệ đánh thức đúng ca, đội thực thi tiếp **đúng một lần**
   (biên nhận chống thực-thi-đôi; bấm lại trả biên nhận cũ).
+- Pilot shadow đặt ngưỡng tự duyệt về `0`, lưu khuyến nghị counterfactual rồi đo độ khớp hệ↔người;
+  quyết định thật vẫn thuộc người và ledger được ghi atomic cùng phiếu.
+- Webhook/Lark chỉ gửi **chuông cửa dữ liệu tối thiểu** sau commit, deep-link về đúng phiếu trong
+  Tower; không đưa dữ liệu tín dụng hay nút duyệt ra chat ngoài (D-71).
 - Click từng chuyên gia xem brief/trace/kết quả; hủy một sub đang chạy không ảnh hưởng sub khác.
 - Thông báo: chuông in-app + email Gmail thật khi có phiếu chờ duyệt / ca xong (tùy chọn env).
+- **Chọn model từng lượt** ngay trong ô chat · sidebar quản lý hội thoại · theme sáng/tối.
+
+**Cửa khách hàng — bề mặt demo/sandbox hỗ trợ:**
+
+- Đăng nhập bằng username/password, đăng ký mới hoặc Google; form tiếp nhận nằm ngay trong hội thoại.
+- Chỉ xem hồ sơ của chính mình; lobby 3D và “diễn tiến đội” minh họa phối hợp/tool-call qua SSE.
+- Theo dõi trạng thái và nhận card kết quả, email/chuông; không thấy Tower và không có quyền duyệt.
+- Nhánh `auto-rule` vẫn được giữ như seam kỹ thuật để chứng minh ma trận/phanh và tương thích demo;
+  pilot theo D-72/D-73 đặt ngưỡng `0`, đưa mọi quyết định về người. Đây không phải lời chào bán máy
+  tự quyết khoản vay nhỏ.
 
 ![Lobby 3D — chi nhánh ngân hàng số](docs/assets/lobby-3d.png)
 
@@ -137,10 +147,11 @@ Hệ thống có **hai persona trên cùng một nền** (quyết định D-56):
 - **Phiên bền + mọi con số truy được nguồn**: MAIN resume qua restart server; audit tool-call
   append-only tách theo vai; chi phí/token/độ trễ đo per-turn (kể cả bằng chứng model nào THẬT
   SỰ chạy mỗi lượt) — dashboard + trace per-ca đọc số thật, không số dựng.
-- **Hai persona đúng ngân hàng**: khách chỉ thấy hồ sơ của mình (404-hide + read-scope tầng
-  tool), dữ liệu nội bộ (ghi chú RM, tiền án) không rò ra lời thoại khách — verify bằng kịch
-  bản hỏi-dồn trong benchmark (TRAP disclosure: 0 rò).
-- **Kỷ luật bằng chứng xuyên suốt**: 679 test (448 BE + 231 FE) + CI mỗi push · dogfood 2 persona
+- **Hai bề mặt đúng ngân hàng**: bàn RM/phê duyệt là persona chính; cửa khách demo/sandbox chỉ thấy
+  hồ sơ của mình (404-hide + read-scope tầng tool), dữ liệu nội bộ không rò ra lời thoại khách —
+  verify bằng kịch bản hỏi-dồn trong benchmark (TRAP disclosure: 0 rò).
+- **Kỷ luật bằng chứng xuyên suốt**: checkpoint hiện tại **504 BE collected (487 pass, 17 skip) +
+  29 file / 251 FE pass = 738 pass + 17 skip** · CI mỗi push · dogfood 2 persona
   tự tố 16 finding trước giám khảo · benchmark tự bắt 2 regression của chính hệ trước demo ·
   mọi claim trong docs dẫn file/test/commit — "số không tự chạy lại được chỉ là lời khai".
 
@@ -203,7 +214,7 @@ flowchart LR
   FE -->|REST + SSE, cookie JWT| API[FastAPI · 1 worker]
   API --> MAIN[MAIN — điều phối viên<br/>phiên bền, resume từ disk]
   MAIN -->|orch_dispatch<br/>fire-and-forget · idempotent| SUB[4 SUB chuyên gia<br/>Tín dụng · Pháp chế · Sản phẩm · Vận hành]
-  SUB -->|tool nghiệp vụ| PG[(Postgres 15<br/>nghiệp vụ + render + audit)]
+  SUB -->|tool nghiệp vụ qua registry| PG[(Postgres 15<br/>transactional core + prompt catalog)]
   SUB -->|tra cứu| RAG[Retrieval 4 tầng<br/>wiki · phả hệ văn bản · vector notes · trần NHÓM]
   RAG --> PG
   SUB -->|present card| FE
@@ -223,8 +234,8 @@ tuyệt không ép "đợi đủ N con". Hệ quả đo được:
 - **Dispatch nền idempotent** (khoá `(conv, role)`) + event đánh thức + hàng đợi 1-lượt/phòng —
   các ca race khó (admin duyệt nhanh hơn sub trả lời) có 14 test chốt.
 - **Thêm chuyên gia = thêm 1 thư mục** `roles/<role>/` (SKILL.md + functions.py — vỏ mount tự
-  động) · **thêm provider = 1 entry yaml** · đổi luồng nghiệp vụ = sửa prompt. Mở rộng không
-  đụng core.
+  động) · **thêm provider = 1 entry yaml** · đổi prompt bằng version/binding theo môi trường.
+  Datastore phụ được thay theo capability, không để vendor lọt vào business code.
 
 Lập luận đầy đủ SDK-vs-LangGraph: [`docs/methodology/README.md`](docs/methodology/README.md) §2.
 
@@ -249,7 +260,9 @@ Các thành phần chính:
 | **Orchestrator (vỏ)** | Dispatch nền idempotent, hàng đợi event, đánh thức MAIN khi sub xong — vỏ **không** ép logic "đợi đủ N sub" (điều phối là suy nghĩ của model) | `backend/app/orch/` |
 | **Phanh (approval gate)** | Wrapper tầng tool cho hành động nhạy cảm: phiếu `(conversation, action, payload_hash)` single-use, claim atomic, biên nhận trong cùng transaction — retry không thực thi đôi | `backend/app/orch/gated.py` |
 | **Mount tool LAB** | Nạp tool nghiệp vụ + SKILL per chuyên gia từ `roles/` (labpack) — vỏ cấp connection, không sửa logic nghiệp vụ | `backend/app/mount/` |
+| **Datastore + prompt catalog** | Postgres transactional core, pool chung, adapter registry; prompt immutable version + environment binding, file fallback khi DB lỗi | `backend/app/storage/` + `backend/app/prompting/` |
 | **Canvas / present** | Card có cấu trúc (metric, bảng, document, approval, form…) do agent trình bày, stream về FE qua SSE | `backend/app/orch/common_tools.py` + `frontend/src/components/cards/` |
+| **Embed SDK** | Headless client + fetch-SSE + React compound components + Web Component Shadow DOM; không có approval action | `frontend/sdk/` |
 | **Control Tower** | Màn admin: approval queue, audit, trace, compare | `frontend/src/components/ControlTower.tsx` |
 
 Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
@@ -258,8 +271,8 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
 - **Không nhẩm** — mọi chỉ số tính bằng tool; card nào cũng truy ngược được nguồn.
 - **Hợp đồng một nguồn sự thật** ([`docs/CONTRACT.md`](docs/CONTRACT.md)): success trả resource
   trần; error toàn hệ một shape `{code, message, hint, retryable}`.
-- **Tối giản có chủ đích** (SPEC §14): không Redis, không WebSocket (SSE đủ), không replay-cursor —
-  reconnect thì tải lại full-state.
+- **Tối giản có chủ đích** (SPEC §14): không WebSocket; Redis/vector DB/outbox publisher không bật
+  mặc định. Reconnect hiện vẫn tải full-state; schema/port scale chỉ được kích hoạt sau benchmark.
 - **Tool-first CHO SỐ + retrieval 4 tầng CHO TRI THỨC (mỗi loại dữ liệu một cơ chế đúng):** số
   nghiệp vụ (bảng Postgres) đi đường SQL-tool — đúng-hàng-đúng-cột kèm nguồn, 0 hallucination
   tầng retrieval; văn bản chính sách/án lệ/ghi chú mềm đi **retrieval 4 tầng đã port (S12)**:
@@ -273,8 +286,9 @@ Nguyên tắc thiết kế (đầy đủ trong [`SPEC.md`](SPEC.md)):
 |---|---|
 | Backend | Python 3.11 · FastAPI + uvicorn (1 worker) · SQLAlchemy + Alembic · psycopg2 |
 | Agent runtime | **claude-agent-sdk** — multi-provider qua registry (`configs/providers.yaml`): Claude (subscription) · GLM z.ai (keyed) · GPT (gateway) · **model on-prem qua Ollama** |
-| Database | PostgreSQL 15 (data nghiệp vụ + render + audit cùng một DB) |
-| Frontend | React 19 + Vite + TypeScript · three.js (lobby 3D) · SSE (EventSource) |
+| Database | PostgreSQL 15 transactional core · datastore registry theo capability · SQLite tooling adapter · port tùy chọn cho vector/KV store |
+| Embed SDK | TypeScript headless · fetch-SSE có Bearer · React 19 subpath · standalone Web Component |
+| Reference UI / Tower | React 19 + Vite + TypeScript · three.js (lobby 3D) · native EventSource |
 | Auth | JWT cookie httponly · bcrypt · Google OAuth 2.0 (authorization-code, server-side) |
 | Kiểm thử | pytest (BE) · vitest + Testing Library (FE) · ruff · tsc |
 | Deploy | Docker Compose · nginx (FE + proxy /api) · cloudflared tunnel |
@@ -289,6 +303,8 @@ model picker, dữ liệu ngân hàng không rời hạ tầng. Đã kiểm ch�
 Qwen3-8B: điều phối MAIN + tool-call chạy đúng cơ chế end-to-end (hệ báo trung thực khi kết quả
 rỗng — không bịa số); chất lượng chuyên gia SUB cần model lớn hơn 8B. Vì vậy provider on-prem là
 **năng lực đã chứng minh** của kiến trúc, không phải đường demo chính (mặc định vẫn Claude/GLM).
+Compose public hiện tại là profile demo và không tự chứng minh dữ liệu ở lại DC; chỉ profile
+`bank_dc` + `/api/ready` + network egress test của ngân hàng mới được dùng cho claim đó.
 
 ## Cấu trúc thư mục
 
@@ -305,8 +321,9 @@ shb-digital/
 │   │   └── db/                   # models, migrations (Alembic), seeds
 │   └── tests/                    # pytest — chạy được với TEST_DATABASE_URL riêng
 ├── frontend/
+│   ├── sdk/                       # package nhúng: headless + React + Web Component + consumer smoke
 │   └── src/
-│       ├── components/           # Workspace, Canvas, Lobby3D, ControlTower, Landing, cards/
+│       ├── components/           # reference Workspace/Canvas + ControlTower/Landing/cards
 │       ├── api/                  # cổng duy nhất gọi backend (client thật + mock theo cờ env)
 │       └── types.ts              # shape khớp docs/CONTRACT.md
 ├── roles/                        # labpack per chuyên gia: SKILL.md + functions.py (tool nghiệp vụ)
@@ -370,18 +387,32 @@ Ghi chú:
 ## Kiểm thử
 
 ```bash
-# Backend — 448 passed / 13 skipped (skip = live-SDK + embed, opt-in bằng RUN_LIVE_SDK=1)
+# Backend — checkpoint S21: 548 collected = 531 passed / 17 skipped
+# (skip = live-SDK + embed, opt-in bằng RUN_LIVE_SDK=1)
 cd backend
 TEST_DATABASE_URL=postgresql://shb:shb@localhost:5432/shb_test uv run pytest
 uv run ruff check . && uv run ruff format --check .
 
-# Frontend — 231 test / 27 file (vitest) + typecheck (tsc 0 lỗi)
+# Frontend — 276 test / 36 file (gồm SDK) + typecheck/lint/build/package-consumer
+# Node 26: tắt experimental Web Storage để jsdom không vấp opaque origin
 cd frontend
-npm run test
+NODE_OPTIONS=--no-experimental-webstorage npm run test
 npm run typecheck
+npm run lint
+npm run build
+npm run sdk:consumer-smoke
 ```
 
-CI (GitHub Actions) chạy đủ pytest + ruff + vitest + tsc trên **mỗi push/PR** — xem
+Tổng hiện tại: **807 passed + 17 skipped**. Artifact SDK gate: **35 file / 86.298 byte** trong
+tarball; ESM + CommonJS + declarations + Vite consumer + browser IIFE đều pass. Mốc kết thúc S19
+là **738 passed + 17 skipped**; mốc implementation S18 trước S19 là
+**691 passed + 17 skipped** (460 BE + 231 FE); trạng thái gate/ngoại lệ thật nằm tại
+[`end_sprint_18.md`](sprints/end_sprint_18.md), [`end_sprint_19.md`](sprints/end_sprint_19.md) và
+[`end_sprint_21.md`](sprints/end_sprint_21.md).
+S18/S19 đã đóng sau khi live-model memo T18-3 re-run PASS với schema nguồn đầy đủ.
+
+CI (GitHub Actions) được cấu hình chạy pytest + ruff + vitest + tsc + lint + build + packed-SDK
+consumer smoke trên **mỗi push/PR** — xem
 [lịch sử run](https://github.com/tinhnguyen0110/shb-digital/actions/workflows/ci.yml)
 (ví dụ run xanh: [#29665924473](https://github.com/tinhnguyen0110/shb-digital/actions/runs/29665924473)).
 
@@ -398,6 +429,7 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 |---|---|---|
 | POST | `/api/auth/login` · `/api/auth/register` | Đăng nhập / đăng ký (auto-login, set cookie) |
 | GET | `/api/me` | Boot-check phiên: `{username, role, owner_id}` |
+| GET | `/api/health` · `/api/ready` | Liveness process · readiness DB/migration/provider/MCP |
 | GET/POST | `/api/conversations` | Danh sách / tạo ca tư vấn |
 | GET | `/api/conversations/{id}` | Full-state một ca (messages, tasks, cards) — nguồn sự thật khi reconnect |
 | POST | `/api/conversations/{id}/chat` | Gửi tin nhắn (202 — kết quả stream qua SSE) |
@@ -405,11 +437,13 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 | POST | `/api/conversations/{id}/form-submit` | Khách nộp form hồ sơ (card `form`) |
 | POST | `/api/conversations/{id}/interrupt` | Hủy một sub đang chạy |
 | GET | `/api/approvals?status=pending` | Hàng đợi phiếu duyệt (admin) |
+| GET | `/api/approvals/{id}` | Đọc đúng một phiếu ở mọi trạng thái để mở deep-link (admin) |
 | POST | `/api/approvals/{id}/decide` | Duyệt/từ chối phiếu — đánh thức đúng ca (idempotent, 409 nếu đã quyết) |
 | PATCH/DELETE | `/api/conversations/{id}` | Đổi tên / xoá hội thoại (xoá 1 transaction, giữ audit) |
 | GET | `/api/audit` | Audit log tool-call (filter theo ca/task) |
 | GET | `/api/stats` · `/api/stats/assessments` | KPI ngày + hồ sơ thẩm định (admin) |
 | GET | `/api/stats/cost` · `/api/stats/cost-trend` | Chi phí LLM per-turn: tổng theo ngày/model + ca bất thường z-score (admin) |
+| GET | `/api/stats/shadow-match` | Độ khớp khuyến nghị counterfactual ↔ quyết định người (admin) |
 | GET | `/api/models` | Provider + model khả dụng (đổi được per-conversation, per-turn) |
 | POST | `/api/compare` | Chạy so sánh single-agent vs multi-agent |
 
@@ -419,8 +453,10 @@ success = resource trần; error = `{code, message, hint, retryable}`; auth qua 
 |---|---|
 | [`SPEC.md`](SPEC.md) | Đặc tả sản phẩm: nguyên lý → kiến trúc → cơ chế → rule (kể cả mục KHÔNG-làm) |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md) | Hợp đồng API + SSE + error — một nguồn sự thật FE↔BE |
+| [`docs/EMBED_SDK.md`](docs/EMBED_SDK.md) | Contract nhúng lõi vào SAHA/website/portal RM/LOS; auth, CORS, package và Web Component |
+| [`docs/db-architecture-v2.md`](docs/db-architecture-v2.md) | ERD as-built, migration D-76, prompt catalog, issue legacy và lộ trình scale đa datastore |
 | [`docs/patterns/`](docs/patterns/00-INDEX.md) | 5 pattern build: SDK session · multi-agent · SSE · canvas/present · mount tool LAB |
-| [`docs/business-case.md`](docs/business-case.md) | Khả thi kinh doanh: bài toán kinh tế · lộ trình pilot 3 pha (shadow-mode → chi nhánh → mở rộng) · tích hợp CIC/core-banking · trách nhiệm pháp lý auto-approve |
+| [`docs/business-case.md`](docs/business-case.md) | Khả thi kinh doanh: copilot sơ thẩm/middle office · pilot shadow có người ký · tích hợp CIC/core-banking · trách nhiệm và KPI |
 | [`docs/demo-script.md`](docs/demo-script.md) | Kịch bản demo ~10-13 phút, 2 cửa sổ khách ‖ ngân hàng |
 | [`docs/deploy.md`](docs/deploy.md) | Deploy + vận hành + rollback |
 | [`DECISIONS.md`](DECISIONS.md) | Sổ quyết định — mỗi entry ghi *quyết gì / vì sao / cách đổi* (human-wins) |

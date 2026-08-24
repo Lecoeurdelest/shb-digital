@@ -69,6 +69,71 @@ def test_start_redirects_google_with_state_cookie(google_on):
     assert r.cookies.get("oauth_state")  # state cookie chống CSRF
 
 
+def test_google_next_safe_path_roundtrips_exactly(google_on, monkeypatch):
+    """Control Tower truyền path+query tương đối; callback giữ nguyên và ghép đúng một slash."""
+    fresh = TestClient(app)
+    safe_next = "/?tab=approvals&approval=018f-test"
+    start = fresh.get("/api/auth/google/start", params={"next": safe_next}, follow_redirects=False)
+    state = start.cookies.get("oauth_state")
+    assert start.cookies.get("oauth_next").strip('"') == safe_next
+
+    monkeypatch.setattr(google_oauth, "exchange_code", lambda code: "access-ok")
+    monkeypatch.setattr(google_oauth, "fetch_userinfo", lambda access: {"sub": "sub-next", "email": "n@example.com"})
+    monkeypatch.setattr(
+        google_oauth,
+        "upsert_google_user",
+        lambda **kwargs: {"id": str(uuid.uuid4()), "username": "n@example.com", "role": "customer"},
+    )
+    callback = fresh.get(
+        "/api/auth/google/callback",
+        params={"code": "ok", "state": state},
+        follow_redirects=False,
+    )
+    assert callback.status_code == 307
+    assert callback.headers["location"] == config.FRONTEND_URL.rstrip("/") + safe_next
+    assert callback.cookies.get("oauth_next") is None
+
+
+@pytest.mark.parametrize(
+    "unsafe_next",
+    [
+        "https://evil.example/pwn",
+        "//evil.example/pwn",
+        "/\\evil.example/pwn",
+        "/%2Fevil.example/pwn",  # decoded thành protocol-relative
+        "/%5Cevil.example/pwn",  # decoded thành backslash
+    ],
+)
+def test_google_start_rejects_unsafe_next(google_on, unsafe_next):
+    fresh = TestClient(app)
+    fresh.cookies.set("oauth_next", "/stale")
+    response = fresh.get("/api/auth/google/start", params={"next": unsafe_next}, follow_redirects=False)
+    assert response.status_code == 307
+    assert response.cookies.get("oauth_next") is None
+    assert 'oauth_next=""' in response.headers["set-cookie"]
+    assert "Max-Age=0" in response.headers["set-cookie"]
+
+
+def test_google_callback_revalidates_forged_next_cookie(google_on, monkeypatch):
+    fresh = TestClient(app)
+    fresh.cookies.set("oauth_state", "state-forged")
+    fresh.cookies.set("oauth_next", "//evil.example/pwn")
+    monkeypatch.setattr(google_oauth, "exchange_code", lambda code: "access-ok")
+    monkeypatch.setattr(google_oauth, "fetch_userinfo", lambda access: {"sub": "sub-forged", "email": "f@example.com"})
+    monkeypatch.setattr(
+        google_oauth,
+        "upsert_google_user",
+        lambda **kwargs: {"id": str(uuid.uuid4()), "username": "f@example.com", "role": "customer"},
+    )
+
+    response = fresh.get(
+        "/api/auth/google/callback?code=ok&state=state-forged",
+        follow_redirects=False,
+    )
+    assert response.status_code == 307
+    assert response.headers["location"] == config.FRONTEND_URL
+
+
 # ── /google/callback ───────────────────────────────────────────────────────
 
 
@@ -113,6 +178,10 @@ def test_callback_happy_sets_jwt_cookie_and_creates_customer(google_on, monkeypa
     claims = decode_token(token)
     assert claims and claims["role"] == "customer"  # khách MỚI → customer (D-56)
     assert claims["username"] == f"{sub}@example.com"
+    # Deep-link approval vẫn nằm sau admin boundary: Google persona là customer, không được fetch.
+    detail = client.get("/api/approvals/not-a-uuid", cookies={AUTH_COOKIE: token})
+    assert detail.status_code == 403
+    assert detail.json()["code"] == "forbidden"
     # row thật trong DB: role customer, owner_id NULL (khách mới — intake S9 gắn sau), pass_hash NULL
     conn = psycopg2.connect(DATABASE_URL)
     try:

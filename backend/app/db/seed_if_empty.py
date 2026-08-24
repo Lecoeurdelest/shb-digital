@@ -16,6 +16,7 @@ import psycopg2
 
 from app.db.config import DATABASE_URL
 from app.db.seed_from_lab import load_seed
+from app.runtime_security import validate_runtime_security
 
 log = logging.getLogger("db.seed_if_empty")
 
@@ -39,6 +40,8 @@ def _has_business_data(database_url: str = DATABASE_URL) -> bool:
 
 def seed_if_empty(database_url: str = DATABASE_URL) -> bool:
     """Nạp seed CHỈ khi DB rỗng. Trả True = đã seed; False = skip (đã có data — giữ khách C9xx)."""
+    # bank_dc phải fail-fast trước cả probe/seed; không được ghi một phần demo rồi mới bị startup chặn.
+    validate_runtime_security()
     if _has_business_data(database_url):
         log.info("seed_if_empty: DB đã có nghiệp vụ → SKIP seed (giữ khách đăng ký, gate session-bền)")
         return False
