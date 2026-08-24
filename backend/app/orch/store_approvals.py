@@ -15,7 +15,8 @@ from typing import Any
 import psycopg2
 import psycopg2.extras
 
-from app.db.config import DATABASE_URL
+from app.orch import store_shadow
+from app.storage import connect_core
 
 # decision (API body) → approvals.status
 _DECISION_STATUS = {"approved": "approved", "rejected": "rejected"}
@@ -57,7 +58,8 @@ _ENRICH_SELECT = (
     "  COALESCE(a.payload->>'amount', a.payload->>'amount_vnd') AS _disp_amount_raw, "
     "  COALESCE(l.owner_id, ap.owner_id, cf.id) AS _disp_owner_id, "
     "  COALESCE(cl.full_name, ca.full_name, cf.full_name) AS _disp_customer_name, "
-    "  (SELECT s.lane FROM assessments s WHERE s.owner_id = COALESCE(l.owner_id, ap.owner_id, cf.id) "
+    "  (SELECT s.lane FROM assessments s WHERE s.tenant_id=a.tenant_id "
+    "     AND s.owner_id = COALESCE(l.owner_id, ap.owner_id, cf.id) "
     "     ORDER BY s.id DESC LIMIT 1) AS _disp_lane "
     "FROM approvals a "
     "LEFT JOIN loans l ON l.loan_id = a.payload->>'loan_id' "
@@ -65,7 +67,6 @@ _ENRICH_SELECT = (
     "LEFT JOIN applications ap ON ap.id = a.payload->>'application_id' "
     "LEFT JOIN customers ca ON ca.id = ap.owner_id "
     "LEFT JOIN customers cf ON cf.id = COALESCE(a.payload->>'loan_id', a.payload->>'application_id') "
-    "WHERE a.status='pending'"
 )
 
 
@@ -90,26 +91,55 @@ def _display_of(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _list_pending_sync(conv_id: str | None) -> list[dict[str, Any]]:
-    conn = psycopg2.connect(DATABASE_URL)
+def _enriched_dict(row: dict[str, Any]) -> dict[str, Any]:
+    """Một serializer dùng chung cho list và detail để display không trôi shape."""
+    base = _row_to_dict(row)
+    base["display"] = _display_of(row)
+    return base
+
+
+def _list_pending_sync(conv_id: str | None, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            where = ["a.status='pending'"]
+            params: list[Any] = []
+            if tenant_id is not None:
+                where.append("a.tenant_id=%s")
+                params.append(tenant_id)
             if conv_id:
-                cur.execute(_ENRICH_SELECT + " AND a.conv_id=%s ORDER BY a.id", (conv_id,))
-            else:
-                cur.execute(_ENRICH_SELECT + " ORDER BY a.id")
-            out = []
-            for r in cur.fetchall():
-                r = dict(r)
-                base = _row_to_dict(r)  # mọi field cũ giữ nguyên (payload/status/receipt...)
-                base["display"] = _display_of(r)  # DF-B-01: thêm display, KHÔNG đổi field cũ
-                out.append(base)
-            return out
+                where.append("a.conv_id=%s")
+                params.append(conv_id)
+            cur.execute(_ENRICH_SELECT + f" WHERE {' AND '.join(where)} ORDER BY a.id", tuple(params))
+            return [_enriched_dict(dict(row)) for row in cur.fetchall()]
     finally:
         conn.close()
 
 
-def _decide_sync(approval_id: str, decision: str, decided_by: str, reason: str | None) -> dict[str, Any] | None:
+def _get_sync(approval_id: str, tenant_id: str | None = None) -> dict[str, Any] | None:
+    """Đọc một phiếu ở mọi trạng thái với cùng enrichment của danh sách admin."""
+    conn = connect_core()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            tenant_clause = " AND a.tenant_id=%s" if tenant_id is not None else ""
+            params = (approval_id, tenant_id) if tenant_id is not None else (approval_id,)
+            cur.execute(_ENRICH_SELECT + f" WHERE a.id=%s{tenant_clause} LIMIT 1", params)
+            row = cur.fetchone()
+            return _enriched_dict(dict(row)) if row else None
+    except psycopg2.errors.InvalidTextRepresentation:
+        # UUID nằm ở URL là input không tin cậy; malformed có cùng bề mặt 404 như id không tồn tại.
+        return None
+    finally:
+        conn.close()
+
+
+def _decide_sync(
+    approval_id: str,
+    decision: str,
+    decided_by: str,
+    reason: str | None,
+    tenant_id: str | None = None,
+) -> dict[str, Any] | None:
     """ATOMIC một chiều: UPDATE…WHERE id AND status='pending' RETURNING. rowcount 0 (đã quyết/
     không tồn tại) → None. rowcount 1 → row decided (có conv_id, action để đánh thức main).
 
@@ -117,18 +147,27 @@ def _decide_sync(approval_id: str, decision: str, decided_by: str, reason: str |
     sau duyệt thấy card 'pending' (sai, 2 nguồn sự thật lệch). Fix: sync card.data trong CÙNG tx
     decide (atomic — card ⟺ approval, không window lệch). Trả kèm card_row để caller emit SSE."""
     status = _DECISION_STATUS[decision]  # caller validate decision trước
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            tenant_clause = " AND tenant_id=%s" if tenant_id is not None else ""
+            params: tuple[Any, ...] = (
+                (status, decided_by, reason, approval_id, tenant_id)
+                if tenant_id is not None
+                else (status, decided_by, reason, approval_id)
+            )
             cur.execute(
                 "UPDATE approvals SET status=%s, decided_by=%s, decided_at=now(), reason=%s "
-                "WHERE id=%s AND status='pending' RETURNING *",
-                (status, decided_by, reason, approval_id),
+                f"WHERE id=%s AND status='pending'{tenant_clause} RETURNING *",
+                params,
             )
             row = cur.fetchone()
             if row is None:
                 conn.commit()
                 return None
+            # S18: ledger dùng snapshot lúc pending, ghi TRONG CÙNG tx với decision/card. Insert lỗi
+            # phải rollback cả UPDATE approvals; tuyệt đối không recompute assessment sau commit.
+            store_shadow.insert_review(cur, dict(row))
             # sync card.data.status/decided_by/reason theo decision (CÙNG tx — card khớp approval).
             # card approval khớp qua data->>'approval_id' (T3-1 VỎ-inject approval_id vào card).
             cur.execute(
@@ -165,7 +204,7 @@ def _peek_grant_sync(conv_id: str) -> dict[str, Any] | None:
     """T3-4/T4-0 — PEEK grant treo (approved-chưa-used) cũ nhất của conv, KHÔNG mutate. None = không
     có. guard-B đọc để biết role sở hữu + exec_attempts (quyết re-dispatch/vượt-trần) TRƯỚC khi tốn
     quota — increment tách riêng (claim_exec_attempt) chỉ khi chắc re-dispatch (role khớp)."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -183,7 +222,7 @@ def _claim_exec_attempt_sync(approval_id: str) -> int:
     """T4-0 — increment exec_attempts ATOMIC (UPDATE…RETURNING) → trả attempt MỚI. Gọi CHỈ khi guard-B
     chắc chắn re-dispatch (role khớp). Atomic (defensive #3): 2 guard-B đua → mỗi UPDATE độc lập tăng,
     không đọc-rồi-ghi (không mất increment). row_lock ngầm ở UPDATE per-row."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -200,7 +239,7 @@ def _claim_exec_attempt_sync(approval_id: str) -> int:
 def _mark_exec_failed_sync(approval_id: str) -> None:
     """Vượt trần re-dispatch → phiếu status='exec_failed' (dừng grant + đánh dấu cần người kiểm).
     approved→exec_failed 1 chiều (chỉ khi chưa used — không đè phiếu đã giải ngân)."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -212,12 +251,14 @@ def _mark_exec_failed_sync(approval_id: str) -> None:
         conn.close()
 
 
-def _exists_sync(approval_id: str) -> bool:
+def _exists_sync(approval_id: str, tenant_id: str | None = None) -> bool:
     """Phân biệt 404 (không tồn tại) vs 409 (đã quyết) khi decide trả None."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM approvals WHERE id=%s", (approval_id,))
+            tenant_clause = " AND tenant_id=%s" if tenant_id is not None else ""
+            params = (approval_id, tenant_id) if tenant_id is not None else (approval_id,)
+            cur.execute(f"SELECT 1 FROM approvals WHERE id=%s{tenant_clause}", params)
             return cur.fetchone() is not None
     except psycopg2.Error:
         return False  # id sai format uuid → coi như không tồn tại
@@ -226,16 +267,26 @@ def _exists_sync(approval_id: str) -> bool:
 
 
 # ── async wrappers (D-22: sync qua to_thread) ───────────────────────────────
-async def list_pending(conv_id: str | None = None) -> list[dict[str, Any]]:
-    return await asyncio.to_thread(_list_pending_sync, conv_id)
+async def list_pending(conv_id: str | None = None, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    return await asyncio.to_thread(_list_pending_sync, conv_id, tenant_id)
 
 
-async def decide(approval_id: str, decision: str, decided_by: str, reason: str | None = None) -> dict[str, Any] | None:
-    return await asyncio.to_thread(_decide_sync, approval_id, decision, decided_by, reason)
+async def get_approval(approval_id: str, tenant_id: str | None = None) -> dict[str, Any] | None:
+    return await asyncio.to_thread(_get_sync, approval_id, tenant_id)
 
 
-async def approval_exists(approval_id: str) -> bool:
-    return await asyncio.to_thread(_exists_sync, approval_id)
+async def decide(
+    approval_id: str,
+    decision: str,
+    decided_by: str,
+    reason: str | None = None,
+    tenant_id: str | None = None,
+) -> dict[str, Any] | None:
+    return await asyncio.to_thread(_decide_sync, approval_id, decision, decided_by, reason, tenant_id)
+
+
+async def approval_exists(approval_id: str, tenant_id: str | None = None) -> bool:
+    return await asyncio.to_thread(_exists_sync, approval_id, tenant_id)
 
 
 async def peek_grant(conv_id: str) -> dict[str, Any] | None:

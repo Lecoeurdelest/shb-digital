@@ -1,5 +1,5 @@
 // CostAnomalyTable.tsx — S16 T16-3: bảng anomaly z_score. Filter nút z≥2 / z≥3. border-left đỏ.
-// row-click → onOpenAudit(conv_id) (ControlTower nhảy tab audit + seed filter mã ca — không route mới).
+// row-click → onOpenAudit(conv_id) (ControlTower nhảy tab audit + seed filter mã phiên — không route mới).
 // anomalies rỗng (hoặc lọc hết) → empty note. z càng cao càng bất thường (đỏ đậm hơn).
 import { useState } from 'react';
 import { filterAnomalies, fmtUsd } from './costTransforms';
@@ -13,7 +13,7 @@ export function CostAnomalyTable({ anomalies, onOpenAudit }: { anomalies: CostAn
   return (
     <div className="anom" data-testid="cost-anomaly-table">
       <div className="anom__head">
-        <span className="anom__title">Ca chi phí bất thường (z-score)</span>
+        <span className="anom__title">Phiên xử lý có chi phí bất thường (z-score)</span>
         <div className="anom__filter" role="tablist" aria-label="Ngưỡng z-score">
           {([2, 3] as const).map((z) => (
             <button
@@ -30,7 +30,7 @@ export function CostAnomalyTable({ anomalies, onOpenAudit }: { anomalies: CostAn
         </div>
       </div>
       {rows.length === 0 ? (
-        <div className="anom__empty" data-testid="anom-empty">Không có ca bất thường (z ≥ {minZ}).</div>
+        <div className="anom__empty" data-testid="anom-empty">Không có phiên xử lý bất thường (z ≥ {minZ}).</div>
       ) : (
         <div className="anom__rows">
           {rows.map((a) => (
@@ -40,7 +40,7 @@ export function CostAnomalyTable({ anomalies, onOpenAudit }: { anomalies: CostAn
               className="anom__row"
               onClick={() => onOpenAudit?.(a.conv_id)}
               data-testid={`anom-row-${a.conv_id}`}
-              title="Mở nhật ký tool của ca này"
+              title="Mở nhật ký tool của phiên xử lý này"
             >
               <span className="anom__row-main">
                 <span className="anom__row-title">{a.title || a.conv_id}</span>

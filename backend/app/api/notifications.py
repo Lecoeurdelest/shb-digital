@@ -16,7 +16,8 @@ import psycopg2.extras
 from fastapi import APIRouter, Depends
 
 from app.auth.deps import require_user
-from app.db.config import DATABASE_URL
+from app.storage import connect_core
+from app.tenancy import tenant_id_from_claims
 
 log = logging.getLogger("api.notifications")
 
@@ -36,13 +37,13 @@ async def list_notifications(claims: dict = Depends(require_user)) -> list[dict[
         return []
     import asyncio
 
-    return await asyncio.to_thread(_derive, username)
+    return await asyncio.to_thread(_derive, username, tenant_id_from_claims(claims))
 
 
-def _derive(username: str) -> list[dict[str, Any]]:
+def _derive(username: str, tenant_id: str | None = None) -> list[dict[str, Any]]:
     """SELECT approvals đã quyết JOIN conversations của user → list sự kiện. Best-effort (DB lỗi → [])."""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = connect_core()
     except psycopg2.Error as e:
         log.warning("notifications DB lỗi (trả rỗng): %s", e)
         return []
@@ -52,9 +53,10 @@ def _derive(username: str) -> list[dict[str, Any]]:
                 "SELECT a.conv_id, a.action, a.status, a.payload, a.receipt, "
                 "COALESCE(a.used_at, a.decided_at) AS ts "
                 "FROM approvals a JOIN conversations c ON a.conv_id = c.id::text "
-                "WHERE c.user_id = %s AND a.status IN ('used', 'approved', 'rejected') "
+                "WHERE c.user_id = %s AND (%s IS NULL OR c.tenant_id=%s::uuid) "
+                "AND a.status IN ('used', 'approved', 'rejected') "
                 "ORDER BY ts DESC NULLS LAST LIMIT %s",
-                (username, _LIMIT),
+                (username, tenant_id, tenant_id, _LIMIT),
             )
             rows = cur.fetchall()
     finally:

@@ -291,6 +291,7 @@ def test_decide_hook_mail_fail_does_not_break_decide(monkeypatch):
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
         with conn.cursor() as cur:
+            cur.execute("DELETE FROM shadow_reviews WHERE conv_id=%s", (conv,))
             cur.execute("DELETE FROM approvals WHERE conv_id=%s", (conv,))
             cur.execute("DELETE FROM conversations WHERE id::text=%s", (conv,))
         conn.close()

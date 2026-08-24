@@ -67,11 +67,39 @@ demo (F3 disburse-mất-mount, wrap-haiku 502 giả-thuyết-trước-15'...). 6
 + /api/stats/cost z-score + Tổng quan chart (spark/breakdown/donut/anomaly→audit) + trace per-ca.
 Contract-first 2 chiều ráp 0 lệch. Chart số THẬT prod PASS.
 
-**Hàng đợi:** S17 Phase 2 RUN đang chạy (multi 15/15 ✓, single đang cày) → REPORT + đánh giá ·
-rebuild chót (panel-phải + amount-required) · gỡ sub_model-tạm sau bench · rehearsal tay giờ G ·
-B-05 + t9go1 chờ gu user.
+**Sprint 17 — ĐÓNG** (2026-07-19, commit `a5dc20e`): BENCH Phase 2 hoàn tất 15 case × 2
+kiến trúc trên cùng model/tool surface. Kết quả công khai: **Multi 5 · Single 5 · Hoà 5**; multi
+thắng đúng lớp liên-phòng tuần tự có bàn giao, còn single thắng về tốc độ/chi phí ở ca một-phòng.
+Baseline kickoff 24/8 chạy thật: **BE 461 collected = 444 pass + 17 skip; FE 231 pass** với
+`NODE_OPTIONS=--no-experimental-webstorage` trên Node 26. `npm run test` thô vấp bootstrap Vitest do
+experimental Web Storage + opaque jsdom origin, được phân loại lỗi môi trường chứ không phải regression.
 
-**Golden path:** `sprints/ROADMAP.md`. **Plan:** (chờ sprint kế — S12 khi LAB drop).
+**Sprint 18 — ĐÓNG** (2026-08-24): threshold shadow + ledger/stats + positioning và tờ trình chuẩn.
+Vòng thật `shb_test` PASS: threshold `0` giữ ca 50M ở pending nhưng snapshot `auto-eligible`, quyết
+định ghi shadow atomic, giải ngân đúng một lần, replay trả cùng receipt; bỏ key quay lại auto mặc
+định. Live XD-01 bắt lỗi schema thiếu top-level `sources`; sau khi khai báo optional `string[]`,
+session mới PASS với 4 role, đúng title/6 section, item sources và top-level sources có audit thật.
+Mốc S18: **460 BE pass + 17 skip + 231 FE pass = 691 pass + 17 skip**.
+
+**Sprint 19 — ĐÓNG** (2026-08-24): receiver thật nhận pending
+**43.544ms** và approved **13.265ms**, body đúng 4 key allowlist, không amount/loan/customer/reason/
+CIC/receipt; deep-link exact ticket đã có browser evidence. Suite cuối: **504 BE collected = 487
+pass + 17 skip; 29 file / 251 FE pass; tổng 738 pass + 17 skip**. Visual login/focus dùng Vite
+mock vì `:8000` là service ngoài; API/lifecycle thật đã verify riêng trên `shb_test`. T19-4 PASS
+sau khi gate S18 đóng.
+
+**Sprint 21 — ĐÓNG** (2026-08-24, D-74): lõi headless + Embed SDK. Contract khóa
+readiness/CORS/auth/data-boundary; backend có `bank_dc` fail-fast + MCP annotations; package
+`@bank-digital/embed-sdk` có headless, React compound và Shadow DOM element. Packed consumer,
+full-suite, Docker, REST/SSE backend thật và browser standalone đều PASS; SPA/Tower chỉ là
+reference host, không phải dependency SDK. Mốc: **531 BE pass + 17 skip, 276 FE pass**, SDK
+**35 file / 86.298 byte**. Source-system MCP tách process và CIC/core live vẫn là non-claim.
+
+**Hàng đợi:** Sprint 20 shadow match dashboard + pre-pilot consent wording · B-05 + t9go1 chờ gu user.
+
+**Golden path:** `sprints/ROADMAP.md`. **Plans:** `sprints/plan_sprint_18.md` ·
+`sprints/plan_sprint_19.md` · `sprints/plan_sprint_21.md`. **End records:**
+`sprints/end_sprint_18.md` · `sprints/end_sprint_19.md` · `sprints/end_sprint_21.md`.
 
 **Lịch sử:**
 
@@ -93,3 +121,7 @@ B-05 + t9go1 chờ gu user.
 | 15 | af8782b, 1068300, 4e59331 + đóng | UX wave: fix switch zai↔wrap + ModelSelect per-turn + CRUD conv (D-67) + markdown. 549 test. PROD 4/4. D-66. |
 | 12 | 52ea649→a0f918c + đóng | Port LAB: retrieval 4 tầng + 4/4 chuyên gia thật + ops_disburse-phanh + world 8bf6b4. 5 FAIL bắt trước demo. 6/6 prod. |
 | 16 | 45968cb, 81b69cc, c2f8221, 6356f78 + đóng | Tracing/cost: instrument + cost API z-score + chart Tổng quan + trace per-ca. 637 test (410+227). |
+| 17 | a5dc20e + đóng | BENCH Phase 2: 15 case × 2 kiến trúc; Multi 5 · Single 5 · Hoà 5; report + đánh giá architect. Kickoff baseline: 461 BE collected (444 pass/17 skip) + 231 FE pass với Node 26 compatibility flag. |
+| 18 | working tree · đóng | Threshold fail-closed + shadow review/match stats + middle-office positioning + Tờ trình sơ thẩm 6 mục; live schema/provenance gate PASS. 691 pass + 17 skip tại mốc S18. |
+| 19 | working tree · đóng | Doorbell generic/Lark tối thiểu dữ liệu + exact-ticket deep-link/auth resume + lifecycle đúng-một-lần; receiver/browser evidence. 738 pass + 17 skip. |
+| 21 | working tree · đóng | Lõi headless bank-DC guard/readiness + Embed SDK ESM/CJS/React/Web Component/IIFE; real REST/SSE/browser/Docker gates. 807 pass + 17 skip. |

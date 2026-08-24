@@ -100,6 +100,13 @@ PRESENT_TYPES = ["case_file", "metric", "checklist", "options", "timeline", "doc
                 "items": {"type": "object"},
                 "description": "nội dung card theo type (vd metric: [{name,value,threshold,pass,source}])",
             },
+            # T18-3: optional để card cũ không đổi contract, nhưng phải lộ trong schema thì model
+            # mới biết đây là field hợp lệ; chỉ nhắc trong prompt khiến live memo thường bỏ sót.
+            "sources": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "tên tool/role nguồn đã dùng, không chứa dữ liệu nghiệp vụ nhạy cảm",
+            },
         },
         "required": ["type", "title", "items"],
     },

@@ -18,13 +18,47 @@ export function itemField<T = unknown>(item: Record<string, unknown>, key: strin
   return item?.[key] as T | undefined;
 }
 
-// render 1 value MIXED (number | string | bool | khác) → string hiển thị (không .toFixed mù).
+const RECEIPT_FALLBACK = 'Đã thực hiện; biên nhận lưu trong nhật ký.';
+
+function isStructuredJson(value: string): boolean {
+  const text = value.trim();
+  if (!(text.startsWith('{') || text.startsWith('['))) return false;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return parsed !== null && typeof parsed === 'object';
+  } catch {
+    return false;
+  }
+}
+
+// Mapping chỉ ở tầng trình bày: wrapper phanh vẫn lưu action/field/receipt nguyên bản để audit.
+// Thứ tự từ identifier dài đến ngắn để không tạo nhãn lai như "loan_Số tiền".
+function sanitizeBusinessString(value: string): string {
+  if (isStructuredJson(value)) return RECEIPT_FALLBACK;
+  return value
+    .replace(/\b(?:loan_amount_vnd|amount_vnd)\b/gi, 'Số tiền')
+    .replace(/\b(?:loan_id|application_id)\b/gi, 'Khoản vay')
+    .replace(/\bamount\b/gi, 'Số tiền')
+    .replace(/\b(?:ops_disbursed?|disbursed?|ops_disburse|disburse)\b/gi, 'Giải ngân')
+    .replace(/\bauto[-_ ]rule\b/gi, 'quy tắc phê duyệt')
+    .replace(/provider/gi, 'cấu hình vận hành')
+    .replace(/tokens?/gi, 'định mức xử lý')
+    .replace(/tool/gi, 'nguồn nghiệp vụ')
+    .replace(/\bmain\b/gi, 'hệ thống')
+    .replace(/\bsub\b/gi, 'bước xử lý')
+    .replace(/\bllm\b/gi, 'hệ thống')
+    .replace(/\bjson\b/gi, 'dữ liệu có cấu trúc');
+}
+
+// Chỉ render primitive. Object/array là payload có cấu trúc: không stringify vì có thể chứa dữ
+// liệu nội bộ ngoài contract trình bày. Chuỗi receipt JSON và identifier kỹ thuật cũng được đổi
+// thành copy nghiệp vụ, không làm thay đổi resource/callback gốc (D-75).
 export function renderValue(v: unknown): string {
   if (v == null) return '—';
   if (typeof v === 'number') return String(v);
-  if (typeof v === 'string') return v;
+  if (typeof v === 'string') return sanitizeBusinessString(v);
   if (typeof v === 'boolean') return v ? '✓' : '✗';
-  return JSON.stringify(v);
+  return '—';
 }
 
 // gom source từ item.source + card.sources (dedupe, giữ thứ tự) → list tên tool cho citation chip.

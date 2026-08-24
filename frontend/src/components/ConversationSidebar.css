@@ -27,6 +27,17 @@
   cursor: default;
 }
 
+.conv-sidebar__group-create { margin: -4px 0 10px; }
+.conv-sidebar__add-group {
+  width: 100%; padding: 6px 10px; border: 1px dashed var(--bd2); border-radius: 7px;
+  background: transparent; color: var(--mute); font: 600 11px var(--font); cursor: pointer;
+}
+.conv-sidebar__add-group:hover { color: var(--tx); border-color: var(--acc); }
+.conv-sidebar__group-input {
+  width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--acc);
+  border-radius: 7px; background: var(--bg); color: var(--tx); font: 600 11px var(--font); outline: none;
+}
+
 .conv-sidebar__section-label {
   font-size: 10px;
   font-weight: 600;
@@ -47,6 +58,14 @@
   flex-direction: column;
   gap: 4px;
 }
+
+.conv-sidebar__group { display: flex; flex-direction: column; gap: 4px; }
+.conv-sidebar__group + .conv-sidebar__group { margin-top: 8px; }
+.conv-sidebar__group-label {
+  padding: 2px 6px; color: var(--mute); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.conv-sidebar__group-empty { padding: 4px 10px; color: var(--faint); font-size: 10px; font-style: italic; }
 
 .conv-sidebar__item {
   padding: 10px 12px;
@@ -82,6 +101,11 @@
   gap: 6px;
   font-size: 10.5px;
   color: var(--mute);
+}
+
+.conv-sidebar__group-select {
+  width: 100%; margin-top: 6px; padding: 4px 6px; border: 1px solid var(--bd);
+  border-radius: 6px; background: var(--bg); color: var(--mute); font: 10px var(--font);
 }
 
 /* ── T15-3: title-row + CRUD actions (✎ 🗑) — hiện khi hover/active ── */

@@ -1,17 +1,10 @@
-// StatsOverview.tsx — tab "Tổng quan" ControlTower. GIỮ 7 KPI nghiệp vụ (S13) + THÊM cụm "Chi phí
-// & vận hành AI" (S16 T16-3, recharts): TokenBreakdownBar · DailyCostBar · ModelDonut · CostAnomalyTable.
-// Segmented window 24h|7d|30d (nâng 2-nút cũ). Poll 30s dừng tab ẩn. KpiCard +spark.
-// ĐỘC LẬP DEGRADE (advisor): cost cluster fetch RIÊNG error/loading — BE T16-2 chưa có (404) thì
-// 7 KPI vẫn render, chỉ block cost hiện note. Fetch-fail im đẹp (throwOnError-mềm như stats cũ).
-import { useCallback, useEffect, useState } from 'react';
+// StatsOverview.tsx — tổng quan dành cho quản lý nghiệp vụ. Chỉ đọc /stats để lần mở mặc định
+// không kéo telemetry kỹ thuật; cost/token/model được mount riêng khi vào TechnicalOperationsView.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { conversationApi } from '../../api';
 import { ApiRequestError } from '../../api/client';
-import type { CostResponse, CostTrendResponse, StatsResponse, StatsWindow } from '../../types';
+import type { StatsResponse, StatsWindow } from '../../types';
 import { KpiCard } from './KpiCard';
-import { TokenBreakdownBar } from './TokenBreakdownBar';
-import { DailyCostBar } from './DailyCostBar';
-import { ModelDonut } from './ModelDonut';
-import { CostAnomalyTable } from './CostAnomalyTable';
 import './StatsOverview.css';
 
 const POLL_MS = 30000;
@@ -25,27 +18,32 @@ function errMsg(e: unknown, fallback: string): string {
   return e instanceof ApiRequestError ? e.body?.message ?? fallback : fallback;
 }
 
-export function StatsOverview({ onOpenAudit }: { onOpenAudit?: (convId: string) => void }) {
+function pct(part: number, total: number): string {
+  if (total <= 0) return '0%';
+  return `${Math.round((part / total) * 100)}%`;
+}
+
+function num(value: number | undefined): number {
+  return value ?? 0;
+}
+
+export function StatsOverview() {
   const [window, setWindow] = useState<StatsWindow>('24h');
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // cost cluster — state RIÊNG (độc lập với 7 KPI: BE chưa build → cost lỗi nhưng KPI vẫn hiện).
-  const [cost, setCost] = useState<CostResponse | null>(null);
-  const [trend, setTrend] = useState<CostTrendResponse | null>(null);
-  const [costError, setCostError] = useState<string | null>(null);
+  const requestGeneration = useRef(0);
 
   const load = useCallback((w: StatsWindow) => {
+    const generation = ++requestGeneration.current;
     conversationApi.getStats(w)
-      .then((s) => { setStats(s); setError(null); })
-      .catch((e: unknown) => setError(errMsg(e, 'Lỗi tải thống kê')));
-    // cost + trend fetch RIÊNG (không để 1 fail chặn KPI). 24h → bucket hour; 7d/30d → day.
-    const bucket = w === '24h' ? 'hour' : 'day';
-    conversationApi.getCost(w)
-      .then((c) => { setCost(c); setCostError(null); })
-      .catch((e: unknown) => { setCost(null); setCostError(errMsg(e, 'Chưa có dữ liệu chi phí (đang chờ backend).')); });
-    conversationApi.getCostTrend(w, bucket, 'role')
-      .then((t) => setTrend(t))
-      .catch(() => setTrend(null)); // trend lỗi → DailyCostBar tự hiện empty
+      .then((s) => {
+        if (generation !== requestGeneration.current) return;
+        setStats(s);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        if (generation === requestGeneration.current) setError(errMsg(e, 'Lỗi tải thống kê'));
+      });
   }, []);
 
   useEffect(() => {
@@ -61,7 +59,12 @@ export function StatsOverview({ onOpenAudit }: { onOpenAudit?: (convId: string) 
     timer = globalThis.setTimeout(tick, POLL_MS);
     const onVisible = () => { if (document.visibilityState === 'visible' && alive) { globalThis.clearTimeout(timer); load(window); schedule(); } };
     document.addEventListener('visibilitychange', onVisible);
-    return () => { alive = false; globalThis.clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible); };
+    return () => {
+      alive = false;
+      requestGeneration.current += 1;
+      globalThis.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [window, load]);
 
   const a = stats?.approvals;
@@ -69,6 +72,18 @@ export function StatsOverview({ onOpenAudit }: { onOpenAudit?: (convId: string) 
   const conv = stats?.conversations;
   const d = stats?.delta;
   const sp = stats?.sparks;
+  const approved = num(a?.approved);
+  const rejected = num(a?.rejected);
+  const pending = num(a?.pending);
+  const auto = num(a?.auto);
+  const green = num(asmt?.green);
+  const yellow = num(asmt?.yellow);
+  const red = num(asmt?.red);
+  const totalDecisions = approved + rejected;
+  const totalApprovalWork = totalDecisions + pending;
+  const totalAssessments = green + yellow + red;
+  const active = num(conv?.active);
+  const totalConversations = num(conv?.total);
 
   return (
     <div className="ct__section stats">
@@ -102,45 +117,93 @@ export function StatsOverview({ onOpenAudit }: { onOpenAudit?: (convId: string) 
           sub="thẩm định đạt" spark={sp?.green} />
         <KpiCard label="Hồ sơ Yellow" value={asmt?.yellow ?? '—'} tone="yellow" icon="●" />
         <KpiCard label="Hồ sơ Red" value={asmt?.red ?? '—'} tone="red" icon="●" />
-        <KpiCard label="Ca tư vấn" value={conv?.total ?? '—'} icon="💬"
-          sub={conv ? `đang chạy: ${conv.active}` : undefined} spark={sp?.total} />
+        <KpiCard label="Phiên xử lý" value={conv?.total ?? '—'} icon="💬"
+          sub={conv ? `đang chạy: ${conv.active}` : undefined} spark={sp?.conversations} />
       </div>
 
-      {/* ── Cụm CHI PHÍ & VẬN HÀNH AI (S16 T16-3) — độc lập degrade ── */}
-      <div className="stats__cost-head">
-        <span className="ct__section-title">Chi phí &amp; vận hành AI</span>
-        {cost && (
-          <span className="stats__cost-total" data-testid="cost-total">
-            {cost.cost_estimated && <span className="stats__est">ước tính</span>}
-            tổng {formatUsd(cost.total_cost_usd)}
-            {cost.delta && <DeltaPct pct={cost.delta.total_cost_pct} />}
-          </span>
-        )}
-      </div>
-      {costError ? (
-        <div className="ct__empty" data-testid="cost-error">{costError}</div>
-      ) : (
-        <>
-          <TokenBreakdownBar breakdown={cost?.breakdown} />
-          <div className="stats__cost-grid">
-            <DailyCostBar buckets={trend?.buckets ?? []} />
-            <ModelDonut byModel={cost?.by_model ?? []} estimated={cost?.cost_estimated} />
+      <div className="stats__insights" data-testid="stats-insights">
+        <section className="stats__panel stats__panel--decision">
+          <div className="stats__panel-head">
+            <span className="stats__panel-title">Luồng quyết định</span>
+            <span className="stats__panel-value">{totalApprovalWork}</span>
           </div>
-          <CostAnomalyTable anomalies={cost?.anomalies ?? []} onOpenAudit={onOpenAudit} />
-        </>
-      )}
+          <div className="stats__bar" aria-label="Phân bổ phiếu">
+            <span className="stats__bar-seg stats__bar-seg--pass" style={{ width: pct(approved, totalApprovalWork) }} />
+            <span className="stats__bar-seg stats__bar-seg--fail" style={{ width: pct(rejected, totalApprovalWork) }} />
+            <span className="stats__bar-seg stats__bar-seg--warn" style={{ width: pct(pending, totalApprovalWork) }} />
+          </div>
+          <div className="stats__rows">
+            <MetricRow label="Đã duyệt" value={approved} meta={pct(approved, totalApprovalWork)} tone="pass" />
+            <MetricRow label="Từ chối" value={rejected} meta={pct(rejected, totalApprovalWork)} tone="fail" />
+            <MetricRow label="Đang chờ" value={pending} meta={pending > 0 ? 'cần xử lý' : 'sạch hàng chờ'} tone={pending > 0 ? 'warn' : 'default'} />
+            <MetricRow label="Tự động" value={auto} meta={`${pct(auto, approved)} phiếu duyệt`} />
+          </div>
+        </section>
 
-      <div className="stats__footer">Bản demo: admin gộp vai giám sát nghiệp vụ + kỹ thuật. Cost provider ngoài là ước tính; token là số thật.</div>
+        <section className="stats__panel stats__panel--lane">
+          <div className="stats__panel-head">
+            <span className="stats__panel-title">Chất lượng hồ sơ</span>
+            <span className="stats__panel-value">{totalAssessments}</span>
+          </div>
+          <div className="stats__bar" aria-label="Phân bổ lane hồ sơ">
+            <span className="stats__bar-seg stats__bar-seg--pass" style={{ width: pct(green, totalAssessments) }} />
+            <span className="stats__bar-seg stats__bar-seg--warn" style={{ width: pct(yellow, totalAssessments) }} />
+            <span className="stats__bar-seg stats__bar-seg--fail" style={{ width: pct(red, totalAssessments) }} />
+          </div>
+          <div className="stats__rows">
+            <MetricRow label="Đạt sơ bộ" value={green} meta={pct(green, totalAssessments)} tone="pass" />
+            <MetricRow label="Cần bổ sung" value={yellow} meta={pct(yellow, totalAssessments)} tone="warn" />
+            <MetricRow label="Rủi ro cao" value={red} meta={pct(red, totalAssessments)} tone="fail" />
+            <MetricRow label="Cần rà soát" value={yellow + red} meta={`${pct(yellow + red, totalAssessments)} hồ sơ`} />
+          </div>
+        </section>
+
+        <section className="stats__panel stats__panel--workload">
+          <div className="stats__panel-head">
+            <span className="stats__panel-title">Tải xử lý</span>
+            <span className="stats__panel-value">{active}/{totalConversations}</span>
+          </div>
+          <div className="stats__workload-grid">
+            <div>
+              <span className="stats__workload-num">{active}</span>
+              <span className="stats__workload-label">đang chạy</span>
+            </div>
+            <div>
+              <span className="stats__workload-num">{pending + active}</span>
+              <span className="stats__workload-label">đang cần theo dõi</span>
+            </div>
+            <div>
+              <span className="stats__workload-num">{totalDecisions}</span>
+              <span className="stats__workload-label">đã có quyết định</span>
+            </div>
+          </div>
+          <div className="stats__footer">
+            Pending là trạng thái hiện tại; các số còn lại theo khoảng thời gian đang chọn.
+          </div>
+        </section>
+      </div>
+
     </div>
   );
 }
 
-function formatUsd(n: number): string {
-  return Number.isFinite(n) ? `$${n.toFixed(2)}` : '$0';
-}
-
-function DeltaPct({ pct }: { pct: number }) {
-  if (pct === 0) return <span className="stats__delta stats__delta--flat">→ 0%</span>;
-  const up = pct > 0;
-  return <span className={`stats__delta stats__delta--${up ? 'up' : 'down'}`}>{up ? '↑' : '↓'} {Math.abs(pct).toFixed(1)}%</span>;
+function MetricRow({
+  label,
+  value,
+  meta,
+  tone = 'default',
+}: {
+  label: string;
+  value: number;
+  meta: string;
+  tone?: 'default' | 'pass' | 'warn' | 'fail';
+}) {
+  return (
+    <div className="stats__metric-row">
+      <span className={`stats__metric-dot stats__metric-dot--${tone}`} />
+      <span className="stats__metric-label">{label}</span>
+      <span className="stats__metric-value">{value}</span>
+      <span className="stats__metric-meta">{meta}</span>
+    </div>
+  );
 }

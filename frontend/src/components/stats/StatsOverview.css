@@ -13,9 +13,143 @@
 
 .stats__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
   gap: 12px;
   margin: 14px 0;
+}
+
+.stats__insights {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(260px, 0.9fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.stats__panel {
+  min-width: 0;
+  background: var(--p1);
+  border: 1px solid var(--bd);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.stats__panel--decision { border-top: 3px solid var(--warn); }
+.stats__panel--lane { border-top: 3px solid var(--pass); }
+.stats__panel--workload { border-top: 3px solid var(--acc); }
+
+.stats__panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.stats__panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tx);
+}
+.stats__panel-value {
+  font: 800 20px var(--mono);
+  color: var(--tx);
+  line-height: 1;
+}
+
+.stats__bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--bg2);
+  border: 1px solid var(--bd);
+  margin-bottom: 12px;
+}
+.stats__bar-seg {
+  display: block;
+  min-width: 0;
+  height: 100%;
+}
+.stats__bar-seg--pass { background: var(--pass); }
+.stats__bar-seg--warn { background: var(--warn); }
+.stats__bar-seg--fail { background: var(--fail); }
+
+.stats__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.stats__metric-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  font-size: 12px;
+}
+.stats__metric-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--mute);
+}
+.stats__metric-dot--pass { background: var(--pass); }
+.stats__metric-dot--warn { background: var(--warn); }
+.stats__metric-dot--fail { background: var(--fail); }
+.stats__metric-label {
+  color: var(--dim);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats__metric-value {
+  font: 800 13px var(--mono);
+  color: var(--tx);
+}
+.stats__metric-meta {
+  justify-self: end;
+  color: var(--mute);
+  font: 600 10.5px var(--mono);
+  white-space: nowrap;
+}
+
+.stats__workload-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.stats__workload-grid > div {
+  min-width: 0;
+  border: 1px solid var(--bd);
+  background: var(--bg2);
+  border-radius: 8px;
+  padding: 10px;
+}
+.stats__workload-num {
+  display: block;
+  font: 800 22px var(--mono);
+  color: var(--tx);
+  line-height: 1;
+}
+.stats__workload-label {
+  display: block;
+  margin-top: 6px;
+  color: var(--mute);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+@media (max-width: 1180px) {
+  .stats__grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+  .stats__insights { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .stats__window { width: 100%; margin-left: 0; }
+  .stats__window-btn { flex: 1; }
+  .stats__grid { grid-template-columns: 1fr; }
+  .stats__workload-grid { grid-template-columns: 1fr; }
+  .stats__metric-row { grid-template-columns: 10px minmax(0, 1fr) auto; }
+  .stats__metric-meta { grid-column: 2 / -1; justify-self: start; }
 }
 
 /* ── S16 T16-3: cụm Chi phí & vận hành AI ── */
@@ -44,8 +178,8 @@
 }
 
 .stats__footer {
-  margin-top: 8px;
+  margin-top: 12px;
   font-size: 11px;
   color: var(--faint);
-  font-style: italic;
+  line-height: 1.5;
 }

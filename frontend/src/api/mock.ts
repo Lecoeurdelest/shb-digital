@@ -12,7 +12,10 @@ import type {
   CompareResult,
   Conversation,
   ConversationFullState,
+  ConversationGroup,
   Assessment,
+  CaseListFilters,
+  CaseSummary,
   FormSubmitResult,
   Message,
   ModelsResponse,
@@ -25,7 +28,7 @@ import type {
   CostTrendResponse,
 } from '../types';
 import { ApiErrorLike, MOCK_LATENCY_MS, delay, envelope, nowIso, uid } from './mockShared';
-import { mockGetCost, mockGetCostTrend, mockGetModels, mockGetStats, mockListAssessments, mockRunCompare } from './mockData';
+import { mockGetCost, mockGetCostTrend, mockGetModels, mockGetStats, mockListAssessments, mockListCases, mockRunCompare } from './mockData';
 
 interface MockRoom {
   conversation: Conversation;
@@ -37,18 +40,20 @@ interface MockRoom {
 
 class MockBackend {
   private rooms = new Map<string, MockRoom>();
+  private groups = new Map<string, ConversationGroup>();
   private turnText = new Map<string, string>(); // tích lũy text trọn lượt (cho full_text ở done)
 
   // reset toàn bộ state — test-isolation (mockBackend là singleton module-level; không reset thì
   // rooms/tasks leak giữa test, ca cũ auto-select lúc mount làm panel task test khác hiện nhầm).
   reset(): void {
     this.rooms.clear();
+    this.groups.clear();
     this.turnText.clear();
   }
 
   private room(id: string): MockRoom {
     const r = this.rooms.get(id);
-    if (!r) throw new ApiErrorLike(404, 'not_found', 'Ca không tồn tại (mock)');
+    if (!r) throw new ApiErrorLike(404, 'not_found', 'Phiên xử lý không tồn tại (mock)');
     return r;
   }
 
@@ -62,14 +67,46 @@ class MockBackend {
     return [...this.rooms.values()].map((r) => r.conversation).sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
 
+  listConversationGroups(): ConversationGroup[] {
+    return [...this.groups.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  createConversationGroup(name: string): ConversationGroup {
+    const normalized = name.trim().replace(/\s+/g, ' ');
+    if (!normalized) throw new ApiErrorLike(400, 'bad_request', 'Tên nhóm không được để trống (mock).');
+    if ([...this.groups.values()].some((g) => g.name.toLocaleLowerCase() === normalized.toLocaleLowerCase())) {
+      throw new ApiErrorLike(409, 'group_name_conflict', 'Tên nhóm đã tồn tại (mock).');
+    }
+    const now = nowIso();
+    const group: ConversationGroup = { id: uid('grp'), name: normalized, created_by: 'mock-user', created_at: now, updated_at: now };
+    this.groups.set(group.id, group);
+    return group;
+  }
+
+  updateConversationGroup(id: string, name: string): ConversationGroup {
+    const current = this.groups.get(id);
+    if (!current) throw new ApiErrorLike(404, 'group_not_found', 'Nhóm không tồn tại (mock).');
+    const updated = { ...current, name: name.trim(), updated_at: nowIso() };
+    this.groups.set(id, updated);
+    return updated;
+  }
+
+  deleteConversationGroup(id: string): void {
+    if (!this.groups.delete(id)) throw new ApiErrorLike(404, 'group_not_found', 'Nhóm không tồn tại (mock).');
+    for (const room of this.rooms.values()) {
+      if (room.conversation.group_id === id) room.conversation = { ...room.conversation, group_id: null };
+    }
+  }
+
   // provider/model optional (D-45b c) — mock chấp nhận để khớp signature thật; lưu để phản ánh nếu cần.
-  createConversation(title: string, provider?: string, model?: string): Conversation {
+  createConversation(title: string, provider?: string, model?: string, groupId?: string | null): Conversation {
     const id = uid('c');
     const conv: Conversation = {
       id,
-      title: title || `Ca ${this.rooms.size + 1}`,
+      title: title || `Phiên xử lý ${this.rooms.size + 1}`,
       status: 'idle',
       created_at: nowIso(),
+      group_id: groupId ?? null,
       ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
     };
@@ -78,14 +115,20 @@ class MockBackend {
   }
 
   // S15 T15-2/3: rename (title) + per-turn switch (provider/model). Đang running → 409 (khớp BE).
-  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }): Conversation {
+  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string; group_id?: string | null }): Conversation {
     const r = this.room(id);
     if ((patch.provider !== undefined || patch.model !== undefined) && r.conversation.status === 'running') {
-      throw new ApiErrorLike(409, 'conversation_running', 'Ca đang chạy — không đổi model giữa lượt (mock).');
+      throw new ApiErrorLike(409, 'conversation_running', 'Phiên xử lý đang chạy — không thể thay đổi cấu hình giữa lượt (mock).');
     }
     if (patch.title !== undefined) r.conversation = { ...r.conversation, title: patch.title };
     if (patch.provider !== undefined) r.conversation = { ...r.conversation, provider: patch.provider };
     if (patch.model !== undefined) r.conversation = { ...r.conversation, model: patch.model };
+    if (patch.group_id !== undefined) {
+      if (patch.group_id !== null && !this.groups.has(patch.group_id)) {
+        throw new ApiErrorLike(404, 'group_not_found', 'Nhóm không tồn tại (mock).');
+      }
+      r.conversation = { ...r.conversation, group_id: patch.group_id };
+    }
     return r.conversation;
   }
 
@@ -93,10 +136,10 @@ class MockBackend {
   deleteConversation(id: string): void {
     const r = this.room(id);
     if (r.conversation.status === 'running') {
-      throw new ApiErrorLike(409, 'conversation_running', 'Ca đang chạy — dừng ca trước khi xoá (mock).');
+      throw new ApiErrorLike(409, 'conversation_running', 'Phiên xử lý đang chạy — dừng xử lý trước khi xoá (mock).');
     }
     if (r.cards.some((c) => c.type === 'approval' && c.status === 'pending')) {
-      throw new ApiErrorLike(409, 'approval_pending', 'Ca còn phiếu chờ duyệt — quyết phiếu trước khi xoá (mock).');
+      throw new ApiErrorLike(409, 'approval_pending', 'Phiên xử lý còn phiếu chờ duyệt — quyết phiếu trước khi xoá (mock).');
     }
     this.rooms.delete(id);
   }
@@ -149,6 +192,12 @@ class MockBackend {
       );
     }
     return out;
+  }
+
+  async getApproval(approvalId: string): Promise<ApprovalRow> {
+    const row = (await this.listApprovals('all')).find((item) => item.id === approvalId);
+    if (!row) throw new ApiErrorLike(404, 'not_found', 'Phiếu không tồn tại (mock)');
+    return row;
   }
 
   async auditFiltered(filters: Record<string, string>): Promise<AuditRow[]> {
@@ -204,6 +253,10 @@ class MockBackend {
 
   async listAssessments(owner?: string, limit = 50): Promise<Assessment[]> {
     return mockListAssessments(owner, limit);
+  }
+
+  async listCases(filters: CaseListFilters = {}): Promise<CaseSummary[]> {
+    return mockListCases(filters);
   }
 
   async runCompare(question: string): Promise<CompareResult> {
@@ -399,7 +452,7 @@ class MockBackend {
       r.tasks = r.tasks.map((t) => (t.id === task!.id ? task! : t));
       this.emit(convId, envelope(convId, 'task.status', { task }));
 
-      const answer = ' Rất tiếc, phần Tín dụng gặp sự cố nên em chưa thể đưa kết luận cho ca này. Chi tiết lỗi hiển thị ở thẻ công việc bên cạnh.';
+      const answer = ' Rất tiếc, phần Tín dụng gặp sự cố nên em chưa thể đưa kết luận cho phiên xử lý này. Vui lòng thử lại hoặc liên hệ bộ phận vận hành.';
       await this.streamText(convId, turnId, seq, answer, true);
       r.conversation.status = 'failed';
       this.emit(convId, envelope(convId, 'conversation.status', { status: 'failed' }));
@@ -476,7 +529,11 @@ class MockBackend {
 
   // admin quyết phiếu (mock — mô phỏng T3-2): cập nhật card approval status + emit approval.decided
   // + card mới (KHÔNG xoá card — bằng chứng §6) + resume (conversation.status). D-40 happy-path.
-  async decideApproval(approvalId: string, decision: 'approved' | 'rejected', reason: string): Promise<void> {
+  async decideApproval(
+    approvalId: string,
+    decision: 'approved' | 'rejected',
+    reason: string,
+  ): Promise<ApprovalRow> {
     // tìm ĐÚNG conv chứa card approval có approval_id này (mock quyết từ queue có thể khác conv đang mở)
     let target: MockRoom | undefined;
     let card: Card | undefined;
@@ -505,6 +562,16 @@ class MockBackend {
       const seq = { n: 0 };
       await this.streamText(cid, turnId, seq, '✓ Phiếu đã được duyệt — em đã thực hiện giải ngân khoản vay L001. Biên nhận đã lưu.', true);
     }
+    return {
+      id: approvalId,
+      conv_id: cid,
+      task_id: card.task_id ?? null,
+      action: String(card.action ?? 'disburse'),
+      payload: { items: card.items ?? [] },
+      status: decision,
+      decided_by: 'admin',
+      reason: reason || null,
+    };
   }
 
   // Stream 1 đoạn text theo từng "từ". seq TĂNG DẦN xuyên suốt lượt (dùng chung counter cho

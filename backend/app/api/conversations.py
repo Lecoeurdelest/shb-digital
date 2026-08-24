@@ -15,13 +15,16 @@ from pydantic import BaseModel
 
 from app.auth.deps import can_access_conv, require_user
 from app.errors import ApiError
-from app.orch import room, store
+from app.orch import room, store, store_groups
+from app.storage import connect_core
+from app.tenancy import tenant_id_from_claims
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
 
 
 class CreateConvBody(BaseModel):
     title: str = "Ca mới"
+    group_id: str | None = None
     provider: str | None = None  # D-45b (c) — tên provider (providers.yaml). null = server-default.
     model: str | None = None  # model string ("sonnet"/"glm-4.6"...). null = default.
 
@@ -36,6 +39,7 @@ class PatchConvBody(BaseModel):
     title: str | None = None
     provider: str | None = None
     model: str | None = None
+    group_id: str | None = None
 
 
 def _validate_provider_model(provider: str | None, model: str | None, current_provider: str | None) -> None:
@@ -76,10 +80,8 @@ def _conv_is_running(conv: dict[str, Any]) -> bool:
         return True
     import psycopg2
 
-    from app.db.config import DATABASE_URL
-
     try:
-        c = psycopg2.connect(DATABASE_URL)
+        c = connect_core()
         try:
             with c.cursor() as cur:
                 cur.execute(
@@ -110,7 +112,15 @@ async def create_conversation(body: CreateConvBody, claims: dict = Depends(requi
                 "Xem GET /api/models để lấy tên provider hợp lệ.",
                 retryable=False,
             )
-    conv = await store.create_conversation(claims["username"], body.title, body.provider, body.model)
+    tenant_id = tenant_id_from_claims(claims)
+    is_admin = claims.get("role") == "admin"
+    if body.group_id is not None and not await store_groups.can_use_group(
+        body.group_id, tenant_id, claims["username"], is_admin
+    ):
+        raise ApiError(404, "group_not_found", "Không có nhóm này.", "Tải lại danh sách nhóm.", retryable=False)
+    conv = await store.create_conversation(
+        claims["username"], body.title, body.provider, body.model, tenant_id, body.group_id
+    )
     return JSONResponse(status_code=201, content=conv)
 
 
@@ -119,9 +129,10 @@ async def list_conversations(claims: dict = Depends(require_user)) -> list[dict[
     """List conversations (admin sees all; customer sees own — D-56 scoping).
 
     List ca (200). D-56 scoping: admin (ngân hàng) → TẤT CẢ ca; customer/user → CHỈ ca mình."""
+    tenant_id = tenant_id_from_claims(claims)
     if claims.get("role") == "admin":
-        return await store.list_all_conversations()
-    return await store.list_conversations(claims["username"])
+        return await store.list_all_conversations(tenant_id)
+    return await store.list_conversations(claims["username"], tenant_id)
 
 
 @router.get("/{conv_id}")
@@ -149,7 +160,8 @@ async def patch_conversation(conv_id: str, body: PatchConvBody, claims: dict = D
     conv = await store.get_conversation(conv_id)
     if conv is None or not can_access_conv(conv, claims):
         raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Kiểm lại id ca.", retryable=False)
-    if body.title is None and body.provider is None and body.model is None:
+    group_present = "group_id" in body.model_fields_set
+    if body.title is None and body.provider is None and body.model is None and not group_present:
         raise ApiError(
             400, "empty_patch", "Không có field nào để cập nhật.", "Truyền title, provider hoặc model.", retryable=False
         )
@@ -163,7 +175,26 @@ async def patch_conversation(conv_id: str, body: PatchConvBody, claims: dict = D
             retryable=True,
         )
     _validate_provider_model(body.provider, body.model, conv.get("provider"))
-    updated = await store.update_conversation(conv_id, body.title, body.provider, body.model)
+    tenant_id = tenant_id_from_claims(claims)
+    if (
+        group_present
+        and body.group_id is not None
+        and not await store_groups.can_use_group(
+            body.group_id,
+            tenant_id,
+            claims["username"],
+            claims.get("role") == "admin",
+        )
+    ):
+        raise ApiError(404, "group_not_found", "Không có nhóm này.", "Tải lại danh sách nhóm.", retryable=False)
+    updated = await store.update_conversation(
+        conv_id,
+        body.title,
+        body.provider,
+        body.model,
+        body.group_id,
+        group_present,
+    )
     if updated is None:  # race: ca bị xoá giữa chừng
         raise ApiError(404, "not_found", f"Không có ca '{conv_id}'.", "Ca có thể vừa bị xoá.", retryable=False)
     return updated

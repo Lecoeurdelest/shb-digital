@@ -1,25 +1,9 @@
 // StatsOverview.test.tsx — tab Tổng quan (T13-2): KPI render, window switch (query lại), delta, AUTO sub.
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StatsOverview } from './StatsOverview';
 import { conversationApi } from '../../api';
-import { ApiRequestError } from '../../api/client';
-import type { CostResponse, CostTrendResponse, StatsResponse } from '../../types';
-
-const cost: CostResponse = {
-  window: '24h', total_cost_usd: 4.82, cost_estimated: true,
-  breakdown: { input_tokens: 100, output_tokens: 100, cache_read_tokens: 200, cache_create_tokens: 0 },
-  by_model: [{ model: 'glm-4.6', cost_usd: 3, turns: 10, total_tokens: 1000 }],
-  by_role: [{ role: 'credit', cost_usd: 2, turns: 6 }],
-  anomalies: [{ conv_id: 'cX', title: 'Ca bất thường', cost_usd: 0.9, mean: 0.2, stddev: 0.18, z_score: 4.0 }],
-  delta: { total_cost_pct: 12.4 },
-};
-const trend: CostTrendResponse = { buckets: [{ ts: '00:00', series: { credit: 0.4 } }] };
-// mock cost cluster mặc định OK (nhiều test chỉ quan tâm KPI — tránh phụ thuộc mock backend thật)
-function mockCostOk() {
-  vi.spyOn(conversationApi, 'getCost').mockResolvedValue(cost);
-  vi.spyOn(conversationApi, 'getCostTrend').mockResolvedValue(trend);
-}
+import type { StatsResponse } from '../../types';
 
 const today: StatsResponse = {
   window: 'today', approvals: { approved: 12, rejected: 3, pending: 5, auto: 7 },
@@ -32,6 +16,12 @@ const week: StatsResponse = {
   delta: { approvals_total: 14, assessments_total: -3 },
 };
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 beforeEach(() => vi.restoreAllMocks());
 
 describe('StatsOverview (T13-2)', () => {
@@ -43,6 +33,7 @@ describe('StatsOverview (T13-2)', () => {
     expect(within(screen.getByTestId('kpi-Đang chờ')).getByText('5')).toBeInTheDocument();
     expect(within(screen.getByTestId('kpi-Hồ sơ Green')).getByText('9')).toBeInTheDocument();
     expect(within(screen.getByTestId('kpi-Hồ sơ Red')).getByText('2')).toBeInTheDocument();
+    expect(within(screen.getByTestId('kpi-Phiên xử lý')).getByText('20')).toBeInTheDocument();
   });
 
   it('delta ↑ hiện cạnh số (approvals_total)', async () => {
@@ -61,58 +52,58 @@ describe('StatsOverview (T13-2)', () => {
     await waitFor(() => expect(within(screen.getByTestId('kpi-Phiếu đã duyệt')).getByText('72')).toBeInTheDocument());
   });
 
+  it('bỏ qua response 24h cũ nếu response 7d về trước', async () => {
+    const oldRequest = deferred<StatsResponse>();
+    const currentRequest = deferred<StatsResponse>();
+    const spy = vi.spyOn(conversationApi, 'getStats')
+      .mockReturnValueOnce(oldRequest.promise)
+      .mockReturnValueOnce(currentRequest.promise);
+    render(<StatsOverview />);
+    expect(spy).toHaveBeenCalledWith('24h');
+
+    fireEvent.click(screen.getByTestId('window-7d'));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('7d'));
+    await act(async () => { currentRequest.resolve(week); await currentRequest.promise; });
+    expect(within(screen.getByTestId('kpi-Phiếu đã duyệt')).getByText('72')).toBeInTheDocument();
+
+    await act(async () => { oldRequest.resolve(today); await oldRequest.promise; });
+    expect(within(screen.getByTestId('kpi-Phiếu đã duyệt')).getByText('72')).toBeInTheDocument();
+    expect(within(screen.getByTestId('kpi-Phiếu đã duyệt')).queryByText('12')).not.toBeInTheDocument();
+  });
+
   it('Đang chờ >0 → tone warn (nổi màu)', async () => {
     vi.spyOn(conversationApi, 'getStats').mockResolvedValue(today);
     render(<StatsOverview />);
     await waitFor(() => expect(screen.getByTestId('kpi-Đang chờ')).toHaveClass('kpi--warn'));
   });
 
-  it('footer chú thích demo admin gộp vai', async () => {
+  it('mở mặc định chỉ fetch KPI, không fetch telemetry kỹ thuật', async () => {
     vi.spyOn(conversationApi, 'getStats').mockResolvedValue(today);
+    const getCost = vi.spyOn(conversationApi, 'getCost');
+    const getCostTrend = vi.spyOn(conversationApi, 'getCostTrend');
     render(<StatsOverview />);
-    await waitFor(() => expect(screen.getByText(/admin gộp vai/)).toBeInTheDocument());
-  });
-
-  // ── S16 T16-3: cụm cost ──
-  it('T16-3: cost cluster render — total + token breakdown + anomaly', async () => {
-    vi.spyOn(conversationApi, 'getStats').mockResolvedValue(today);
-    mockCostOk();
-    render(<StatsOverview />);
-    await waitFor(() => expect(screen.getByTestId('cost-total')).toBeInTheDocument());
-    expect(screen.getByText(/tổng \$4\.82/)).toBeInTheDocument();
-    expect(screen.getAllByText(/ước tính/).length).toBeGreaterThan(0); // cost_estimated (2 chỗ: header + donut)
-    expect(screen.getByTestId('token-breakdown')).toBeInTheDocument();
-    expect(screen.getByTestId('cost-anomaly-table')).toBeInTheDocument();
-    expect(screen.getByTestId('anom-row-cX')).toBeInTheDocument();
-  });
-
-  it('T16-3: độc lập degrade — getCost 404 → 7 KPI VẪN render + cost hiện note', async () => {
-    vi.spyOn(conversationApi, 'getStats').mockResolvedValue(today);
-    vi.spyOn(conversationApi, 'getCost').mockRejectedValue(new ApiRequestError(404, { code: 'not_found', message: 'chưa có', hint: '', retryable: false }, 'nf'));
-    vi.spyOn(conversationApi, 'getCostTrend').mockRejectedValue(new Error('nf'));
-    render(<StatsOverview />);
-    // KPI vẫn render (không bị cost-fail chặn)
     await waitFor(() => expect(within(screen.getByTestId('kpi-Phiếu đã duyệt')).getByText('12')).toBeInTheDocument());
-    // cost block hiện note lỗi im đẹp
-    await waitFor(() => expect(screen.getByTestId('cost-error')).toBeInTheDocument());
+    expect(getCost).not.toHaveBeenCalled();
+    expect(getCostTrend).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('cost-total')).not.toBeInTheDocument();
   });
 
-  it('T16-3: anomaly row-click → onOpenAudit(conv_id)', async () => {
+  it('segmented window có 24h/7d/30d', async () => {
     vi.spyOn(conversationApi, 'getStats').mockResolvedValue(today);
-    mockCostOk();
-    const onOpenAudit = vi.fn();
-    render(<StatsOverview onOpenAudit={onOpenAudit} />);
-    await waitFor(() => expect(screen.getByTestId('anom-row-cX')).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId('anom-row-cX'));
-    expect(onOpenAudit).toHaveBeenCalledWith('cX');
-  });
-
-  it('T16-3: segmented window có 24h/7d/30d', async () => {
-    vi.spyOn(conversationApi, 'getStats').mockResolvedValue(today);
-    mockCostOk();
     render(<StatsOverview />);
     await waitFor(() => expect(screen.getByTestId('window-24h')).toBeInTheDocument());
     expect(screen.getByTestId('window-7d')).toBeInTheDocument();
     expect(screen.getByTestId('window-30d')).toBeInTheDocument();
+  });
+
+  it('render breakdown nghiệp vụ: luồng quyết định, chất lượng hồ sơ, tải xử lý', async () => {
+    vi.spyOn(conversationApi, 'getStats').mockResolvedValue(today);
+    render(<StatsOverview />);
+    await waitFor(() => expect(screen.getByTestId('stats-insights')).toBeInTheDocument());
+    expect(screen.getByText('Luồng quyết định')).toBeInTheDocument();
+    expect(screen.getByText('Chất lượng hồ sơ')).toBeInTheDocument();
+    expect(screen.getByText('Tải xử lý')).toBeInTheDocument();
+    expect(screen.getByText('Cần rà soát')).toBeInTheDocument();
+    expect(screen.getByText('đang cần theo dõi')).toBeInTheDocument();
   });
 });

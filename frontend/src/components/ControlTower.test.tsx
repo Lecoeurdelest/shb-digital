@@ -1,4 +1,4 @@
-// ControlTower.test.tsx — 4 khối admin: queue (duyệt) · audit · agents. Mock API.
+// ControlTower.test.tsx — admin tách nghiệp vụ, kiểm soát, kỹ thuật và phòng thử nghiệm.
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ControlTower } from './ControlTower';
@@ -8,8 +8,20 @@ import type { ApprovalRow, AuditRow, Conversation } from '../types';
 const appr: ApprovalRow[] = [
   { id: 'a1', conv_id: 'c1conv', task_id: null, action: 'disburse', payload: { items: [{ label: 'L001' }] }, status: 'pending' },
 ];
+const approvedAppr: ApprovalRow = { ...appr[0], status: 'approved', decided_by: 'admin' };
+const rejectedAppr: ApprovalRow = { ...appr[0], status: 'rejected', decided_by: 'admin' };
 const audit: AuditRow[] = [
-  { id: 'au1', task_id: 't1', conv_id: 'c1', ts: '2026-01-01T10:00:00', actor: 'credit', tool: 'credit_assess', input: { owner_id: 'C001' }, output: {} },
+  {
+    id: 'au1',
+    task_id: 'task-1234567890',
+    conv_id: 'c1',
+    ts: '2026-01-01T10:00:00',
+    actor: 'credit',
+    tool: 'credit_assess',
+    input: { owner_id: 'C001', amount_vnd: 500_000_000 },
+    output: { item: { lane: 'green', assessment_id: 'asmt-1234567890' } },
+    cost: { duration_ms: 830, total_tokens: 1200 },
+  },
 ];
 const convs: Conversation[] = [
   { id: 'c1', title: 'x', status: 'running', created_at: '' },
@@ -28,9 +40,60 @@ beforeEach(() => {
     delta: { approvals_total: 4, assessments_total: 2 },
   });
   vi.spyOn(conversationApi, 'listAssessments').mockResolvedValue([]);
+  vi.spyOn(conversationApi, 'listCases').mockResolvedValue([]);
 });
 
 describe('ControlTower', () => {
+  it('tab Cơ sở sơ thẩm dùng case read-model, không mount AssessmentsView legacy', async () => {
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Cơ sở sơ thẩm'));
+
+    await screen.findByText('Hồ sơ chờ sơ thẩm (0)');
+    expect(conversationApi.listCases).toHaveBeenCalledWith({ limit: 50 });
+    expect(conversationApi.listAssessments).not.toHaveBeenCalled();
+  });
+
+  it('Tổng quan mặc định chỉ tải KPI; tab kỹ thuật mới tải cost/trend', async () => {
+    const getCost = vi.spyOn(conversationApi, 'getCost').mockResolvedValue({
+      window: '24h', total_cost_usd: 1, cost_estimated: true,
+      breakdown: { input_tokens: 1, output_tokens: 1, cache_read_tokens: 0, cache_create_tokens: 0 },
+      by_model: [], by_role: [], anomalies: [], delta: { total_cost_pct: 0 },
+    });
+    const getCostTrend = vi.spyOn(conversationApi, 'getCostTrend').mockResolvedValue({ buckets: [] });
+    render(<ControlTower onBack={vi.fn()} />);
+
+    await screen.findByTestId('kpi-Phiếu đã duyệt');
+    expect(getCost).not.toHaveBeenCalled();
+    expect(getCostTrend).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Vận hành kỹ thuật'));
+    await waitFor(() => expect(getCost).toHaveBeenCalledWith('24h'));
+    expect(getCostTrend).toHaveBeenCalledWith('24h', 'hour', 'role');
+  });
+
+  it('admin mở Cấu hình agent, sửa prompt và kích hoạt version mới', async () => {
+    const config = {
+      environment: 'default', providers: [], prompts: [{
+        key: 'main.system', scope: 'main', description: 'Điều phối chính', variables: [],
+        active: { version: 3, content: 'Bản đang chạy', activated_by: 'admin', activated_at: '' },
+      }],
+    };
+    vi.spyOn(conversationApi, 'getAgentConfig').mockResolvedValue(config);
+    const save = vi.spyOn(conversationApi, 'saveAgentPrompt').mockResolvedValue({
+      ...config,
+      prompts: [{ ...config.prompts[0], active: { ...config.prompts[0].active!, version: 4, content: 'Bản mới' } }],
+    });
+    render(<ControlTower onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('Cấu hình agent'));
+
+    await screen.findByDisplayValue('Bản đang chạy');
+    fireEvent.change(screen.getByLabelText('Nội dung prompt'), { target: { value: 'Bản mới' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Kích hoạt phiên bản mới' }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledWith('main.system', 'Bản mới'));
+    expect(screen.getByText('Đang chạy: v4')).toBeInTheDocument();
+  });
+
   it('tab Hàng chờ: list phiếu pending + nút Duyệt/Từ chối', async () => {
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Hàng chờ duyệt')); // default giờ là Tổng quan (T13-2)
@@ -40,7 +103,7 @@ describe('ControlTower', () => {
   });
 
   it('duyệt từ queue → decideApproval + rời hàng chờ', async () => {
-    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue({});
+    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue(approvedAppr);
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Hàng chờ duyệt'));
     await waitFor(() => expect(screen.getByTestId('queue-row-a1')).toBeInTheDocument());
@@ -51,7 +114,7 @@ describe('ControlTower', () => {
 
   // DF-B-07: từ chối 2 bước — bấm "✗ Từ chối" → expand ô lý do; lý do bắt buộc; xác nhận gửi reason.
   it('DF-B-07: Từ chối → expand ô lý do (bắt buộc); điền → xác nhận gửi reason', async () => {
-    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue({});
+    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue(rejectedAppr);
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Hàng chờ duyệt'));
     await waitFor(() => expect(screen.getByTestId('queue-row-a1')).toBeInTheDocument());
@@ -68,7 +131,7 @@ describe('ControlTower', () => {
   });
 
   it('DF-B-07: Huỷ → đóng ô lý do, không gửi', async () => {
-    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue({});
+    const spy = vi.spyOn(conversationApi, 'decideApproval').mockResolvedValue(rejectedAppr);
     render(<ControlTower onBack={vi.fn()} />);
     fireEvent.click(screen.getByText('Hàng chờ duyệt'));
     await waitFor(() => expect(screen.getByTestId('queue-row-a1')).toBeInTheDocument());
@@ -78,40 +141,52 @@ describe('ControlTower', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('tab Nhật ký: audit rows + filter', async () => {
+  it('tab Nhật ký kiểm soát: hiển thị sự kiện nghiệp vụ, không phơi tool/input JSON', async () => {
     render(<ControlTower onBack={vi.fn()} />);
-    fireEvent.click(screen.getByText('Nhật ký tool'));
-    await waitFor(() => expect(screen.getByText('credit_assess')).toBeInTheDocument());
-    expect(screen.getByLabelText('Lọc theo mã ca')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Nhật ký kiểm soát'));
+    await waitFor(() => expect(screen.getByText('Tín dụng · Đánh giá tín dụng')).toBeInTheDocument());
+    expect(screen.getByLabelText('Lọc theo mã phiên')).toBeInTheDocument();
+    expect(screen.getByLabelText('Lọc theo loại hoạt động')).toBeInTheDocument();
+    expect(screen.getByText(/Khách C001/)).toBeInTheDocument();
+    expect(screen.getByText('Đầu vào')).toBeInTheDocument();
+    expect(screen.getAllByText(/500\.000\.000 ₫/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Kết quả')).toBeInTheDocument();
+    expect(screen.getByText(/lane GREEN/)).toBeInTheDocument();
+    expect(screen.getByText('Chi phí')).toBeInTheDocument();
+    expect(screen.getByText(/1\.200 token/)).toBeInTheDocument();
+    expect(screen.getByText(/Bước task-1234/)).toBeInTheDocument();
+    expect(screen.queryByText('Tool')).not.toBeInTheDocument();
+    expect(screen.queryByText('Input')).not.toBeInTheDocument();
+    expect(screen.queryByText('credit_assess')).not.toBeInTheDocument();
+    expect(screen.queryByText(/owner_id/)).not.toBeInTheDocument();
   });
 
-  it('tab Trạng thái: đếm ca theo status', async () => {
+  it('tab Tiến độ xử lý: đếm phiên theo status, không trộn cost', async () => {
     render(<ControlTower onBack={vi.fn()} />);
-    fireEvent.click(screen.getByText('Trạng thái đội'));
-    await waitFor(() => expect(screen.getByText(/Trạng thái đội — 2 ca/)).toBeInTheDocument());
-    // DF-B-04: note chi phí wording người-thường (bỏ jargon Cost meter/SDK/per-tool), giữ nghĩa per-turn
-    expect(screen.getByText(/Chi phí: ước tính theo từng lượt/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Tiến độ xử lý'));
+    await waitFor(() => expect(screen.getByText(/Tiến độ xử lý — 2 phiên xử lý/)).toBeInTheDocument());
+    expect(screen.queryByText(/Chi phí:/)).not.toBeInTheDocument();
   });
 
-  // DF-B-03: "1 Lỗi" drill-down — ca status='failed' hiện danh sách (tiêu đề + mã ca) dưới số đếm.
-  it('DF-B-03: tab Trạng thái có ca lỗi → list ca lỗi (tiêu đề + mã ca)', async () => {
+  // DF-B-03: "1 Lỗi" drill-down — phiên status='failed' hiện danh sách (tiêu đề + mã phiên).
+  it('DF-B-03: tab Trạng thái có phiên lỗi → list phiên lỗi (tiêu đề + mã phiên)', async () => {
     vi.spyOn(conversationApi, 'listConversations').mockResolvedValue([
-      { id: 'cok', title: 'Ca chạy', status: 'running', created_at: '' },
-      { id: 'cfailabcdef123456', title: 'Ca thẩm định C019 lỗi', status: 'failed', created_at: '' },
+      { id: 'cok', title: 'Phiên đang chạy', status: 'running', created_at: '' },
+      { id: 'cfailabcdef123456', title: 'Phiên xử lý C019 lỗi', status: 'failed', created_at: '' },
     ]);
     render(<ControlTower onBack={vi.fn()} />);
-    fireEvent.click(screen.getByText('Trạng thái đội'));
+    fireEvent.click(screen.getByText('Tiến độ xử lý'));
     await waitFor(() => expect(screen.getByTestId('failed-list')).toBeInTheDocument());
-    expect(screen.getByText(/Ca đang lỗi \(1\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Phiên xử lý đang lỗi \(1\)/)).toBeInTheDocument();
     expect(screen.getByTestId('failed-row-cfailabcdef123456')).toBeInTheDocument();
-    expect(screen.getByText('Ca thẩm định C019 lỗi')).toBeInTheDocument();
+    expect(screen.getByText('Phiên xử lý C019 lỗi')).toBeInTheDocument();
   });
 
-  it('DF-B-03: không có ca lỗi → KHÔNG render list lỗi', async () => {
+  it('DF-B-03: không có phiên lỗi → KHÔNG render list lỗi', async () => {
     // beforeEach mock: convs chỉ running/done → không failed
     render(<ControlTower onBack={vi.fn()} />);
-    fireEvent.click(screen.getByText('Trạng thái đội'));
-    await waitFor(() => expect(screen.getByText(/Trạng thái đội — 2 ca/)).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Tiến độ xử lý'));
+    await waitFor(() => expect(screen.getByText(/Tiến độ xử lý — 2 phiên xử lý/)).toBeInTheDocument());
     expect(screen.queryByTestId('failed-list')).not.toBeInTheDocument();
   });
 
@@ -122,17 +197,18 @@ describe('ControlTower', () => {
     expect(onBack).toHaveBeenCalled();
   });
 
-  it('tab So sánh: chạy compare → 2 cột single + multi + metrics', async () => {
+  it('Phòng thử nghiệm: chạy compare → 2 cột single + multi + metrics', async () => {
     vi.spyOn(conversationApi, 'runCompare').mockResolvedValue({
       single: { text: 'trả lời đơn', duration_s: 4, tool_calls: 0 },
       multi: { text: 'đội thẩm định có nguồn', duration_s: 38, tool_calls: 4, cards: 2, conv_id: 'cX' },
     });
     render(<ControlTower onBack={vi.fn()} />);
-    fireEvent.click(screen.getByText(/So sánh/));
+    fireEvent.click(screen.getByText('Phòng thử nghiệm'));
     fireEvent.click(screen.getByTestId('compare-run'));
     await waitFor(() => expect(screen.getByText('trả lời đơn')).toBeInTheDocument());
     expect(screen.getByText('đội thẩm định có nguồn')).toBeInTheDocument();
-    expect(screen.getByText(/4 tool/)).toBeInTheDocument(); // metric multi
+    expect(screen.getByText(/4 bước xử lý/)).toBeInTheDocument();
+    expect(screen.getByText(/Phiên xử lý:/)).toBeInTheDocument();
   });
 
   it('compare partial (multi null) → cột single + note partial', async () => {
@@ -141,7 +217,7 @@ describe('ControlTower', () => {
       multi: null,
     });
     render(<ControlTower onBack={vi.fn()} />);
-    fireEvent.click(screen.getByText(/So sánh/));
+    fireEvent.click(screen.getByText('Phòng thử nghiệm'));
     fireEvent.click(screen.getByTestId('compare-run'));
     await waitFor(() => expect(screen.getByText('chỉ single')).toBeInTheDocument());
     expect(screen.getByText(/partial/)).toBeInTheDocument();

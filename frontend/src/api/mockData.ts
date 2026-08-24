@@ -1,10 +1,12 @@
 // api/mockData.ts — cụm generator STATELESS tách khỏi mock.ts (nợ ghi từ S14 — file gốc >400
 // LOC). Các hàm ở đây KHÔNG đụng room/turnText của MockBackend — thuần data-shape cho
-// getModels/getStats/getCost/getCostTrend/listAssessments/runCompare. MockBackend (mock.ts)
+// getModels/getStats/getCost/getCostTrend/listAssessments/listCases/runCompare. MockBackend (mock.ts)
 // delegate 1-dòng sang đây — giữ NGUYÊN behavior/shape, chỉ DI CHUYỂN code.
 
 import type {
   Assessment,
+  CaseListFilters,
+  CaseSummary,
   CompareResult,
   CostResponse,
   CostTrendResponse,
@@ -134,6 +136,44 @@ export async function mockListAssessments(owner?: string, limit = 50): Promise<A
   ];
   const filtered = owner ? all.filter((a) => a.owner_id === owner) : all;
   return filtered.slice(0, limit);
+}
+
+// D-77: dữ liệu demo có identity nguồn rõ ràng. `internal_operations` là application nội bộ
+// read-only, không giả thành connector LOS/SAHA và không suy case từ conversation.
+export async function mockListCases(filters: CaseListFilters = {}): Promise<CaseSummary[]> {
+  await delay(MOCK_LATENCY_MS);
+  const all: CaseSummary[] = [
+    {
+      id: 'case_los_001', source_system: 'los', external_case_id: 'LOS-SME-2026-08124',
+      internal_application_id: 'APP-2026-00418', party_reference: 'CIF-001928',
+      product_code: 'SME_SECURED', loan_amount_vnd: 3_500_000_000,
+      case_status: 'missing_information', next_action: 'Bổ sung báo cáo tài chính năm 2025.',
+      document_count: 4, missing_fields: ['financial_statements_2025', 'collateral_valuation'],
+      source_version: 12, data_as_of: '2026-08-24T09:30:00+07:00', synced_at: '2026-08-24T09:31:12+07:00',
+      conversation_id: null, assessment: { lane: 'yellow', created_at: '2026-08-24T09:31:00+07:00' },
+    },
+    {
+      id: 'case_saha_002', source_system: 'saha', external_case_id: 'SAHA-RL-00682',
+      internal_application_id: null, party_reference: 'CIF-008114', product_code: 'RETAIL_MORTGAGE',
+      loan_amount_vnd: 1_800_000_000, case_status: 'ready_for_preassessment',
+      next_action: 'Phân công cán bộ thực hiện sơ thẩm.', document_count: 7, missing_fields: [],
+      source_version: 5, data_as_of: '2026-08-24T08:45:00+07:00', synced_at: '2026-08-24T08:45:22+07:00',
+      conversation_id: 'conv-case-saha-002', assessment: { lane: null, created_at: null },
+    },
+    {
+      id: 'case_internal_003', source_system: 'internal_operations', external_case_id: 'APP-DEMO-003',
+      internal_application_id: 'APP-DEMO-003', party_reference: 'C001', product_code: 'SME_WORKING_CAPITAL',
+      loan_amount_vnd: 500_000_000, case_status: 'ready_for_handover',
+      next_action: 'Bàn giao hồ sơ và căn cứ sơ thẩm cho cấp có thẩm quyền.', document_count: 6,
+      missing_fields: [], source_version: null, data_as_of: '2026-08-23T16:20:00+07:00',
+      synced_at: '2026-08-23T16:20:00+07:00', conversation_id: 'conv-demo-003',
+      assessment: { lane: 'green', created_at: '2026-08-23T16:18:00+07:00' },
+    },
+  ];
+  const byStatus = filters.status ? all.filter((item) => item.case_status === filters.status) : all;
+  const source = filters.source?.trim().toLowerCase();
+  const bySource = source ? byStatus.filter((item) => item.source_system.toLowerCase() === source) : byStatus;
+  return bySource.slice(0, filters.limit ?? 50);
 }
 
 export async function mockRunCompare(question: string): Promise<CompareResult> {

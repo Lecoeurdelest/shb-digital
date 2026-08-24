@@ -19,5 +19,9 @@ FROM nginx:1.27-alpine
 # SPA fallback: mọi route không-file → index.html (React Router). /api → proxy backend (compose network).
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
+# Standalone Web Component cho SAHA/portal/LOS tải độc lập; giữ cùng layout `dist/` như Vite dev
+# để example là một artifact duy nhất, không có đường dẫn riêng theo môi trường.
+COPY --from=build /app/sdk/dist /usr/share/nginx/html/embed-sdk/dist
+COPY --from=build /app/sdk/examples /usr/share/nginx/html/embed-sdk/examples
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

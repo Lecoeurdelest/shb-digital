@@ -3,6 +3,7 @@
 // status='submitted' (SSE update / reload) → read-only "đã nộp". Defensive: fields rỗng → fallback.
 import { useState } from 'react';
 import type { Card, FormField } from '../../types';
+import { userFacingErrorMessage } from '../../workspaceUtil';
 import { cardField } from './cardUtil';
 import './FormCard.css';
 
@@ -68,9 +69,8 @@ export function FormCard({ card, onSubmit, draftValues, onDraftChange }: FormCar
     onSubmit(card.id, values)
       .then(() => { /* SSE card update → status submitted → re-render read-only */ })
       .catch((e: unknown) => {
-        // lỗi từ body 4-field (missing_fields/bad_income/409) → message; 409 để SSE/reload lo read-only
-        const msg = e instanceof Error ? e.message : 'Nộp hồ sơ thất bại';
-        setError(msg);
+        // Chỉ hiện lỗi nhập liệu/nghiệp vụ người dùng sửa được; lỗi runtime/transport giữ generic.
+        setError(userFacingErrorMessage(e, 'Nộp hồ sơ thất bại. Vui lòng thử lại sau.'));
       })
       .finally(() => setBusy(false));
   };

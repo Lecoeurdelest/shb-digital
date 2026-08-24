@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embed SDK · Standalone reference host</title>
+    <style>
+      body { max-width: 1100px; margin: 24px auto; padding: 0 16px; color: #1a1917; font: 14px Inter, system-ui, sans-serif; }
+      h1 { margin-bottom: 4px; }
+      .note { color: #6d6861; }
+      .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; padding: 12px; border: 1px solid #ddd7cf; border-radius: 10px; }
+      input, button { padding: 8px 10px; font: inherit; }
+      input { min-width: 180px; border: 1px solid #cfc8bf; border-radius: 8px; }
+      button { border: 0; border-radius: 8px; color: white; background: #d97757; cursor: pointer; }
+      #status { width: 100%; color: #6d6861; }
+      bank-digital-rm-copilot { display: block; --bank-digital-accent: #d97757; }
+    </style>
+    <script src="../dist/bank-digital-widget.iife.js"></script>
+  </head>
+  <body>
+    <h1>Standalone Embed SDK</h1>
+    <p class="note">Reference host tối thiểu: artifact IIFE + Web Component, không import SPA/Control Tower.</p>
+    <form class="controls" id="controls">
+      <input id="username" autocomplete="username" placeholder="Tài khoản" aria-label="Tài khoản" />
+      <input id="password" type="password" autocomplete="current-password" placeholder="Mật khẩu" aria-label="Mật khẩu" />
+      <button type="button" id="login">Đăng nhập qua /api</button>
+      <input id="conversation" placeholder="Conversation ID (để trống = lấy/tạo ca)" aria-label="Conversation ID" />
+      <button type="submit">Mount RM Copilot</button>
+      <div id="status" role="status">Chưa kết nối.</div>
+    </form>
+    <bank-digital-rm-copilot heading="Hỗ trợ sơ thẩm"></bank-digital-rm-copilot>
+    <script>
+      const status = document.querySelector('#status')
+      const widget = document.querySelector('bank-digital-rm-copilot')
+      const request = async (path, init) => {
+        const response = await fetch(path, {
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          ...init,
+        })
+        if (!response.ok) {
+          const body = await response.json().catch(() => null)
+          throw new Error(body?.message ?? `HTTP ${response.status}`)
+        }
+        return response.json()
+      }
+      document.querySelector('#login').addEventListener('click', async () => {
+        try {
+          const user = await request('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({
+              username: document.querySelector('#username').value,
+              password: document.querySelector('#password').value,
+            }),
+          })
+          status.textContent = `Đã đăng nhập: ${user.user.username}`
+        } catch (error) {
+          status.textContent = error.message
+        }
+      })
+      document.querySelector('#controls').addEventListener('submit', async (event) => {
+        event.preventDefault()
+        try {
+          let conversationId = document.querySelector('#conversation').value.trim()
+          if (!conversationId) {
+            const rows = await request('/api/conversations')
+            const conversation = rows[0] ?? await request('/api/conversations', {
+              method: 'POST',
+              body: JSON.stringify({ title: 'Ca từ Embed SDK' }),
+            })
+            conversationId = conversation.id
+            document.querySelector('#conversation').value = conversationId
+          }
+          widget.setAttribute('conversation-id', conversationId)
+          status.textContent = `Đã mount artifact vào ca ${conversationId}`
+        } catch (error) {
+          status.textContent = error.message
+        }
+      })
+      widget.addEventListener('bank-digital:event', (event) => {
+        // Declarative element chỉ phát metadata; full envelope chỉ có ở mount API tường minh.
+        status.textContent = `SSE: ${event.detail.type}`
+      })
+    </script>
+  </body>
+</html>

@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { ApiError, ApprovalRow, Assessment, AuditRow, AuthUser, CompareResult, Conversation, ConversationFullState, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
+import type { AgentConfigResponse, ApiError, ApprovalRow, Assessment, AuditRow, AuthUser, CaseListFilters, CaseSummary, CompareResult, Conversation, ConversationFullState, ConversationGroup, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -16,35 +16,66 @@ export class ApiRequestError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    // JWT qua cookie (CONTRACT §1 · streaming-sse §4 — EventSource không set custom header,
-    // nên cả REST dùng cookie cho nhất quán). S1 có thể bypass auth (deviation), header sẵn.
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
+const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
+const LONG_REQUEST_TIMEOUT_MS = 120_000;
+
+function timeoutError(path: string): ApiRequestError {
+  return new ApiRequestError(
+    0,
+    {
+      code: 'request_timeout',
+      message: 'Backend phản hồi quá lâu.',
+      hint: `Thử lại sau khi kiểm tra server dev/API (${path}).`,
+      retryable: true,
     },
-  });
+    'request_timeout',
+  );
+}
 
-  if (!res.ok) {
-    let body: ApiError | null = null;
-    try {
-      body = await res.json();
-    } catch {
-      // non-JSON error body (e.g. 404 from routing) — fall through with null body
+async function request<T>(path: string, init?: RequestInit, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<T> {
+  const controller = !init?.signal && timeoutMs > 0 ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  try {
+    const res = await fetch(path, {
+      ...init,
+      signal: init?.signal ?? controller?.signal,
+      // JWT qua cookie (CONTRACT §1 · streaming-sse §4 — EventSource không set custom header,
+      // nên cả REST dùng cookie cho nhất quán). S1 có thể bypass auth (deviation), header sẵn.
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    });
+
+    if (!res.ok) {
+      let body: ApiError | null = null;
+      try {
+        body = await res.json();
+      } catch {
+        // non-JSON error body (e.g. 404 from routing) — fall through with null body
+      }
+      throw new ApiRequestError(res.status, body, `HTTP ${res.status}`);
     }
-    throw new ApiRequestError(res.status, body, `HTTP ${res.status}`);
-  }
 
-  if (res.status === 204) {
-    return undefined as T;
+    if (res.status === 204) {
+      return undefined as T;
+    }
+    return res.json() as Promise<T>;
+  } catch (err) {
+    if (controller?.signal.aborted) throw timeoutError(path);
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return res.json() as Promise<T>;
 }
 
 export const apiClient = {
+  getAgentConfig(): Promise<AgentConfigResponse> { return request<AgentConfigResponse>('/api/admin/agent-config'); },
+  saveAgentPrompt(key: string, content: string): Promise<AgentConfigResponse> {
+    return request<AgentConfigResponse>(`/api/admin/agent-config/prompts/${encodeURIComponent(key)}`, { method: 'POST', body: JSON.stringify({ content, activate: true }) });
+  },
   // Authenticate with username/password; server sets httponly JWT cookie on success.
   // login: cookie httponly shb_token do server set (credentials:'include' → browser tự lưu +
   // gửi lại mọi call sau, gồm EventSource withCredentials). CONTRACT §1.
@@ -80,11 +111,12 @@ export const apiClient = {
   // Map từ TOP-LEVEL (có owner_id — role customer/admin/user); fallback `user` wrap nếu server cũ
   // chỉ trả wrap (owner_id thiếu → null, không crash — defensive D-56).
   async me(): Promise<{ user: AuthUser }> {
-    const p = await request<{ username?: string; role?: string; owner_id?: string | null; user?: AuthUser }>('/api/me');
+    const p = await request<{ username?: string; role?: string; tenant_id?: string; owner_id?: string | null; user?: AuthUser }>('/api/me');
     const username = p.username ?? p.user?.username ?? '';
     const role = (p.role ?? p.user?.role ?? 'user') as AuthUser['role'];
     const owner_id = p.owner_id ?? null;
-    return { user: { username, role, owner_id } };
+    const tenant_id = p.tenant_id ?? p.user?.tenant_id;
+    return { user: { username, role, owner_id, ...(tenant_id ? { tenant_id } : {}) } };
   },
 
   // List enabled auth providers so the UI shows only available login buttons.
@@ -98,13 +130,36 @@ export const apiClient = {
     return request<Conversation[]>('/api/conversations');
   },
 
+  listConversationGroups(): Promise<ConversationGroup[]> {
+    return request<ConversationGroup[]>('/api/conversation-groups');
+  },
+
+  createConversationGroup(name: string): Promise<ConversationGroup> {
+    return request<ConversationGroup>('/api/conversation-groups', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  updateConversationGroup(id: string, name: string): Promise<ConversationGroup> {
+    return request<ConversationGroup>(`/api/conversation-groups/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+  },
+
+  deleteConversationGroup(id: string): Promise<void> {
+    return request<void>(`/api/conversation-groups/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+
   // Create a conversation; optional provider/model pin the LLM for every turn in it.
   // Tạo ca. provider/model optional (D-45b c) — bỏ trống = server-default; provider = tên trong
   // GET /api/models, model = 1 string trong models[] của provider đó. Conv lưu → mọi lượt chạy đúng.
-  createConversation(title: string, provider?: string, model?: string): Promise<Conversation> {
-    const body: { title: string; provider?: string; model?: string } = { title };
+  createConversation(title: string, provider?: string, model?: string, groupId?: string | null): Promise<Conversation> {
+    const body: { title: string; provider?: string; model?: string; group_id?: string | null } = { title };
     if (provider) body.provider = provider;
     if (model) body.model = model;
+    if (groupId !== undefined) body.group_id = groupId;
     return request<Conversation>('/api/conversations', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -114,7 +169,7 @@ export const apiClient = {
   // Patch a conversation: rename (title) and/or switch LLM per-turn (provider+model). S15 T15-2/3.
   // PATCH /api/conversations/{id}. Đổi title = rename ca; đổi provider/model = lượt CHAT sau đi model
   // mới (per-turn switch). Ca đang running → BE trả 409 (không đổi giữa lượt). Trả conv đã cập nhật.
-  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string }): Promise<Conversation> {
+  updateConversation(id: string, patch: { title?: string; provider?: string; model?: string; group_id?: string | null }): Promise<Conversation> {
     return request<Conversation>(`/api/conversations/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(patch),
@@ -135,11 +190,16 @@ export const apiClient = {
   // Admin decision on an approval ticket (approve/reject) by approval_id.
   // admin quyết phiếu (T3-2 · CONTRACT §11). id = card.approval_id (phiếu vỏ-inject).
   // decision CHỐT "approved"|"rejected" (backend T3-2). Response 200 approval row trần; 409 already_decided.
-  decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<unknown> {
-    return request<unknown>(`/api/approvals/${id}/decide`, {
+  decideApproval(id: string, decision: 'approved' | 'rejected', reason: string): Promise<ApprovalRow> {
+    return request<ApprovalRow>(`/api/approvals/${encodeURIComponent(id)}/decide`, {
       method: 'POST',
       body: JSON.stringify({ decision, reason }),
     });
+  },
+
+  // Fetch one approval in any lifecycle status for the Control Tower deep-link.
+  getApproval(id: string): Promise<ApprovalRow> {
+    return request<ApprovalRow>(`/api/approvals/${encodeURIComponent(id)}`);
   },
 
   // List approval tickets by status (admin approval queue).
@@ -188,6 +248,17 @@ export const apiClient = {
     return request<Assessment[]>(`/api/assessments${s ? `?${s}` : ''}`);
   },
 
+  // D-77: case read-model cho bàn làm việc middle-office. Case có identity riêng, không suy từ
+  // conversation. Query chỉ gồm đúng status/source/limit đã khóa tại CONTRACT §11.
+  listCases(filters: CaseListFilters = {}): Promise<CaseSummary[]> {
+    const qs = new URLSearchParams();
+    if (filters.status) qs.set('status', filters.status);
+    if (filters.source?.trim()) qs.set('source', filters.source.trim());
+    if (filters.limit != null) qs.set('limit', String(filters.limit));
+    const query = qs.toString();
+    return request<CaseSummary[]>(`/api/cases${query ? `?${query}` : ''}`);
+  },
+
   // Submit a customer intake form; creates the customer profile on success.
   // khách nộp hồ sơ form (D-57 T9-3) → 200 {owner_id, customer_created}. 400 missing_fields/bad_income
   // · 409 form_already_submitted · 404 (đều 4-field).
@@ -210,7 +281,7 @@ export const apiClient = {
     return request<CompareResult>('/api/compare', {
       method: 'POST',
       body: JSON.stringify({ question }),
-    });
+    }, LONG_REQUEST_TIMEOUT_MS);
   },
 
   // Fetch persisted tool-call trace for a whole conversation (rehydrate on reload).

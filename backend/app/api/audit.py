@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from app.auth.deps import require_admin
 from app.errors import ApiError
 from app.orch import store_audit
+from app.tenancy import tenant_id_from_claims
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
 
@@ -34,7 +35,11 @@ async def list_audit(
     # bỏ None → chỉ filter cột được truyền
     active = {k: v for k, v in filters.items() if v}
     try:
-        return await store_audit.query_tool_calls(active, limit=limit)
+        return await store_audit.query_tool_calls(
+            active,
+            limit=limit,
+            tenant_id=tenant_id_from_claims(claims),
+        )
     except Exception as e:  # noqa: BLE001 — id sai format uuid (task_id) → 400 giọng-agent
         raise ApiError(
             400,

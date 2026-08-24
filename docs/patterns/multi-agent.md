@@ -136,10 +136,10 @@ bản MAIN cùng ghi vào MỘT SDK session → transcript nát, trả lời ch�
 per-conversation. Ai lấy được slot thì chạy; ai không lấy được thì event vào **queue** của phòng, và
 được **drain** (xử tuần tự) khi slot nhả.
 
-Theo N4 spec (1 worker, in-process): slot + queue là **dict/set + `asyncio.Lock` trong process** —
-không Redis, không distributed lock. Đánh đổi có chủ đích: state này ephemeral (restart là mất — xem
-§7 boot-cleanup), và chỉ đúng khi chạy 1 worker. Đường mở đa worker (lock/queue ngoài process) vẽ sẵn
-nhưng KHÔNG build trước khi cần.
+Runtime mặc định N4 (1 worker, in-process): slot + queue là **dict/set + `asyncio.Lock` trong
+process**, chưa dùng Redis/distributed lock. Đánh đổi: state này ephemeral (restart là mất — xem §7
+boot-cleanup), và chỉ đúng khi chạy 1 worker. D-76 đã thêm task lease/attempt/outbox schema và
+datastore port; chỉ chuyển đa worker sau khi claimer, publisher và shared session chạy/test thật.
 
 **Tin user cũng XẾP HÀNG — vỏ không auto-interrupt** (§4.3 spec): main đang trong lượt mà user gõ
 "khoan, đổi thành 4 tỷ" → tin vào queue như mọi event; FE hiện trạng thái đang bận + **nút hủy**.

@@ -16,7 +16,7 @@ KHÔNG dùng PGConnAdapter chung (nó phục vụ read-path + assessments-write;
 money-test + mọi read tool). Proxy này SỐNG riêng cho ops_disburse.
 
 MONEY-INVARIANT (blocked-return → RAISE): LAB `ops_disburse` TRẢ DICT cho block (disburse_blocked/
-invalid_param/found:False) thay vì raise. Gated `_branch_claim` set `status='used'` ATOMIC TRƯỚC khi
+invalid_param/found:False) thay vì raise. Gated `_branch_claim` lock phiếu approved TRƯỚC khi
 chạy inner → coi mọi return là success → phiếu 'used' + dict-blocked làm receipt = giải ngân BỊ
 CHẶN nhưng phiếu consumed (không retry được). `disburse` stub cũ RAISE khi lỗi (contract gated:
 fail=raise→rollback→phiếu về approved). Bridge KHỚP contract đó: block/not-found → RAISE →

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { FormCard } from './FormCard';
 import { CardRenderer } from './CardRenderer';
+import { ApiRequestError } from '../../api/client';
 import type { Card } from '../../types';
 
 function formCard(over: Partial<Card> = {}): Card {
@@ -47,13 +48,30 @@ describe('FormCard', () => {
 
   it('lỗi submit từ server (body 4-field) → hiện message', async () => {
     // client-validate pass (đủ field số hợp lệ) → gọi onSubmit → server reject → hiện message.
-    const onSubmit = vi.fn().mockRejectedValue(new Error('Hồ sơ đã được nộp.'));
+    const onSubmit = vi.fn().mockRejectedValue(
+      new ApiRequestError(409, {
+        code: 'form_already_submitted',
+        message: 'Hồ sơ đã được nộp.',
+        hint: 'Tải lại phiên xử lý.',
+        retryable: false,
+      }, 'form_already_submitted'),
+    );
     render(<FormCard card={formCard()} onSubmit={onSubmit} />);
     fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'A' } });
     fireEvent.change(screen.getByLabelText('Thu nhập (VND)'), { target: { value: '15000000' } });
     fireEvent.click(screen.getByTestId('form-submit'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Hồ sơ đã được nộp.'));
+  });
+
+  it('lỗi runtime khi submit → hiện generic, không lộ chi tiết kỹ thuật', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('provider model token stacktrace'));
+    render(<FormCard card={formCard()} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText('Họ và tên'), { target: { value: 'A' } });
+    fireEvent.change(screen.getByLabelText('Thu nhập (VND)'), { target: { value: '15000000' } });
+    fireEvent.click(screen.getByTestId('form-submit'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Nộp hồ sơ thất bại'));
+    expect(screen.queryByText(/provider|model|token|stacktrace/i)).not.toBeInTheDocument();
   });
 
   it('status=submitted → read-only "đã nộp", KHÔNG input/nút', () => {

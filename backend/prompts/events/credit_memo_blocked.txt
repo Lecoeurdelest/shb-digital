@@ -1,0 +1,2 @@
+
+CỔNG TỜ TRÌNH: CHƯA ĐỦ $minimum_roles role chuyên gia khác nhau đã done (hiện có: $role_text). KHÔNG ĐƯỢC gọi tool `present` với `type: "document"`; chờ/giao nốt chuyên gia hoặc chỉ trả lời text ngắn.

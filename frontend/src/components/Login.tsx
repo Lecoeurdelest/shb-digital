@@ -3,15 +3,28 @@
 // sau authenticated. onSuccess trả AuthUser cho App gate vào Workspace.
 import { useState, type FormEvent } from 'react';
 import { conversationApi, USE_MOCK_API } from '../api';
-import { ApiRequestError } from '../api/client';
 import type { AuthUser } from '../types';
+import { userFacingErrorMessage } from '../workspaceUtil';
 import './Login.css';
 
 // googleEnabled do CALLER (Landing) prefetch + truyền — Login KHÔNG tự fetch (chống flaky
 // layout-shift T11-4: nếu Login tự fetch lúc mount-trong-modal, nút Google nhảy vào SAU khi modal
 // đã paint). undefined = provider đang tải (reserve chỗ, chưa hiện nút); true = hiện nút Google;
 // false = ẩn (fail-closed / server tắt google). D-56 persona KHÁCH.
-export function Login({ onSuccess, googleEnabled }: { onSuccess: (user: AuthUser) => void; googleEnabled?: boolean }) {
+interface Props {
+  onSuccess: (user: AuthUser) => void;
+  googleEnabled?: boolean;
+  nextPath?: string;
+}
+
+function googleStartHref(nextPath?: string): string {
+  if (!nextPath || !nextPath.startsWith('/') || nextPath.startsWith('//') || /[\\\r\n]/.test(nextPath)) {
+    return '/api/auth/google/start';
+  }
+  return `/api/auth/google/start?next=${encodeURIComponent(nextPath)}`;
+}
+
+export function Login({ onSuccess, googleEnabled, nextPath }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<'login' | 'register'>('login'); // D-57 — khách mới đăng ký
@@ -45,10 +58,9 @@ export function Login({ onSuccess, googleEnabled }: { onSuccess: (user: AuthUser
     call
       .then((res) => onSuccess(res.user))
       .catch((err: unknown) => {
-        // lỗi 4-field từ body (409 username_taken, 400 bad_username/password/email) → message rõ
-        if (err instanceof ApiRequestError && err.body) setError(err.body.message);
-        else if (err instanceof Error) setError(`${mode === 'register' ? 'Đăng ký' : 'Đăng nhập'} thất bại: ${err.message}`);
-        else setError(mode === 'register' ? 'Đăng ký thất bại' : 'Đăng nhập thất bại');
+        // Chỉ hiện lỗi credential/đăng ký người dùng tự sửa được; lỗi runtime/transport không lộ chi tiết.
+        const fallback = mode === 'register' ? 'Đăng ký thất bại. Vui lòng thử lại.' : 'Đăng nhập thất bại. Vui lòng thử lại.';
+        setError(userFacingErrorMessage(err, fallback));
       })
       .finally(() => setBusy(false));
   };
@@ -139,7 +151,7 @@ export function Login({ onSuccess, googleEnabled }: { onSuccess: (user: AuthUser
             {/* Google sign-in chuẩn: logo G 4-màu inline SVG (KHÔNG asset remote — CSP/offline-safe),
                nút trắng viền + chữ. Full-page redirect /google/start → Google → callback set cookie →
                về FE (App boot-check /me). Đăng ký = cùng flow (Google tự tạo tài khoản khách mới). */}
-            <a className="login__google" href="/api/auth/google/start" data-testid="login-google">
+            <a className="login__google" href={googleStartHref(nextPath)} data-testid="login-google">
               <svg className="login__google-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/>

@@ -64,12 +64,34 @@ export function readApiError(err: unknown): { status: number | null; message: st
   return { status: null, message: null };
 }
 
-export function describeError(err: unknown, fallback: string): string {
+// Không phải lỗi nào cũng đáng hiện nguyên văn lên bề mặt RM/khách. Message backend chỉ được dùng
+// khi nó là lỗi nhập liệu/nghiệp vụ người dùng tự sửa được; lỗi kỹ thuật/transport giữ trong log.
+const USER_VISIBLE_ERROR_CODES = new Set([
+  'bad_username',
+  'bad_password',
+  'bad_email',
+  'username_taken',
+  'missing_fields',
+  'bad_income',
+  'form_already_submitted',
+  'already_decided',
+  'conversation_busy',
+  'approval_pending',
+]);
+
+export function userFacingErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof ApiRequestError) {
-    return err.body?.message ?? `${fallback} (HTTP ${err.status})`;
+    if (err.status === 401) return 'Phiên đăng nhập hết hạn — vui lòng đăng nhập lại.';
+    if (err.status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
+    if (err.body?.message && USER_VISIBLE_ERROR_CODES.has(err.body.code)) return err.body.message;
+    if (err.body?.message && (err.status === 400 || err.status === 409)) return err.body.message;
+    return fallback;
   }
-  if (err instanceof Error && err.message) return `${fallback}: ${err.message}`;
   return fallback;
+}
+
+export function describeError(err: unknown, fallback: string): string {
+  return userFacingErrorMessage(err, fallback);
 }
 
 // lý do lỗi từ task.result.reason (CONTRACT §4b Gap2 A — result là dict tự do, đọc an toàn).

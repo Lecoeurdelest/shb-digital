@@ -21,10 +21,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.auth.deps import can_access_conv, require_user
-from app.db.config import DATABASE_URL
 from app.errors import ApiError
 from app.orch.common_tools import FORM_REQUIRED
 from app.orch.store import get_conversation
+from app.storage import connect_core
 
 log = logging.getLogger("api.form_intake")
 
@@ -81,7 +81,7 @@ async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends
 def _submit_txn(conv_id: str, user_id: str | None, card_id: str, values: dict, income: int) -> Any:
     """1 tx: mint C9xx (advisory-lock) → INSERT customers → UPDATE users.owner_id → flip card atomic.
     Trả dict{owner_id, full_name} khi ok; 'already_submitted' / 'card_not_found' khi chặn."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             # (b-guard) card flip ATOMIC TRƯỚC (idempotent double-submit): pending→submitted, cùng ca.

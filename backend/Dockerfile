@@ -32,7 +32,7 @@ WORKDIR /app/backend
 # T12-5: +extra `embed` (sentence-transformers + pyvi + CPU-torch pin qua tool.uv.sources) — tầng
 # vector notes_search chạy THẬT trên prod. CPU-torch ~200MB (KHÔNG CUDA). Bỏ embed → notes_search
 # degrade env_missing 4-field sạch (3 tầng kia sống) — đường lùi nếu VM không kham.
-RUN uv sync --frozen --no-dev --extra embed 2>/dev/null || uv sync --no-dev --extra embed
+RUN uv sync --frozen --no-dev --extra embed --extra scale 2>/dev/null || uv sync --no-dev --extra embed --extra scale
 
 # ── code (backend + roles labpack — mount_role đọc roles/ ở REPO_ROOT) ──
 WORKDIR /app

@@ -1,138 +1,118 @@
-// Canvas.tsx — panel phải: tab Đội làm việc (lobby 3D chi nhánh BANK + bảng việc) | Công việc (cards).
-// Lobby 3D (D-24 ĐÓNG — thay constellation D-53, người chốt 18/7): three.js, scene tĩnh render-on-demand,
-// agent 'run' → icon nhấp nháy trên đầu. Card từ SSE/full-state, render defensive. Look-and-feel: design/ (D-13).
+// Canvas.tsx — panel phải của Phiên xử lý (D-75): sản phẩm công việc là mặc định; tiến độ nghiệp vụ
+// là tab phụ. Không mở raw task/telemetry từ bề mặt RM/khách hàng.
 import { useState } from 'react';
-import type { Card, Message, OrchTask, TraceItem } from '../types';
+import type { Card, OrchTask } from '../types';
 import { CardRenderer } from './cards/CardRenderer';
-import type { DecideFn } from './cards/ApprovalPanel';
+import { sourceLabel } from './cards/sourceLabels';
 import type { FormSubmitFn } from './cards/FormCard';
 import { TaskBadge } from './TaskBadge';
-import { Lobby3D, type LobbyStatus } from './Lobby3D';
-import { ConvMetricsPanel } from './stats/ConvMetricsPanel';
 import './Canvas.css';
-
-// 4 phòng ban sub. Main không nằm trong grid sub (là điều phối).
-const SUB_ROLES = ['credit', 'legal', 'products', 'ops'] as const;
 
 interface Props {
   cards: Card[];
   tasks: OrchTask[];
-  messages?: Message[]; // S16 T16-4 (polish): conv-wide data cho ConvMetricsPanel (dời từ cột chat sang đây)
-  trace?: TraceItem[];
-  onDecide?: DecideFn;
-  canDecide?: boolean; // D-56 — chỉ admin (ngân hàng) quyết phiếu; customer thấy "chờ ngân hàng"
+  onInterruptTask?: (taskId: string) => Promise<void> | void;
   onFormSubmit?: FormSubmitFn; // T9-3 — khách nộp hồ sơ (card type 'form')
   formDrafts?: Record<string, Record<string, string>>; // DF-A-04 — form values sống qua đổi tab
   onFormDraftChange?: (cardId: string, values: Record<string, string>) => void;
-  onSelectSub?: (taskId: string) => void; // click sub (live map/bảng việc) → mở SubAgentView (F2a)
 }
 
-// trạng thái sub từ task mới nhất của role đó (running/done/failed) → dot màu.
-function subStatus(tasks: OrchTask[], role: string): OrchTask['status'] | 'idle' {
-  const t = tasks.filter((x) => x.role === role).at(-1);
-  return t?.status ?? 'idle';
-}
-
-// task mới nhất của 1 role (để click nhân vật lobby → mở sub đó).
-function latestTaskOfRole(tasks: OrchTask[], role: string): OrchTask | undefined {
-  return tasks.filter((t) => t.role === role).at(-1);
-}
-
-export function Canvas({ cards, tasks, messages = [], trace = [], onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange, onSelectSub }: Props) {
-  const [tab, setTab] = useState<'lobby' | 'work'>('lobby');
-  // citation chip bấm — S2: hiện banner tên tool (tooltip đã có). Trace view mở tool-call = S4.
+export function Canvas({ cards, tasks, onInterruptTask, onFormSubmit, formDrafts, onFormDraftChange }: Props) {
+  const [tab, setTab] = useState<'work' | 'progress'>('work');
   const [cited, setCited] = useState<string | null>(null);
-  const onCite = (_taskId: string | null, source: string) => setCited(source);
+  const [interruptingTaskId, setInterruptingTaskId] = useState<string | null>(null);
+  const onCite = (_taskId: string | null, source: string) => setCited(sourceLabel(source));
+  const hasPendingIntakeForm = cards.some((card) => card.type === 'form' && card.status !== 'submitted');
 
-  // trạng thái từng agent cho lobby 3D (map TaskStatus → trạng thái hiển thị); Main 'run' nếu có sub chạy
-  const agentStatus = (role: string): LobbyStatus => {
-    const st = subStatus(tasks, role);
-    return st === 'running' || st === 'queued' ? 'run' : st === 'done' ? 'done' : st === 'failed' ? 'err' : 'idle';
-  };
-  const subStates = SUB_ROLES.map(agentStatus);
-  const agents: Record<string, LobbyStatus> = {
-    planner: subStates.includes('run') ? 'run' : subStates.includes('done') ? 'done' : 'idle',
-    credit: agentStatus('credit'), legal: agentStatus('legal'), products: agentStatus('products'), ops: agentStatus('ops'),
-  };
-  const handleSelectRole = (role: string) => {
-    const task = latestTaskOfRole(tasks, role);
-    if (task && onSelectSub) onSelectSub(task.id);
+  const interruptTask = async (taskId: string) => {
+    if (!onInterruptTask || interruptingTaskId) return;
+    setInterruptingTaskId(taskId);
+    try {
+      await onInterruptTask(taskId);
+    } finally {
+      setInterruptingTaskId(null);
+    }
   };
 
   return (
     <section className="canvas">
-      <div className="canvas__tabs">
+      <div className="canvas__tabs" role="tablist" aria-label="Nội dung phiên xử lý">
         <button
           type="button"
-          className={`canvas__tab${tab === 'lobby' ? ' canvas__tab--active' : ''}`}
-          onClick={() => setTab('lobby')}
-        >
-          🏛 Đội làm việc
-        </button>
-        <button
-          type="button"
+          role="tab"
+          aria-selected={tab === 'work'}
           className={`canvas__tab${tab === 'work' ? ' canvas__tab--active' : ''}`}
           onClick={() => setTab('work')}
         >
-          ▦ Công việc{cards.length > 0 ? ` (${cards.length})` : ''}
+          ▦ Sản phẩm công việc{cards.length > 0 ? ` (${cards.length})` : ''}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'progress'}
+          className={`canvas__tab${tab === 'progress' ? ' canvas__tab--active' : ''}`}
+          onClick={() => setTab('progress')}
+        >
+          ◷ Tiến độ xử lý{tasks.length > 0 ? ` (${tasks.length})` : ''}
         </button>
       </div>
 
-      {tab === 'lobby' ? (
-        <div className="canvas__lobby">
-          {/* live map 3D — chi nhánh BANK (D-24 lobby-3D): click nhân vật → mở SubAgentView */}
-          <Lobby3D agents={agents} onSelect={handleSelectRole} />
-
-          {/* bảng việc */}
-          <div className="canvas__tasks">
-            <div className="canvas__tasks-label">BẢNG VIỆC</div>
-            {tasks.length === 0 ? (
-              <div className="canvas__tasks-empty">Chưa có việc nào được giao.</div>
-            ) : (
-              <div className="canvas__tasks-list">
-                {tasks.map((t) => (
-                  <div
-                    key={t.id}
-                    className={`canvas__task-row${onSelectSub ? ' canvas__task-row--clickable' : ''}`}
-                    onClick={onSelectSub ? () => onSelectSub(t.id) : undefined}
-                    role={onSelectSub ? 'button' : undefined}
-                    tabIndex={onSelectSub ? 0 : undefined}
-                    onKeyDown={onSelectSub ? (e) => e.key === 'Enter' && onSelectSub(t.id) : undefined}
-                    data-testid={`task-row-${t.id}`}
-                  >
-                    <TaskBadge task={t} />
-                    <span className="canvas__task-title">{t.title}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="canvas__work" data-scroll>
+      {tab === 'work' ? (
+        <div className="canvas__work" data-scroll role="tabpanel">
           {cited && (
             <div className="canvas__cite-banner" role="status">
-              ⛬ Nguồn: <b>{cited}</b> — trace tool-call đầy đủ ở Sprint 4.
+              ⛬ Nguồn nghiệp vụ: <b>{cited}</b>. Chi tiết được lưu trong nhật ký kiểm soát.
               <button type="button" className="canvas__cite-close" onClick={() => setCited(null)} aria-label="Đóng">✕</button>
             </div>
           )}
           {cards.length === 0 ? (
             <div className="canvas__empty">
-              ▦ Sản phẩm công việc (chỉ số · điều kiện · tờ trình…) sẽ hiện ở đây khi đội trình bày.
+              ▦ Các chỉ số, điều kiện và tờ trình sẽ xuất hiện tại đây sau khi xử lý.
             </div>
           ) : (
             <div className="canvas__cards">
               {cards.map((card) => (
-                <CardRenderer key={card.id} card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit}
+                <CardRenderer key={card.id} card={card} onCite={onCite} canDecide={false} onFormSubmit={onFormSubmit}
                   formDrafts={formDrafts} onFormDraftChange={onFormDraftChange} />
               ))}
             </div>
           )}
-
-          {/* S16 T16-4 (polish, user chốt): metrics TỔNG cả ca — dời khỏi cột chat sang đây (cột phải),
-              CUỐI tab Công việc, dưới cards, cùng dòng cuộn → không chiếm chỗ hội thoại, không che card.
-              has_any=false (ca cũ) → panel tự ẩn (backward). */}
-          <ConvMetricsPanel tasks={tasks} messages={messages} trace={trace} />
+        </div>
+      ) : (
+        <div className="canvas__progress" data-scroll role="tabpanel" aria-label="Tiến độ xử lý">
+          <div className="canvas__tasks">
+            <div className="canvas__tasks-label">CÁC BƯỚC XỬ LÝ</div>
+            {tasks.length === 0 ? (
+              <div className="canvas__tasks-empty">
+                Chưa có bước xử lý nào.
+                {hasPendingIntakeForm && (
+                  <span className="canvas__tasks-empty-hint">
+                    Điền và gửi hồ sơ ở Sản phẩm công việc để bắt đầu thẩm định.
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="canvas__tasks-list">
+                {tasks.map((t) => (
+                  <div key={t.id} className="canvas__task-row" data-testid={`task-row-${t.id}`}>
+                    <TaskBadge task={t} />
+                    <span className="canvas__task-title">{t.title}</span>
+                    {(t.status === 'queued' || t.status === 'running') && onInterruptTask && (
+                      <button
+                        type="button"
+                        className="canvas__task-stop"
+                        data-testid={`task-stop-${t.id}`}
+                        disabled={interruptingTaskId !== null}
+                        onClick={() => void interruptTask(t.id)}
+                      >
+                        {interruptingTaskId === t.id ? 'Đang dừng…' : 'Dừng bước'}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>

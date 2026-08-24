@@ -1,0 +1,1 @@
+Sự kiện: '$action' ($payload_summary) đã được duyệt nhưng THỰC THI THẤT BẠI BỀN sau $attempts lần thử lại — hệ thống đã DỪNG tự động (không thử tiếp). Báo người dùng: giao dịch này KHÔNG hoàn tất được, CẦN NGƯỜI kiểm tra thủ công (vd khoản vay lỗi/không tồn tại). KHÔNG tự thử lại.
