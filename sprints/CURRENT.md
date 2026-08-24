@@ -95,11 +95,25 @@ full-suite, Docker, REST/SSE backend thật và browser standalone đều PASS; 
 reference host, không phải dependency SDK. Mốc: **531 BE pass + 17 skip, 276 FE pass**, SDK
 **35 file / 86.298 byte**. Source-system MCP tách process và CIC/core live vẫn là non-claim.
 
-**Hàng đợi:** Sprint 20 shadow match dashboard + pre-pilot consent wording · B-05 + t9go1 chờ gu user.
+**Sprint 20 — ĐÓNG KỸ THUẬT** (2026-08-24, D-80): mismatch API + tab “Đối chiếu shadow”
+admin-only + exact-ticket drill-down và consent wording/proof/append-only/atomic form đều PASS hai
+gate độc lập. Tester-1: 6/6 đối kháng + migration hai chiều; tester-2: live `2/3 = 66,7%`, consent
+và fresh post-change **613 BE pass + 17 skip + 336 FE pass = 949 pass + 17 skip**. PM đã review
+riêng cả hai. PM-01 (không fresh baseline trước dispatch) và PM-02 (plan từng serial hóa hai tester)
+được ghi/sửa in-place; `807 + 17 skip` chỉ là historical reference, không phải baseline hồi tố.
+Technical sprint không phải DPIA/compliance; pilot dữ liệu thật vẫn **NO-GO** cho tới bank sign-off
+và các đánh giá tác động áp dụng. Plan: `sprints/plan_sprint_20.md` · End:
+`sprints/end_sprint_20.md`.
+
+**Kế tiếp (DRAFT, chưa kickoff/dispatch):** Sprint 23 segment=config. S22 giữ namespace UX reframe;
+S23 đã rewrite để `case-intake shadow` không bị nhập nhằng với approval `shadow_reviews`.
+Source draft: `sprints/plan_sprint_23.md`. B-05 + t9go1 vẫn chờ gu user.
 
 **Golden path:** `sprints/ROADMAP.md`. **Plans:** `sprints/plan_sprint_18.md` ·
-`sprints/plan_sprint_19.md` · `sprints/plan_sprint_21.md`. **End records:**
-`sprints/end_sprint_18.md` · `sprints/end_sprint_19.md` · `sprints/end_sprint_21.md`.
+`sprints/plan_sprint_19.md` · `sprints/plan_sprint_20.md` · `sprints/plan_sprint_21.md` ·
+`sprints/plan_sprint_23.md` (draft). **End records:**
+`sprints/end_sprint_18.md` · `sprints/end_sprint_19.md` · `sprints/end_sprint_20.md` ·
+`sprints/end_sprint_21.md`.
 
 **Lịch sử:**
 
@@ -125,3 +139,4 @@ reference host, không phải dependency SDK. Mốc: **531 BE pass + 17 skip, 27
 | 18 | working tree · đóng | Threshold fail-closed + shadow review/match stats + middle-office positioning + Tờ trình sơ thẩm 6 mục; live schema/provenance gate PASS. 691 pass + 17 skip tại mốc S18. |
 | 19 | working tree · đóng | Doorbell generic/Lark tối thiểu dữ liệu + exact-ticket deep-link/auth resume + lifecycle đúng-một-lần; receiver/browser evidence. 738 pass + 17 skip. |
 | 21 | working tree · đóng | Lõi headless bank-DC guard/readiness + Embed SDK ESM/CJS/React/Web Component/IIFE; real REST/SSE/browser/Docker gates. 807 pass + 17 skip. |
+| 20 | working tree · đóng kỹ thuật | Shadow mismatch/Tower exact-ticket + consent proof/append-only/atomic form. Hai tester PASS; fresh post-change gate 949 pass + 17 skip. PM-01/02 remediated; pilot dữ liệu thật NO-GO theo D-80. |

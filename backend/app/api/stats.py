@@ -63,6 +63,94 @@ async def get_shadow_match(claims: dict = Depends(require_admin)) -> dict[str, A
     return await store_shadow.get_shadow_match(tenant_id_from_claims(claims))
 
 
+def _shadow_time(value: str | None, field: str) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (TypeError, ValueError) as exc:
+        raise ApiError(
+            400,
+            "bad_shadow_filter",
+            f"Query '{field}' phải là timestamp ISO-8601 có timezone.",
+            f"Dùng {field}=2026-08-24T00:00:00Z.",
+            retryable=False,
+        ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ApiError(
+            400,
+            "bad_shadow_filter",
+            f"Query '{field}' thiếu timezone.",
+            f"Dùng {field}=2026-08-24T00:00:00Z.",
+            retryable=False,
+        )
+    return parsed.astimezone(UTC)
+
+
+@router.get("/stats/shadow-match/mismatches")
+async def get_shadow_mismatches(
+    from_: str | None = Query(None, alias="from"),
+    to_: str | None = Query(None, alias="to"),
+    lane: str | None = Query(None),
+    limit: str = Query("50"),
+    cursor: str | None = Query(None),
+    claims: dict = Depends(require_admin),
+) -> dict[str, Any]:
+    """Danh sách ca comparable lệch, keyset tenant-scoped theo CONTRACT §7d."""
+    from_at, to_at = _shadow_time(from_, "from"), _shadow_time(to_, "to")
+    if from_at is not None and to_at is not None and from_at >= to_at:
+        raise ApiError(
+            400,
+            "bad_shadow_filter",
+            "Khoảng thời gian shadow không hợp lệ: 'from' phải nhỏ hơn 'to'.",
+            "Đổi về khoảng nửa-mở from inclusive, to exclusive.",
+            retryable=False,
+        )
+    if lane is not None and lane not in {"green", "yellow", "red"}:
+        raise ApiError(
+            400,
+            "bad_shadow_filter",
+            f"Lane '{lane}' không hợp lệ.",
+            "Dùng lane=green|yellow|red hoặc bỏ query này.",
+            retryable=False,
+        )
+    try:
+        page_limit = int(limit)
+    except (TypeError, ValueError) as exc:
+        raise ApiError(
+            400,
+            "bad_shadow_filter",
+            "Limit phải là số nguyên.",
+            "Dùng limit từ 1 đến 200.",
+            retryable=False,
+        ) from exc
+    if str(page_limit) != limit or not 1 <= page_limit <= 200:
+        raise ApiError(
+            400,
+            "bad_shadow_filter",
+            "Limit nằm ngoài phạm vi hoặc không ở dạng số nguyên chuẩn.",
+            "Dùng limit từ 1 đến 200.",
+            retryable=False,
+        )
+    try:
+        return await store_shadow.list_mismatches(
+            tenant_id_from_claims(claims),
+            from_at=from_at,
+            to_at=to_at,
+            lane=lane,
+            limit=page_limit,
+            cursor=cursor,
+        )
+    except store_shadow.ShadowCursorError as exc:
+        raise ApiError(
+            400,
+            "invalid_cursor",
+            "Cursor shadow không hợp lệ hoặc không thuộc bộ lọc hiện tại.",
+            "Tải lại trang đầu với cùng bộ lọc.",
+            retryable=False,
+        ) from exc
+
+
 def _stats_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
     start, prev_start, end = _window_bounds(window)
     conn = connect_core()

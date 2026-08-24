@@ -287,7 +287,14 @@ export interface FormField {
   type: 'text' | 'number';
   required: boolean;
 }
-// POST /form-submit {card_id, values} → 200 {owner_id, customer_created}.
+export interface ConsentSnapshot {
+  required: true;
+  purpose: 'pre_pilot_shadow_preassessment';
+  wording_version: string;
+  wording_checksum: string;
+  content_markdown: string;
+}
+// POST /form-submit {card_id, values, consent_granted:true} → 200 {owner_id, customer_created}.
 export interface FormSubmitResult {
   owner_id: string;
   customer_created: boolean;
@@ -353,6 +360,58 @@ export interface StatsResponse {
   // S16 T16-3: mỗi KPI +spark 24-bucket chuẩn hoá mọi window (BE T16-2 sẽ trả). OPTIONAL —
   // thiếu → KpiCard render như cũ (backward). Shape provisional (grouped map — DECISIONS, BE khớp).
   sparks?: Partial<Record<string, number[]>>;
+}
+
+// ── Shadow match (S20 ·7b/7d) ──
+export type ShadowLane = 'green' | 'yellow' | 'red' | null;
+export type ShadowRecommendation = 'auto-eligible' | 'human-review' | 'reject-recommended';
+
+export interface ShadowLaneBucket {
+  lane: ShadowLane;
+  total: number;
+  comparable: number;
+  matched: number;
+  rate: number;
+}
+
+export interface ShadowDayBucket {
+  date: string;
+  total: number;
+  comparable: number;
+  matched: number;
+  rate: number;
+}
+
+export interface ShadowMatchStats {
+  total: number;
+  comparable: number;
+  matched: number;
+  rate: number;
+  by_lane: ShadowLaneBucket[];
+  by_day: ShadowDayBucket[];
+}
+
+export interface ShadowMismatch {
+  approval_id: string;
+  conv_id: string;
+  system_lane: ShadowLane;
+  system_recommendation: ShadowRecommendation;
+  human_decision: 'approved' | 'rejected';
+  human_reason: string | null;
+  decided_at: string;
+}
+
+export interface ShadowMismatchPage {
+  items: ShadowMismatch[];
+  next_cursor: string | null;
+}
+
+export interface ShadowMismatchFilters {
+  from?: string;
+  to?: string;
+  lane?: Exclude<ShadowLane, null>;
+  limit?: number;
+  cursor?: string;
 }
 
 // ── S16 T16-3: cost & vận hành AI (contract architect chốt — BE T16-2 khớp NGUYÊN VĂN) ──

@@ -41,6 +41,7 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
   // DF-A-04: form-draft values NÂNG lên đây (theo card.id) để sống qua đổi tab canvas (FormCard unmount
   // khi đổi tab → local state chết). Clear entry khi submit thành công (không dính form lần sau).
   const [formDrafts, setFormDrafts] = useState<Record<string, Record<string, string>>>({});
+  const [formConsentDrafts, setFormConsentDrafts] = useState<Record<string, boolean>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -198,6 +199,7 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     setStreaming(null);
     setConvStatus('idle');
     setFormDrafts({}); // đổi ca → clear form-draft (2 conv không lẫn — DF-A-04 defensive)
+    setFormConsentDrafts({});
     setLoadError(null);
     conversationApi
       .getConversation(id)
@@ -218,6 +220,7 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     setLoadError(null);
     setListError(null);
     setFormDrafts({}); // draft mới → clear form-draft ca cũ (DF-A-04)
+    setFormConsentDrafts({});
   }, []);
 
   // Chỉ gửi tiêu đề: provider/model là mặc định server, không trở thành lựa chọn nghiệp vụ của người dùng.
@@ -301,13 +304,22 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
     setFormDrafts((prev) => ({ ...prev, [cardId]: values }));
   }, []);
 
-  const handleFormSubmit = useCallback(async (cardId: string, values: Record<string, string>): Promise<void> => {
+  const handleFormConsentChange = useCallback((cardId: string, granted: boolean) => {
+    setFormConsentDrafts((prev) => ({ ...prev, [cardId]: granted }));
+  }, []);
+
+  const handleFormSubmit = useCallback(async (
+    cardId: string,
+    values: Record<string, string>,
+    consentGranted: true,
+  ): Promise<void> => {
     const id = activeIdRef.current;
     if (!id) throw new Error('Chưa mở phiên xử lý');
     try {
-      await conversationApi.submitForm(id, cardId, values);
+      await conversationApi.submitForm(id, cardId, values, consentGranted);
       // submit OK → clear draft entry (không dính sang form/lần sau — defensive DF-A-04)
       setFormDrafts((prev) => { const next = { ...prev }; delete next[cardId]; return next; });
+      setFormConsentDrafts((prev) => { const next = { ...prev }; delete next[cardId]; return next; });
     } catch (err: unknown) {
       // 409 đã nộp → refetch full-state để card về read-only (DB nguồn sự thật §0)
       if (err instanceof ApiRequestError && err.status === 409) {
@@ -393,9 +405,9 @@ export function useWorkspaceController({ user, onAuthExpired }: Params) {
   const pendingApprovals = useApprovalBadge(isAdmin);
   return {
     conversations, conversationGroups, activeId, messages, tasks, cards,
-    convStatus, streaming, creating, drafting, formDrafts,
+    convStatus, streaming, creating, drafting, formDrafts, formConsentDrafts,
     loadError, listError, scrollRef,
-    openConversation, startDraft, sendChat, handleInterruptTask, handleFormDraftChange,
+    openConversation, startDraft, sendChat, handleInterruptTask, handleFormDraftChange, handleFormConsentChange,
     handleFormSubmit, handleRename, handleDelete, handleCreateGroup, handleMoveConversation, handleLogout,
     activeConv, busy, hasContent, isAdmin, pendingApprovals,
   };

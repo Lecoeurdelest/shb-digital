@@ -13,11 +13,13 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     ForeignKey,
     Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
@@ -322,6 +324,44 @@ class ShadowReview(Base):
     human_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     decided_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True))
     match: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+
+class ConsentRecord(Base):
+    """D-80 proof ledger; mutation is additionally blocked by a DB trigger."""
+
+    __tablename__ = "consent_records"
+    __table_args__ = (
+        Index("ix_consent_records_tenant_recorded", "tenant_id", "recorded_at"),
+        UniqueConstraint("tenant_id", "source", "source_ref", "purpose", name="uq_consent_records_source_purpose"),
+        CheckConstraint("subject_type IN ('user','external_party')", name="ck_consent_subject_type"),
+        CheckConstraint("btrim(subject_ref)<>''", name="ck_consent_subject_ref"),
+        CheckConstraint("purpose='pre_pilot_shadow_preassessment'", name="ck_consent_purpose"),
+        CheckConstraint("wording_version ~ '^v[1-9][0-9]*$'", name="ck_consent_wording_version"),
+        CheckConstraint("wording_checksum ~ '^[0-9a-f]{64}$'", name="ck_consent_wording_checksum"),
+        CheckConstraint(
+            "(granted IS TRUE AND granted_at IS NOT NULL) OR (granted IS FALSE AND granted_at IS NULL)",
+            name="ck_consent_granted_at",
+        ),
+        CheckConstraint("btrim(actor)<>''", name="ck_consent_actor"),
+        CheckConstraint("source='customer_form'", name="ck_consent_source"),
+        CheckConstraint("btrim(source_ref)<>''", name="ck_consent_source_ref"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"), default=uuid.uuid4
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False)
+    subject_type: Mapped[str] = mapped_column(Text)
+    subject_ref: Mapped[str] = mapped_column(Text)
+    purpose: Mapped[str] = mapped_column(Text)
+    wording_version: Mapped[str] = mapped_column(Text)
+    wording_checksum: Mapped[str] = mapped_column(String(64))
+    granted: Mapped[bool] = mapped_column(Boolean)
+    recorded_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    granted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    actor: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(Text)
+    source_ref: Mapped[str] = mapped_column(Text)
 
 
 class Card(Base):

@@ -286,6 +286,43 @@ Endpoint chỉ dành cho `admin`, không nhận query param. Success `200` trả
 - Ledger rỗng trả chính xác
   `{"total":0,"comparable":0,"matched":0,"rate":0.0,"by_lane":[],"by_day":[]}`.
 
+### 7d. `GET /api/stats/shadow-match/mismatches` (S20 · D-79)
+
+Endpoint chỉ dành cho `admin`, tenant luôn lấy từ JWT/account và không nhận `tenant_id` từ query
+hoặc body. Success `200` là page object trần:
+
+```ts
+interface ShadowMismatch {
+  approval_id: string;
+  conv_id: string;
+  system_lane: 'green' | 'yellow' | 'red' | null;
+  system_recommendation: 'auto-eligible' | 'human-review' | 'reject-recommended';
+  human_decision: 'approved' | 'rejected';
+  human_reason: string | null;
+  decided_at: string; // ISO-8601 UTC
+}
+interface ShadowMismatchPage {
+  items: ShadowMismatch[];
+  next_cursor: string | null;
+}
+```
+
+Query contract:
+
+- `from` và `to` là ISO-8601 có timezone; server chuẩn hóa UTC. `from` inclusive, `to` exclusive;
+  nếu cả hai có mặt thì bắt buộc `from < to`.
+- `lane` nếu có chỉ nhận `green|yellow|red`. `limit` mặc định `50`, nhỏ nhất `1`, lớn nhất `200`.
+- Chỉ row `match=false`, sort ổn định `decided_at DESC, approval_id DESC`. Phân trang dùng keyset,
+  không dùng offset; trang cuối và trang rỗng trả `next_cursor:null`.
+- `cursor` là chuỗi opaque có integrity check, bind với tenant cùng canonical filter
+  `from/to/lane`; reuse ở tenant khác hoặc đổi bất kỳ filter nào trả `400 invalid_cursor`, không
+  được biến thành danh sách của context mới.
+- Timestamp/lane/limit/cursor sai hoặc `from >= to` trả `400` error 4-field §0. Thiếu phiên `401`,
+  role `customer|user` trả `403`. Tenant khác không bao giờ thấy row.
+
+Endpoint này chỉ đọc ledger. Write seam duy nhất của `shadow_reviews` vẫn là
+`store_shadow.insert_review()` trong transaction `approvals.decide`; không có API update/delete.
+
 ## 8. Outbound webhook doorbell (S19 · D-71)
 
 Config: `SHB_NOTIFY_WEBHOOK_URL` rỗng/thiếu = tắt; `SHB_NOTIFY_CHANNEL=lark|generic`
@@ -655,3 +692,73 @@ Không rõ assignee/party mapping thì case nằm unassigned để middle-office
 username/email payload. Không có credential hợp lệ trả `401`; credential hợp lệ nhưng source không
 khớp/tắt trả `403`. Approval API và đường `ops_disburse` giữ nguyên quyền/phanh hiện có — cổng intake
 không có quyền phê duyệt hay giải ngân.
+
+## 12. Consent pre-pilot tại cửa form khách (S20 · D-80)
+
+Đây là proof kỹ thuật versioned, **không phải DPIA, đánh giá chuyển dữ liệu hay bằng chứng tuân thủ
+đầy đủ**. Wording canonical nằm ở `configs/consent/pre-pilot.vi.md`; server parse metadata và tính
+SHA-256 trên đúng bytes UTF-8 của phần `content_markdown` được snapshot vào card. Đổi một byte nội
+dung phải bump version qua PR/maker-checker và tạo checksum mới; row cũ không bị viết lại.
+
+`present_form` tiếp tục không nhận argument từ model và snapshot vào `card.data`:
+
+```ts
+interface ConsentSnapshot {
+  required: true;
+  purpose: 'pre_pilot_shadow_preassessment';
+  wording_version: 'v1';
+  wording_checksum: string; // lowercase SHA-256, 64 hex
+  content_markdown: string;
+}
+// Card form hiện hữu được bổ sung: { ..., consent: ConsentSnapshot }
+```
+
+Client phải render nguyên snapshot, checkbox riêng mặc định `false`, và chỉ được gửi trạng thái
+đồng ý. Request form mới:
+
+```ts
+interface FormSubmitBody {
+  card_id: string;
+  values: Record<string, unknown>;
+  consent_granted: true;
+}
+```
+
+Body không có field version/checksum/tenant/subject/actor. Extra field bị schema từ chối. Server lấy
+tenant, actor và `subject_ref` từ claims; metadata proof chỉ lấy từ card server-owned rồi đối chiếu
+lại wording canonical. Thiếu/`false` trả `400 consent_required`; snapshot malformed hoặc không khớp
+canonical trả `400 consent_wording_invalid`; card form legacy không có snapshot trả
+`409 consent_wording_unavailable`. Mọi error dùng đúng envelope 4-field §0 và không tạo partial row.
+Endpoint form-submit chỉ dành cho role `customer`: thiếu phiên trả `401`; `user`/`admin` trả `403`
+trước khi đọc hoặc ghi form. `subject_ref` và `actor` đều là nguyên văn claim `sub` phía server.
+
+Khi hợp lệ, một transaction duy nhất thực hiện card `pending→submitted`, tạo `customers`, link
+`users.owner_id` và append đúng một `consent_records` với:
+
+```ts
+{
+  tenant_id: '<JWT tenant>',
+  subject_type: 'user',
+  subject_ref: '<JWT sub>',
+  purpose: 'pre_pilot_shadow_preassessment',
+  wording_version: 'v1',
+  wording_checksum: '<snapshot SHA-256>',
+  granted: true,
+  recorded_at: '<server UTC>',
+  granted_at: '<server UTC>',
+  actor: '<JWT sub>',
+  source: 'customer_form',
+  source_ref: '<card_id>'
+}
+```
+
+`consent_records` là append-only ở cả app và DB: direct `UPDATE`/`DELETE` bị trigger từ chối;
+unique `(tenant_id, source, source_ref, purpose)` chặn double-submit. `source_ref` là proof link
+dạng text, không FK cascade về card. Wake MAIN chỉ chạy sau commit. V1 chỉ ghi grant; rút lại sau
+này phải là event row mới, không update row lịch sử.
+
+Consent LOS/SAHA thuộc trách nhiệm hệ nguồn; event envelope §11b không đổi và không chứng minh nguồn
+đã thu consent. Trước pilot dữ liệu thật bắt buộc có bank data-protection/legal owner ký wording,
+xác nhận controller/contact, purpose, data/source/recipient, retention+xóa, withdrawal và cloud/
+chuyển dữ liệu; đồng thời hoàn tất DPIA cùng đánh giá chuyển dữ liệu áp dụng. Cho tới đó kết luận là
+**PILOT NO-GO**.

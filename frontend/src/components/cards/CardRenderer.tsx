@@ -19,12 +19,14 @@ interface CardProps {
   onFormSubmit?: FormSubmitFn; // T9-3 — khách nộp hồ sơ (card type 'form')
   formDrafts?: Record<string, Record<string, string>>; // DF-A-04 — form values sống qua đổi tab (theo card.id)
   onFormDraftChange?: (cardId: string, values: Record<string, string>) => void;
+  formConsentDrafts?: Record<string, boolean>;
+  onFormConsentChange?: (cardId: string, granted: boolean) => void;
 }
 
 // card chiếm cả 2 cột (rộng) cho case_file/document/approval/form; còn lại 1 cột.
 const WIDE = new Set(['case_file', 'document', 'approval', 'form']);
 
-export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange }: CardProps) {
+export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange, formConsentDrafts, onFormConsentChange }: CardProps) {
   const wide = WIDE.has(card.type);
   const known = isKnownCardType(card.type);
   const timestamp = formatCardTimestamp(card.ts);
@@ -37,13 +39,14 @@ export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit, 
       </div>
       <div className="card__body">
         <CardBody card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit}
-          formDrafts={formDrafts} onFormDraftChange={onFormDraftChange} />
+          formDrafts={formDrafts} onFormDraftChange={onFormDraftChange}
+          formConsentDrafts={formConsentDrafts} onFormConsentChange={onFormConsentChange} />
       </div>
     </div>
   );
 }
 
-function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange }: CardProps) {
+function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange, formConsentDrafts, onFormConsentChange }: CardProps) {
   switch (card.type) {
     case 'metric':
       return <MetricBody card={card} onCite={onCite} />;
@@ -61,7 +64,8 @@ function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts,
       return <ApprovalPanel card={card} onDecide={onDecide} canDecide={canDecide} />;
     case 'form':
       return <FormCard card={card} onSubmit={onFormSubmit}
-        draftValues={formDrafts?.[card.id] ?? {}} onDraftChange={onFormDraftChange} />;
+        draftValues={formDrafts?.[card.id] ?? {}} onDraftChange={onFormDraftChange}
+        consentGranted={formConsentDrafts?.[card.id] ?? false} onConsentChange={onFormConsentChange} />;
     default:
       return <UnsupportedBody />;
   }

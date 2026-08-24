@@ -2,7 +2,7 @@
 // Success = resource trần (không bọc {success,data}); error = 4-field {code,message,hint,retryable}.
 // Auth: S1 bypass (D-13/task T1-4 cho phép bypass + ghi deviation) — không gắn JWT header ở đây.
 
-import type { AgentConfigResponse, ApiError, ApprovalRow, Assessment, AuditRow, AuthUser, CaseListFilters, CaseSummary, CompareResult, Conversation, ConversationFullState, ConversationGroup, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
+import type { AgentConfigResponse, ApiError, ApprovalRow, Assessment, AuditRow, AuthUser, CaseListFilters, CaseSummary, CompareResult, Conversation, ConversationFullState, ConversationGroup, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, ShadowMatchStats, ShadowMismatchFilters, ShadowMismatchPage, StatsResponse, StatsWindow } from '../types';
 
 export class ApiRequestError extends Error {
   readonly status: number;
@@ -227,6 +227,23 @@ export const apiClient = {
     return request<StatsResponse>(`/api/stats?window=${encodeURIComponent(window)}`);
   },
 
+  // S20: aggregate shadow ledger + danh sách tín hiệu hiệu chỉnh. Tenant/role do server
+  // khóa từ session; FE không bao giờ gửi tenant_id.
+  getShadowMatch(): Promise<ShadowMatchStats> {
+    return request<ShadowMatchStats>('/api/stats/shadow-match');
+  },
+
+  listShadowMismatches(filters: ShadowMismatchFilters = {}): Promise<ShadowMismatchPage> {
+    const qs = new URLSearchParams();
+    if (filters.from) qs.set('from', filters.from);
+    if (filters.to) qs.set('to', filters.to);
+    if (filters.lane) qs.set('lane', filters.lane);
+    if (filters.limit != null) qs.set('limit', String(filters.limit));
+    if (filters.cursor) qs.set('cursor', filters.cursor);
+    const query = qs.toString();
+    return request<ShadowMismatchPage>(`/api/stats/shadow-match/mismatches${query ? `?${query}` : ''}`);
+  },
+
   // S16 T16-3: cost & vận hành AI (contract). cost_estimated=true → provider ngoài "ước tính".
   getCost(window: StatsWindow = '24h'): Promise<CostResponse> {
     return request<CostResponse>(`/api/stats/cost?window=${encodeURIComponent(window)}`);
@@ -259,13 +276,17 @@ export const apiClient = {
     return request<CaseSummary[]>(`/api/cases${query ? `?${query}` : ''}`);
   },
 
-  // Submit a customer intake form; creates the customer profile on success.
-  // khách nộp hồ sơ form (D-57 T9-3) → 200 {owner_id, customer_created}. 400 missing_fields/bad_income
-  // · 409 form_already_submitted · 404 (đều 4-field).
-  submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult> {
+  // Submit form + grant consent D-80. Wording/version/hash/tenant/subject đều do server/card
+  // sở hữu; client chỉ có quyền gửi literal consent_granted=true.
+  submitForm(
+    convId: string,
+    cardId: string,
+    values: Record<string, string>,
+    consentGranted: true,
+  ): Promise<FormSubmitResult> {
     return request<FormSubmitResult>(`/api/conversations/${convId}/form-submit`, {
       method: 'POST',
-      body: JSON.stringify({ card_id: cardId, values }),
+      body: JSON.stringify({ card_id: cardId, values, consent_granted: consentGranted }),
     });
   },
 
