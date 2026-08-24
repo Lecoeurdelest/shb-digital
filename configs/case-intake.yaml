@@ -1,0 +1,15 @@
+version: 1
+sources:
+  los:
+    enabled: false
+    modes: [api]
+    accepted_schema_versions: [1]
+    allowed_event_types:
+      - case.snapshot_upserted
+      - case.preassessment_requested
+      - case.cancelled
+    workflow_profile: preassessment_only
+    auto_start: shadow
+    allowed_products: [SME_SECURED]
+    max_payload_bytes: 262144
+    api_key_env: SHB_LOS_CASE_INTAKE_API_KEY

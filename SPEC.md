@@ -114,7 +114,9 @@ SUB kết thúc (xong | lỗi | timeout | bị hủy)
   nằm trong `finally` được shield khỏi cancel → kết cục `failed("user hủy")` vẫn sinh đúng 1
   event (invariant 4.2). CẤM cơ chế hủy ngoài băng (disconnect từ task khác = treo im lặng;
   đường báo cáo thứ hai = double-event).
-- **Chuyển ca / xem sub đang làm gì**: sidebar nhiều conversation; click 1 sub thấy trace sống của nó.
+- **Chuyển ca / xem sub đang làm gì**: sidebar nhiều conversation, có group tenant-scoped để gom
+  phiên theo mục đích làm việc; click 1 sub thấy trace sống của nó. Group chỉ là thư mục UX, không
+  phải hồ sơ nghiệp vụ hay team.
 - Hỏi-lại (clarify) và what-if KHÔNG phải cơ chế riêng: main thiếu thông tin thì hỏi trong chat;
   "thử lại với 4 tỷ" là một câu chat mới — main tự re-dispatch. UI what-if chỉ là nút/slider bắn câu chat.
 
@@ -197,18 +199,21 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
 ## 7. Contract ghép LAB → SYSTEM
 
 **Bốn interface khoá cứng — vỏ mù mọi thứ phía sau:**
-1. **Tool** = hàm thuần `fn(conn, **kwargs) -> dict` — conn = **Postgres từ pool** do VỎ cấp (D-21,
-   cách A2). Data nghiệp vụ nằm CÙNG Postgres với render+audit (không SQLite). Tool viết **SQL
-   PORTABLE** (param bind, không cú pháp SQLite-riêng); tool+skill là việc LAB, vỏ không đụng logic.
+1. **Tool** = hàm thuần `fn(conn, **kwargs) -> dict` — conn = transactional `core` store do
+   datastore registry cấp (D-76; hiện là **Postgres pool**). Data tiền/nghiệp vụ nằm cùng Postgres
+   với workflow+audit; SQLite chỉ dùng tooling/test, không thay core. Tool viết **SQL PORTABLE**
+   (param bind, không cú pháp SQLite-riêng); tool+skill là việc LAB, vỏ không đụng logic.
 2. **Schema** = entry `{tên: {"mô tả": str, "params": {tên: {type, required?, default?, values?, desc}}}}`
    (+ annotations). Đây là docs duy nhất agent thấy.
-3. **Skill** = `SKILL.md` text thô → system_prompt của sub. Không parse.
+3. **Skill/prompt** = file trong repo là bản fallback đã review; prompt catalog lưu version bất biến
+   và binding theo môi trường. Runtime lấy active version qua capability `prompt_catalog`, không nhúng
+   câu chữ vào business branch; DB lỗi thì rơi về file. Nội dung vẫn là text thô, không parse.
 4. **Output** = dict tự do — vỏ chuyển nguyên xuống agent, không đọc bên trong.
 
 **Điểm ghép duy nhất — `mount_role(role)`:**
 ```
 đọc roles/<role>/  →  {SKILL.md, functions.py, SCHEMAS, ANNOTATIONS}
-  → wrap từng fn:  lấy conn PG từ pool mỗi call (D-21 A2; đọc mặc định,
+  → wrap từng fn:  lấy conn từ capability transactional core mỗi call (D-21 A2/D-76; đọc mặc định,
                    ghi cho tool gated như disburse)
                    + try/except → error 4-field (db_error/bad_type/tool_error)
                    + wrapper gated nếu tên trong whitelist phanh
@@ -221,10 +226,10 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
 - **Hiện trạng theo thời điểm — kiểm nguồn D-08 lúc kickoff**: role nào lab ĐÃ đẻ thật
   (functions + SKILL) → mount thật ngay (test đường ghép sớm); role còn lại = stub cùng
   contract, trả dữ liệu giả đúng shape, swap sau. Không hardcode danh sách role thật vào spec.
-- **Tri thức domain**: hiện nằm trọn trong SKILL (data ít, cô đọng — đủ). Đường mở khi phình:
-  wiki markdown trên disk (mục lục inject vào prompt + tool đọc-trang) — là 1 tool retrieval
-  lab đẻ, vỏ không dựng hạ tầng RAG. Chọn cách lấy dữ liệu theo bài (time/accuracy/cost):
-  có id rõ → query DB thẳng · cô đọng → skill/wiki · triệu bản ghi không cấu trúc → mới tính vector.
+- **Tri thức domain**: skill/wiki và notes hiện đủ nhỏ để ở Postgres/file. Khi benchmark chứng minh
+  cần vector/search store, tool retrieval gọi port `VectorStore` qua capability `knowledge`; đổi
+  pgvector/Qdrant/OpenSearch không làm orchestrator biết vendor. Chọn theo bài (time/accuracy/cost):
+  có id rõ → query core · cô đọng → skill/wiki · dữ liệu phi cấu trúc lớn → specialist store.
 - Data nghiệp vụ (D-21 — trong Postgres, cùng kho render+audit): `customers · businesses · loans ·
   collaterals · cic_records · assumptions` (+ legal tables). Con số nghiệp vụ = bảng `assumptions`,
   swap được — không hardcode. Schema + seed-values dựng lại từ nguồn LAB (D-08), KHÔNG mount `.db`.
@@ -233,8 +238,8 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
 
 - **Continuity = SDK session trên disk.** Main resume từ transcript (cwd ổn định per conversation).
   DB KHÔNG phải nguồn resume.
-- **DB (Postgres) = kho render cho FE**: hội thoại, bảng việc, card, phiếu, audit — để vẽ UI
-  và load lại khi mở ca.
+- **DB core (Postgres) = nguồn sự thật vận hành**: hội thoại, bảng việc, card, phiếu, audit,
+  idempotency và outbox — để vẽ UI, load lại và đối soát. Transcript SDK vẫn là nguồn resume model.
 - **Server sập = tạm ngưng, không phải quên.** Việc đang chạy đứt → error cho user. Sống lại:
   conversation + session id giữ nguyên → user chat tiếp là resume bình thường, chỉ việc bị đứt
   phải làm lại. KHÔNG build máy cứu-ca-đang-chạy.
@@ -253,25 +258,38 @@ SUB gọi tool gated (vd ops_disburse(loan_id, amount))
 | `thinking` | {task_id, text} | trace: suy nghĩ model (live-only, KHÔNG persist — F1/T4-2) |
 | `approval.pending` / `approval.decided` | {phiếu} | badge chờ duyệt, approval queue, resume |
 
-- Reconnect: FE gọi `GET /conversations/{id}` load full state từ DB rồi nghe SSE tiếp.
-  KHÔNG có replay-cursor/outbox.
+- Reconnect hiện tại: FE gọi `GET /conversations/{id}` load full state từ DB rồi nghe SSE tiếp;
+  chưa có replay cursor. Schema `outbox_events` là nền P1 cho publisher nhiều worker, nhưng chưa
+  được coi là active cho tới khi mọi event được ghi cùng transaction và publisher có test restart.
 - Header SSE production: `X-Accel-Buffering: no` (thiếu là chết im sau nginx) + heartbeat.
 
-## 10. Data model (Postgres — 1 kho: NGHIỆP VỤ + render + audit — D-21)
+## 10. Data model (Postgres transactional core — D-21/D-76)
 
 ```sql
 -- ── VẬN HÀNH / render / audit (BE ghi lúc chạy) ──
-users(id, username, pass_hash, role)                    -- 2 account: user(RM) / admin
-conversations(id, user_id, title, status, sdk_session_id, created_at)
-messages(id, conv_id, ts, sender, content, meta jsonb)
-tasks(id, conv_id, role, title, status, input jsonb, result jsonb,
-      queued_at, started_at, ended_at, cost jsonb)
-cards(id, conv_id, task_id, type, data jsonb, ts)       -- canvas reload
-tool_calls(id, task_id, ts, actor, tool, input jsonb, output jsonb, cost jsonb)  -- APPEND-ONLY
-approvals(id, conv_id, task_id, action, payload jsonb, payload_hash,
-          status,                 -- pending | approved | rejected | used (§4.4)
+tenants(id, slug UNIQUE, name, created_at, updated_at)
+parties(owner_id, party_type, display_name, created_at, updated_at)
+users(id, tenant_id FK, username, pass_hash, role, owner_id, party_id)
+conversation_groups(id, tenant_id FK, name, created_by, created_at, updated_at)
+conversations(id, tenant_id FK, group_id FK, user_id, title, status, sdk_session_id, created_at,
+              updated_at, deleted_at, row_version)
+messages(id, tenant_id FK, conv_id, conversation_id uuid FK, ts, sender, content, meta jsonb)
+tasks(id, tenant_id FK, conv_id, conversation_id uuid FK, parent_task_id, role, title, status,
+      input jsonb, result jsonb, attempt_count, lease_owner, lease_until,
+      heartbeat_at, row_version, queued_at, started_at, ended_at, cost jsonb)
+task_attempts(id, task_id FK, conversation_id FK, attempt_no, worker_id, status, metrics jsonb)
+cards(id, tenant_id FK, conv_id, task_id, type, data jsonb, ts)       -- canvas reload
+tool_calls(id, tenant_id FK, task_id, ts, actor, tool, input jsonb, output jsonb, cost jsonb)  -- APPEND-ONLY
+approvals(id, tenant_id FK, conv_id, task_id, action, payload jsonb, payload_hash,
+          idempotency_key UNIQUE,
+          status,                 -- pending | approved | rejected | used | exec_failed
           decided_by, decided_at, reason,
           used_at, receipt jsonb) -- biên nhận thực thi — chống thực-thi-đôi (§4.4)
+approval_execution_attempts(id, approval_id FK, attempt_no, worker_id, status, result_snapshot)
+outbox_events(id, aggregate_type, aggregate_id, event_type, payload, status, claim_fields...)
+prompt_definitions(prompt_key, scope, variables, default_file)
+prompt_versions(id, prompt_key FK, version, content, checksum, created_by, created_at)
+prompt_bindings(prompt_key, environment, version_id FK, activated_by, activated_at)
 
 -- ── NGHIỆP VỤ (tool LAB đọc; disburse ghi loans.status — D-21; schema+seed dựng từ nguồn LAB) ──
 customers(id, full_name, occupation, monthly_income, region, ...)
@@ -289,6 +307,8 @@ assumptions(key, value)                                 -- con số nghiệp v�
 |---|---|---|---|
 | POST | `/api/auth/login` | all | JWT, 2 account seed |
 | GET/POST | `/api/conversations` | user | list / tạo ca |
+| GET/POST | `/api/conversation-groups` | user | list / tạo thư mục nhóm phiên trong tenant |
+| PATCH/DELETE | `/api/conversation-groups/{id}` | user | đổi tên / xóa group (xóa = ungroup phiên) |
 | POST | `/api/conversations/{id}/chat` | user | lượt user → main (bận thì xếp hàng) |
 | GET | `/api/conversations/{id}` | user | full state (messages+tasks+cards+approvals) |
 | GET | `/api/conversations/{id}/sse` | all | stream §9 |
@@ -304,15 +324,22 @@ assumptions(key, value)                                 -- con số nghiệp v�
 
 ## 12. Tech stack
 
-- **Backend**: Python 3.11 + FastAPI + uvicorn (1 worker) · claude-agent-sdk (ClaudeSDKClient) ·
-  Postgres 15 (SQLAlchemy + Alembic). **Không Redis** — hàng đợi phòng + SSE fanout in-process
-  (N4: 1 worker demo, bớt moving part).
+- **Backend**: Python 3.11 + FastAPI + uvicorn (1 worker mặc định) · claude-agent-sdk
+  (ClaudeSDKClient) · Postgres 15 transactional core (SQLAlchemy + Alembic) · datastore registry
+  theo capability. Adapter tích hợp sẵn: PostgreSQL và SQLite cho tooling; adapter ngoài đăng ký
+  qua Python entry point `bank_digital.datastores`. `VectorStore`/`KeyValueStore` là port tùy chọn,
+  không nằm trên đường tiền và không được bật chỉ vì muốn có nhiều công nghệ.
 - **Đa provider / model routing**: `providers.yaml` — main = model mạnh (sonnet), sub = model rẻ
   (haiku), fallback nhiều provider qua env per-session (base-url + key). Không hardcode model.
 - **Frontend**: React + Vite + TS. Token màu: nền `#1a1917`, cam `#d97757`, bộ pass/fail/warn/run.
-  2 màn: **Workspace** (sidebar | chat | canvas) + **Control Tower** (live map · traces ·
-  approval queue · audit · compare-certify) — chi tiết element từng màn: theo design/mock
-  người cấp (D-13); chưa có → build theo tính năng §6/§9/§13 + tokens dưới.
+  2 màn: **Workspace** (phiên xử lý | trao đổi/yêu cầu | sản phẩm công việc + tiến độ) +
+  **Control Tower** (approval queue · audit · giám sát kỹ thuật · compare-certify). Theo D-75,
+  bề mặt RM/khách/public không hiện provider/model, token/cost, thinking/raw tool trace hay danh xưng
+  Main/SUB; các tín hiệu đó vẫn được ghi/stream cho audit và surface kỹ thuật có quyền. `Conversation`
+  chỉ được gọi là **phiên xử lý**, không được gọi là hồ sơ khi chưa có application↔conversation
+  contract. Workspace/SDK chỉ đọc trạng thái phê duyệt; quyết định chỉ thực hiện trong Control Tower
+  có auth + audit (D-71/D-74). Chi tiết element: theo design/mock người cấp (D-13); chưa có → build
+  theo §6/§9/§13.
 - **Deploy**: docker compose (api, web, postgres) — on-premise 1 lệnh.
 
 ## 13. Ánh xạ deliverable đề
@@ -327,10 +354,12 @@ assumptions(key, value)                                 -- con số nghiệp v�
 
 ## 14. KHÔNG LÀM (chống phình)
 
-Marketplace · billing · multi-team · mobile · i18n ngoài VI · WebSocket · phân quyền >2 role ·
-**debounce cửa chat** · **outbox/replay-cursor** · **Redis** · **máy clone what-if** ·
-**máy cứu-ca-qua-restart** · **train MAIN ở lab** · **hạ tầng vector/RAG khi skill còn đủ** ·
-gate cho write reversible.
+Marketplace · billing · multi-team/cross-tenant collaboration · mobile · i18n ngoài VI · WebSocket · phân quyền >2 role ·
+**debounce cửa chat** · **máy clone what-if** · **train MAIN ở lab** · gate cho write reversible.
+
+Outbox publisher/replay cursor, nhiều worker, Redis và vector/search DB **không bật mặc định**.
+Chúng chỉ được đưa vào runtime khi có workload, SLO, benchmark và runbook chứng minh; schema/port
+có thể chuẩn bị trước nhưng không được tuyên bố là năng lực vận hành khi consumer chưa chạy thật.
 
 ## 15. RULE CẦN TRÁNH (anti-pattern riêng của hệ này)
 
@@ -343,13 +372,13 @@ gate cho write reversible.
 | Cờ `running` giả sau restart | UI treo, main tưởng còn con chạy | tin registry sống; boot đánh failed task mồ côi (§8) |
 | Vỏ ép luật "đợi đủ N con" | cướp quyết định của não | vỏ đưa bảng việc, não quyết (N1) |
 | Envelope cứng ép mọi câu trả lời | gò model, vỡ khi lệch schema | text tự do + card opt-in (N5) |
-| Dựng vector/wiki khi skill đủ | hạ tầng thừa, thêm điểm hỏng | chọn cách lấy dữ liệu theo bài (§7) |
+| Dựng specialist DB khi core còn đạt SLO | hạ tầng thừa, thêm điểm hỏng | benchmark rồi map đúng capability (§7/§12) |
 | 2 nguồn sự thật contract tool | function tay + manifest tay → drift | 1 nguồn: SCHEMAS đi cùng functions (§7) |
 | Số không nguồn trong card/trả lời | "bịa" — chết điểm bank | mọi số kèm `source` tool-call (§6) |
 | ID kỹ thuật lên mặt-tool-agent | model chép id = hallucinate/gõ sai; id là dead weight khi role đã là khoá | TÊN cho model (role/enum đóng), ID cho code — DB/SSE/FE giữ id (§4.1) |
 | Đòi model bơm ID nó chưa từng được phát | model chỉ có thể BỊA id từ hư không — tệ hơn cả chép nhầm | vỏ inject mọi id; tham chiếu bằng tên tool/role (§6) |
 | Retry-thành-xin-duyệt-lại | phiếu đã used + sub gọi lại = phiếu mới = admin duyệt lần 2 = thực thi ĐÔI | biên nhận theo (conv, action, payload_hash) — trả kết quả cũ (§4.4) |
-| Single-use không atomic | check→chạy→mark có `await` xen giữa = 1 phiếu chạy 2 lần | claim bằng atomic UPDATE…WHERE rồi mới thực thi (§4.4) |
+| Single-use không atomic | check→chạy→mark có khe cạnh tranh = 1 phiếu chạy 2 lần | lock row; thực thi và ghi `used+receipt+used_at` trong cùng transaction (§4.4) |
 | Param lạ bị nuốt im lặng | gõ `loan_amount` thay `loan_amount_vnd` → default 0 → verdict sai đầy tự tin | arg ngoài schema → error 4-field `bad_param`, không lọc im (§7) |
 | Idempotent chỉ cho đường "đẹp" | dispatch có chống-đôi mà tạo phiếu/card thì không → retry = spam phiếu, card trùng | MỌI đường ghi gọi-lặp-được đều idempotent (§4.1, §4.4, §6) |
 | Hủy ngoài băng | disconnect cross-task treo im lặng; report bị cancel = mất event = phòng treo | hủy qua chính vòng đời sub; report trong `finally` có shield (§4.3) |
@@ -371,15 +400,22 @@ gate cho write reversible.
 
 ## Meta (bổ sung theo SPEC template)
 
-- **App:** Digital Expert Guild — đội chuyên gia số ngân hàng SHB (đề #132 VAIC 2026).
-- **Cho ai:** multi-user 2 role — `user` (RM) / `admin` (quản lý·compliance). Giám khảo dùng 1 trong 2.
+- **App:** Digital Expert Guild — copilot sơ thẩm + vận hành middle office bằng đội chuyên gia số
+  ngân hàng SHB (đề #132 VAIC 2026).
+- **Định vị sống (D-73, 2026-08-24):** phục vụ RM/cán bộ tín dụng và bàn phê duyệt xử lý hồ sơ
+  SME/phức tạp/có tài sản bảo đảm. Hệ chuẩn bị tờ trình, nguồn và cảnh báo; con người quyết định và
+  ký. KHÔNG định vị là máy tự quyết khoản vay nhỏ.
+- **Cho ai:** persona chính = bàn RM/cán bộ tín dụng + `admin` (phê duyệt·compliance). Bề mặt
+  `user`/cửa khách được giữ làm demo/sandbox cho intake, read-scope và vòng đời end-to-end;
+  giám khảo vẫn dùng được cả hai role.
 - **Chốt:** 2026-07-17 (spec v2.0 sau audit đối kháng 3 vòng).
 - **Design baseline:** mock tại `design/` (D-14) — THAM KHẢO look-and-feel (D-13). Tokens
   ĐẦY ĐỦ ở `design/workspace/shared.jsx` (object `T`: nền/panel/border/chữ + accent
   `#d97757` + bộ run/pass/fail/warn/main + font Be Vietnam Pro/mono) → FE port thành
   `frontend/src/tokens.css` ở dispatch đầu.
-- **Screens:** 2 màn (§12): Workspace (sidebar ca | chat | canvas card) + Control Tower
-  (live map · traces · approval queue · audit · compare-certify). Element từng màn: build theo
+- **Screens:** 2 màn (§12): Workspace (sidebar phiên xử lý | trao đổi nghiệp vụ | sản phẩm công việc
+  mặc định + tiến độ xử lý) + Control Tower (approval queue · audit · giám sát · compare-certify).
+  Workspace không giả lập case/application read-model và không lộ telemetry AI theo D-75. Element: build theo
   TÍNH NĂNG các § của spec (§6 card, §9 SSE, §13 deliverable) — không tự chế thêm màn ngoài 2
   màn này; look-and-feel theo `design/` (Workspace mock + lobby 3D + Login/Tower/Approval
   trong `design/Digital Expert Guild.dc.html`).

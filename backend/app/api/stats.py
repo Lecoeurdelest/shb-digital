@@ -16,8 +16,10 @@ import psycopg2.extras
 from fastapi import APIRouter, Depends, Query
 
 from app.auth.deps import require_admin
-from app.db.config import DATABASE_URL
 from app.errors import ApiError
+from app.orch import store_shadow
+from app.storage import connect_core
+from app.tenancy import tenant_id_from_claims
 
 log = logging.getLogger("api.stats")
 
@@ -52,26 +54,36 @@ async def get_stats(window: str = Query("24h"), claims: dict = Depends(require_a
         )
     import asyncio
 
-    return await asyncio.to_thread(_stats_sync, window)
+    return await asyncio.to_thread(_stats_sync, window, tenant_id_from_claims(claims))
 
 
-def _stats_sync(window: str) -> dict[str, Any]:
+@router.get("/stats/shadow-match")
+async def get_shadow_match(claims: dict = Depends(require_admin)) -> dict[str, Any]:
+    """Độ khớp snapshot hệ thống ↔ quyết định người (admin, shape cố định CONTRACT §7b)."""
+    return await store_shadow.get_shadow_match(tenant_id_from_claims(claims))
+
+
+def _stats_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
     start, prev_start, end = _window_bounds(window)
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             # ── approvals theo window (decided_at). approved gồm 'used' (đã thực thi). auto riêng. ──
+            tenant_and = " AND tenant_id=%s" if tenant_id is not None else ""
             cur.execute(
                 "SELECT "
                 "count(*) FILTER (WHERE status IN ('approved','used')) AS approved, "
                 "count(*) FILTER (WHERE status='rejected') AS rejected, "
                 "count(*) FILTER (WHERE decided_by='auto-rule') AS auto "
-                "FROM approvals WHERE decided_at >= %s AND decided_at < %s",
-                (start, end),
+                f"FROM approvals WHERE decided_at >= %s AND decided_at < %s{tenant_and}",
+                (start, end, tenant_id) if tenant_id is not None else (start, end),
             )
             appr = cur.fetchone()
             # pending = trạng thái HIỆN TẠI (không lọc window — pending là snapshot hiện tại)
-            cur.execute("SELECT count(*) AS pending FROM approvals WHERE status='pending'")
+            cur.execute(
+                f"SELECT count(*) AS pending FROM approvals WHERE status='pending'{tenant_and}",
+                (tenant_id,) if tenant_id is not None else (),
+            )
             pending = cur.fetchone()["pending"]
 
             # ── assessments theo lane, created_at TEXT → cast timestamptz (an toàn mọi format iso) ──
@@ -80,36 +92,45 @@ def _stats_sync(window: str) -> dict[str, Any]:
                 "count(*) FILTER (WHERE lane='green') AS green, "
                 "count(*) FILTER (WHERE lane='yellow') AS yellow, "
                 "count(*) FILTER (WHERE lane='red') AS red "
-                "FROM assessments WHERE created_at::timestamptz >= %s AND created_at::timestamptz < %s",
-                (start, end),
+                f"FROM assessments WHERE created_at::timestamptz >= %s "
+                f"AND created_at::timestamptz < %s{tenant_and}",
+                (start, end, tenant_id) if tenant_id is not None else (start, end),
             )
             assess = cur.fetchone()
 
             # ── conversations: total tạo trong window + active=running hiện tại ──
             cur.execute(
-                "SELECT count(*) AS total FROM conversations WHERE created_at >= %s AND created_at < %s", (start, end)
+                f"SELECT count(*) AS total FROM conversations WHERE created_at >= %s AND created_at < %s{tenant_and}",
+                (start, end, tenant_id) if tenant_id is not None else (start, end),
             )
             conv_total = cur.fetchone()["total"]
-            cur.execute("SELECT count(*) AS active FROM conversations WHERE status='running'")
+            cur.execute(
+                f"SELECT count(*) AS active FROM conversations WHERE status='running'{tenant_and}",
+                (tenant_id,) if tenant_id is not None else (),
+            )
             conv_active = cur.fetchone()["active"]
 
             # ── delta: tổng kỳ này − tổng kỳ TRƯỚC cùng độ dài ──
             cur.execute(
                 "SELECT count(*) FILTER (WHERE decided_at >= %s AND decided_at < %s) AS cur_appr, "
                 "count(*) FILTER (WHERE decided_at >= %s AND decided_at < %s) AS prev_appr "
-                "FROM approvals",
-                (start, end, prev_start, start),
+                f"FROM approvals{' WHERE tenant_id=%s' if tenant_id is not None else ''}",
+                (start, end, prev_start, start, tenant_id)
+                if tenant_id is not None
+                else (start, end, prev_start, start),
             )
             d_appr = cur.fetchone()
             cur.execute(
                 "SELECT "
                 "count(*) FILTER (WHERE created_at::timestamptz >= %s AND created_at::timestamptz < %s) AS cur_ass, "
                 "count(*) FILTER (WHERE created_at::timestamptz >= %s AND created_at::timestamptz < %s) AS prev_ass "
-                "FROM assessments",
-                (start, end, prev_start, start),
+                f"FROM assessments{' WHERE tenant_id=%s' if tenant_id is not None else ''}",
+                (start, end, prev_start, start, tenant_id)
+                if tenant_id is not None
+                else (start, end, prev_start, start),
             )
             d_ass = cur.fetchone()
-            sparks = _sparks(cur, start, end)
+            sparks = _sparks(cur, start, end, tenant_id)
     finally:
         conn.close()
 
@@ -131,7 +152,7 @@ def _stats_sync(window: str) -> dict[str, Any]:
     }
 
 
-def _sparks(cur: Any, start: datetime, end: datetime) -> dict[str, list[int]]:
+def _sparks(cur: Any, start: datetime, end: datetime, tenant_id: str | None = None) -> dict[str, list[int]]:
     """D-70: 24-bucket ĐỀU cho mỗi KPI (approved/rejected/green/yellow/red/conversations). generate_series
     24 bucket (width=window/24) LEFT JOIN + COALESCE 0 → LUÔN đúng 24 số (rỗng → 24 số 0). Keyed theo tên KPI."""
     width = (end - start) / 24
@@ -143,8 +164,10 @@ def _sparks(cur: Any, start: datetime, end: datetime) -> dict[str, list[int]]:
         "SELECT floor(extract(epoch FROM (decided_at - %s)) / extract(epoch FROM %s::interval))::int AS b, "
         "count(*) FILTER (WHERE status IN ('approved','used')) AS approved, "
         "count(*) FILTER (WHERE status='rejected') AS rejected "
-        "FROM approvals WHERE decided_at >= %s AND decided_at < %s GROUP BY b",
-        (start, width, start, end),
+        "FROM approvals WHERE decided_at >= %s AND decided_at < %s"
+        + (" AND tenant_id=%s" if tenant_id is not None else "")
+        + " GROUP BY b",
+        (start, width, start, end, tenant_id) if tenant_id is not None else (start, width, start, end),
     )
     for r in cur.fetchall():
         b = r["b"]
@@ -157,8 +180,10 @@ def _sparks(cur: Any, start: datetime, end: datetime) -> dict[str, list[int]]:
         "/ extract(epoch FROM %s::interval))::int AS b, "
         "count(*) FILTER (WHERE lane='green') AS green, count(*) FILTER (WHERE lane='yellow') AS yellow, "
         "count(*) FILTER (WHERE lane='red') AS red "
-        "FROM assessments WHERE created_at::timestamptz >= %s AND created_at::timestamptz < %s GROUP BY b",
-        (start, width, start, end),
+        "FROM assessments WHERE created_at::timestamptz >= %s AND created_at::timestamptz < %s"
+        + (" AND tenant_id=%s" if tenant_id is not None else "")
+        + " GROUP BY b",
+        (start, width, start, end, tenant_id) if tenant_id is not None else (start, width, start, end),
     )
     for r in cur.fetchall():
         b = r["b"]
@@ -167,8 +192,10 @@ def _sparks(cur: Any, start: datetime, end: datetime) -> dict[str, list[int]]:
     # conversations total
     cur.execute(
         "SELECT floor(extract(epoch FROM (created_at - %s)) / extract(epoch FROM %s::interval))::int AS b, "
-        "count(*) AS total FROM conversations WHERE created_at >= %s AND created_at < %s GROUP BY b",
-        (start, width, start, end),
+        "count(*) AS total FROM conversations WHERE created_at >= %s AND created_at < %s"
+        + (" AND tenant_id=%s" if tenant_id is not None else "")
+        + " GROUP BY b",
+        (start, width, start, end, tenant_id) if tenant_id is not None else (start, width, start, end),
     )
     for r in cur.fetchall():
         b = r["b"]
@@ -188,24 +215,28 @@ async def list_assessments(
     Filter owner optional. criteria_json parse → criteria[]; JSON hỏng → criteria=[] (row vẫn trả)."""
     import asyncio
 
-    return await asyncio.to_thread(_assessments_sync, owner, limit)
+    return await asyncio.to_thread(_assessments_sync, owner, limit, tenant_id_from_claims(claims))
 
 
-def _assessments_sync(owner: str | None, limit: int) -> list[dict[str, Any]]:
-    conn = psycopg2.connect(DATABASE_URL)
+def _assessments_sync(owner: str | None, limit: int, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             if owner:
+                tenant_clause = " AND tenant_id=%s" if tenant_id is not None else ""
+                params = (owner, tenant_id, limit) if tenant_id is not None else (owner, limit)
                 cur.execute(
                     "SELECT id, owner_id, loan_type, loan_amount_vnd, lane, criteria_json, basis, created_at "
-                    "FROM assessments WHERE owner_id=%s ORDER BY created_at DESC, id DESC LIMIT %s",
-                    (owner, limit),
+                    f"FROM assessments WHERE owner_id=%s{tenant_clause} ORDER BY created_at DESC, id DESC LIMIT %s",
+                    params,
                 )
             else:
+                tenant_where = " WHERE tenant_id=%s" if tenant_id is not None else ""
+                params = (tenant_id, limit) if tenant_id is not None else (limit,)
                 cur.execute(
                     "SELECT id, owner_id, loan_type, loan_amount_vnd, lane, criteria_json, basis, created_at "
-                    "FROM assessments ORDER BY created_at DESC, id DESC LIMIT %s",
-                    (limit,),
+                    f"FROM assessments{tenant_where} ORDER BY created_at DESC, id DESC LIMIT %s",
+                    params,
                 )
             rows = cur.fetchall()
     finally:

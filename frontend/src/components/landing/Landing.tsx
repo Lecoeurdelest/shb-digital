@@ -1,50 +1,47 @@
-// Landing.tsx — trang mặt tiền (design/Landing Page.dc.html — D-13) cho digital.tinhdev.com.
-// Hero 3D = Lobby3D THẬT của app (chi nhánh BANK — "cửa sổ vào sản phẩm", người chốt 18/7 thay
-// team3d capsule của mock). Auth modal = Login component thật (user/pass + Google PR #2) —
-// KHÔNG form đăng ký email giả của mock (đăng ký = Google, khách mới tự tạo). Deviation ghi PR.
+// Landing.tsx — mặt tiền định vị máy sơ thẩm + Middle Office (D-73/D-75).
 import { useEffect, useState } from 'react';
 import { Login } from '../Login';
-import { Lobby3D, type LobbyStatus } from '../Lobby3D';
 import { ThemeToggle } from '../ThemeToggle';
 import { conversationApi } from '../../api';
 import type { AuthUser } from '../../types';
 import './Landing.css';
 
-interface AgentInfo { icon: string; name: string; color: string; desc: string; tools: string }
+interface BusinessArea { icon: string; name: string; color: string; desc: string; deliverable: string }
 
-const AGENTS: Record<string, AgentInfo> = {
-  planner: { icon: '◆', name: 'Main — Điều phối', color: '#b98cd9', desc: 'Không có domain riêng: decompose yêu cầu, giao việc, hòa giải mâu thuẫn giữa phòng ban, tổng hợp câu trả lời cuối.', tools: 'orch_dispatch · orch_merge' },
-  credit: { icon: '🧮', name: 'Tín dụng', color: '#5fb2c9', desc: 'Thẩm định năng lực trả nợ: DSCR, LTV, tra CIC. Mọi chỉ số kèm ngưỡng và nguồn tool.', tools: 'calc_dscr · calc_ltv · check_cic' },
-  legal: { icon: '⚖', name: 'Pháp chế & Tuân thủ', color: '#dda94a', desc: 'Soát hồ sơ pháp lý, phát hiện giấy tờ thiếu/hết hạn, gắn điều kiện trước giải ngân.', tools: 'check_documents · check_regulation' },
-  products: { icon: '📦', name: 'Sản phẩm', color: '#82b878', desc: 'So sánh gói vay theo phân khúc và mục đích, đề xuất gói tối ưu kèm lãi suất từ catalog.', tools: 'get_products · match_package' },
-  ops: { icon: '⚙', name: 'Vận hành', color: '#d97757', desc: 'Lập lộ trình thực thi. Hành động nhạy cảm (giải ngân) bị chặn ở tầng tool — tạo phiếu chờ người duyệt.', tools: 'ops_disburse 🔒 · get_status' },
+const WORKSTREAMS: Record<string, BusinessArea> = {
+  coordination: { icon: '◆', name: 'Điều phối nghiệp vụ', color: '#b98cd9', desc: 'Tiếp nhận yêu cầu, phối hợp các mảng chuyên môn và tổng hợp kết quả để RM tiếp tục xử lý.', deliverable: 'Kết luận tổng hợp' },
+  credit: { icon: '🧮', name: 'Tín dụng', color: '#5fb2c9', desc: 'Kiểm tra năng lực trả nợ, DSCR, LTV và thông tin tín dụng; mỗi chỉ số có ngưỡng và nguồn.', deliverable: 'Bảng chỉ số sơ thẩm' },
+  legal: { icon: '⚖', name: 'Pháp chế & Tuân thủ', color: '#dda94a', desc: 'Rà soát giấy tờ thiếu, hết hạn và điều kiện cần hoàn tất trước giải ngân.', deliverable: 'Danh mục cần bổ sung' },
+  products: { icon: '📦', name: 'Sản phẩm', color: '#82b878', desc: 'Đối chiếu mục đích, phân khúc và điều kiện để đề xuất phương án phù hợp.', deliverable: 'Phương án đề xuất' },
+  ops: { icon: '⚙', name: 'Vận hành', color: '#d97757', desc: 'Lập lộ trình bàn giao; hành động nhạy cảm dừng ở phiếu chờ người có thẩm quyền.', deliverable: 'Lộ trình và phiếu duyệt' },
 };
 
-// hero demo: đội đang "chạy ca" — Main + Tín dụng + Pháp chế run (icon nháy + beam), đúng cơ chế app
-const HERO_AGENTS: Record<string, LobbyStatus> = { planner: 'run', credit: 'run', legal: 'run', products: 'idle', ops: 'idle' };
-
 const STEPS = [
-  { n: '1', icon: '💬', title: 'RM gõ yêu cầu tiếng Việt', desc: 'Một câu chat duy nhất. Thiếu thông tin? Main hỏi lại ngay trong hội thoại.' },
-  { n: '2', icon: '🗂', title: 'Main chia việc', desc: 'Task-tree: Tín dụng chạy trước, Pháp chế chờ kết quả, Sản phẩm chạy song song.' },
-  { n: '3', icon: '⚡', title: 'Đội chạy — nhìn thấy live', desc: 'Lobby 3D + canvas: từng phòng ban trả kết quả theo phong bì chuẩn, card sáng dần.' },
-  { n: '4', icon: '🔒', title: 'Người duyệt bấm nút cuối', desc: 'Kết luận tổng hợp có nguồn từng con số. Giải ngân dừng ở phiếu phê duyệt — người quyết.' },
+  { n: '1', icon: '💬', title: 'RM nhập yêu cầu nghiệp vụ', desc: 'Nêu nhu cầu vay, thông tin khách hàng và mục tiêu cần kiểm tra trong một Phiên xử lý.' },
+  { n: '2', icon: '🗂', title: 'Kiểm tra dữ liệu đầu vào', desc: 'Đối chiếu khả năng trả nợ, thông tin tín dụng và giấy tờ; chỉ rõ nội dung còn thiếu.' },
+  { n: '3', icon: '📋', title: 'Chuẩn bị sản phẩm công việc', desc: 'Bảng chỉ số, điều kiện, phương án và tờ trình được cập nhật kèm nguồn nghiệp vụ.' },
+  { n: '4', icon: '🔒', title: 'Bàn giao đúng thẩm quyền', desc: 'RM tiếp tục hoàn thiện; hành động nhạy cảm dừng ở phiếu để người có thẩm quyền quyết định.' },
 ];
 
 const CONTROLS = [
-  { icon: '🗺', title: 'Live orchestration map', desc: 'Thấy realtime ai đang làm gì: node đổi màu, beam giao việc, task-tree với dependency.' },
-  { icon: '🔍', title: 'Trace từng bước', desc: 'Mỗi quyết định có vết: agent nào, tool nào, input/output JSON — click là xem.' },
-  { icon: '⏸', title: 'Human-approval gate', desc: 'Hành động ranh giới bị chặn ở tầng tool bằng phiếu payload-hash, single-use — không phải lời dặn trong prompt.' },
-  { icon: '📋', title: 'Audit log append-only', desc: 'Mọi LLM call, tool call, quyết định người duyệt — lọc theo ca, truy ngược từng bước, ghi cả call đứt giữa chừng.' },
-  { icon: '⚖', title: 'So sánh 1 AI vs cả đội', desc: 'Cùng một câu hỏi chạy 2 chế độ — cột đội chạy luồng thật, đếm tool call, card, thời gian. Khác biệt đo được.' },
-  { icon: '🔔', title: 'Thông báo chờ duyệt', desc: 'Phiếu chờ duyệt, ca xong — chuông in-app real-time + email cho người duyệt. Không ai phải ngồi canh màn hình.' },
+  { icon: '🗂', title: 'Phân tách thẩm quyền', desc: 'RM chuẩn bị và bàn giao; người có thẩm quyền giữ quyết định cuối đối với hành động nhạy cảm.' },
+  { icon: '🔍', title: 'Nguồn và thời điểm', desc: 'Chỉ số nghiệp vụ đi cùng nguồn dữ liệu và thời điểm để người kiểm soát có thể đối chiếu.' },
+  { icon: '⏸', title: 'Phanh phê duyệt', desc: 'Giải ngân và hành động ranh giới luôn dừng ở phiếu chờ duyệt, không thực thi ngoài quy trình.' },
+  { icon: '📋', title: 'Nhật ký kiểm soát', desc: 'Các bước xử lý và quyết định được lưu để kiểm tra, truy vết và phục vụ hậu kiểm.' },
+  { icon: '⚠', title: 'Cảnh báo thiếu dữ liệu', desc: 'Tài liệu thiếu, thông tin mâu thuẫn và điều kiện chưa đạt được nêu rõ trước khi bàn giao.' },
+  { icon: '🔔', title: 'Thông báo bàn giao', desc: 'Phiếu chờ duyệt và kết quả hoàn tất được chuyển tới đúng người, không cần ngồi canh màn hình.' },
 ];
 
-const MARQUEE = ['🧮 DSCR · LTV · CIC có nguồn tool', '⚖ Pháp chế soát từng giấy tờ', '🔒 Giải ngân chờ người duyệt', '📋 Audit log append-only', '⚡ Nhiều ngày chờ → vài phút', '🔔 Chuông + email chờ duyệt'];
+const MARQUEE = ['🧮 DSCR · LTV · CIC có nguồn', '⚖ Rà soát từng giấy tờ', '🔒 Giải ngân chờ người duyệt', '📋 Nhật ký kiểm soát', '⚡ Chuẩn bị tờ trình nhanh hơn', '🔔 Thông báo đúng người xử lý'];
 
-export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) {
-  const [authOpen, setAuthOpen] = useState(false);
-  const [heroFocus, setHeroFocus] = useState('planner');
-  const pick = AGENTS[heroFocus] ?? AGENTS.planner;
+interface Props {
+  onSuccess: (user: AuthUser) => void;
+  initialAuthOpen?: boolean;
+  nextPath?: string;
+}
+
+export function Landing({ onSuccess, initialAuthOpen = false, nextPath }: Props) {
+  const [authOpen, setAuthOpen] = useState(initialAuthOpen);
 
   // PREFETCH providers NGAY khi Landing mount (không đợi mở modal) — chống flaky layout-shift T11-4:
   // fetch bắt đầu lúc page-load, user đọc hero vài giây trước khi bấm Đăng nhập → thường resolved
@@ -63,17 +60,14 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
     <div className="landing">
       {/* NAV */}
       <nav className="lp-nav">
-        {/* nav-polish (S14b, user): thứ bậc brand rõ — "BANK Digital" = brand chính (đậm) cạnh logo;
-            "Digital Expert Guild · Hội đồng Chuyên gia Số" = tagline phụ muted 1 cụm. Vẫn giữ A-02
-            (nhận diện ngân hàng số trong 5s). Tagline ẩn ở viewport hẹp (giữ logo+brand+nút). */}
         <span className="lp-logo">G</span>
         <span className="lp-nav__brandblock">
           <span className="lp-nav__brand">BANK Digital</span>
-          <span className="lp-nav__tagline">Digital Expert Guild · Hội đồng Chuyên gia Số</span>
+          <span className="lp-nav__tagline">Sơ thẩm &amp; Middle Office</span>
         </span>
         <span className="lp-nav__spacer" />
-        <a className="lp-nav__link" href="#agents">Đội chuyên gia</a>
-        <a className="lp-nav__link" href="#how">Cách vận hành</a>
+        <a className="lp-nav__link" href="#agents">Năng lực nghiệp vụ</a>
+        <a className="lp-nav__link" href="#how">Quy trình</a>
         <a className="lp-nav__link" href="#control">Kiểm soát</a>
         <ThemeToggle />
         <button type="button" className="lp-btn lp-btn--ghost" data-testid="landing-login" onClick={() => setAuthOpen(true)}>Đăng nhập</button>
@@ -84,32 +78,35 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
       <header className="lp-hero">
         <div className="lp-hero__grid">
           <div>
-            <div className="lp-badge"><span className="lp-badge__dot" />Multi-agent banking · có giám sát · có phanh · có bằng chứng</div>
-            <h1 className="lp-hero__title">Một đội chuyên gia số.<br />Nghiệp vụ ngân hàng<br /><span>xong trong 4 phút.</span></h1>
-            <p className="lp-hero__sub">RM gõ một yêu cầu tiếng Việt — Main chia việc cho Tín dụng, Pháp chế, Sản phẩm, Vận hành. Mọi con số có nguồn, hành động nhạy cảm chờ người duyệt.</p>
+            <div className="lp-badge"><span className="lp-badge__dot" />Sơ thẩm khoản vay phức tạp · có nguồn · có phanh · người duyệt</div>
+            <h1 className="lp-hero__title">Từ yêu cầu của RM<br />đến tờ trình sơ thẩm<br /><span>có căn cứ.</span></h1>
+            <p className="lp-hero__sub">Một Phiên xử lý phối hợp Tín dụng, Pháp chế, Sản phẩm và Vận hành để kiểm tra dữ liệu, chỉ ra nội dung thiếu và chuẩn bị bàn giao. Mọi con số có nguồn; quyết định cuối vẫn thuộc về con người.</p>
             <div className="lp-hero__cta">
-              <button type="button" className="lp-btn lp-btn--primary lp-btn--lg" onClick={() => setAuthOpen(true)}>Bắt đầu miễn phí →</button>
-              <a className="lp-btn lp-btn--ghost lp-btn--lg" href="#how">Xem cách vận hành</a>
+              <button type="button" className="lp-btn lp-btn--primary lp-btn--lg" onClick={() => setAuthOpen(true)}>Bắt đầu xử lý →</button>
+              <a className="lp-btn lp-btn--ghost lp-btn--lg" href="#how">Khám phá quy trình</a>
             </div>
             <div className="lp-hero__stats">
-              <div><b>4 phòng ban</b><span>chuyên sâu + 1 Main điều phối</span></div>
+              <div><b>4 mảng</b><span>phối hợp xuyên suốt</span></div>
               <i />
-              <div><b>100% có vết</b><span>trace · audit · nguồn từng số</span></div>
+              <div><b>Nguồn từng số</b><span>sẵn sàng đối chiếu</span></div>
               <i />
               <div><b className="lp-acc">0 tự tiện</b><span>giải ngân chờ người duyệt</span></div>
             </div>
           </div>
-          {/* 3D THẬT của app — cửa sổ vào sản phẩm */}
           <div className="lp-hero__stage">
-            <Lobby3D agents={HERO_AGENTS} focus={heroFocus} onSelect={setHeroFocus} />
-            <div className="lp-hero__chip" style={{ borderColor: pick.color }}>
-              <span className="lp-hero__chip-icon">{pick.icon}</span>
-              <div>
-                <div className="lp-hero__chip-name" style={{ color: pick.color }}>{pick.name}</div>
-                <div className="lp-hero__chip-desc">{pick.desc}</div>
+            <div style={{ height: '100%', display: 'grid', placeItems: 'center', padding: 36 }}>
+              <div className="lp-example" style={{ marginTop: 0 }}>
+                <div className="lp-example__body">
+                  <div className="lp-kicker lp-kicker--dim">SẢN PHẨM CÔNG VIỆC</div>
+                  <div className="lp-example__text">
+                    <b>Tờ trình sơ thẩm</b><br />DSCR 1,40 · LTV 62,5% · CIC nhóm 1<br />
+                    <em className="warn">Thiếu xác nhận PCCC còn hiệu lực</em><br />
+                    Khuyến nghị: <em className="ok">duyệt có điều kiện</em>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="lp-hero__hint">click một nhân vật để xem vai trò</div>
+            <div className="lp-hero__hint">Kết quả minh họa · quyết định thuộc người có thẩm quyền</div>
           </div>
         </div>
       </header>
@@ -117,15 +114,15 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
       {/* MARQUEE */}
       <div className="lp-marquee"><div className="lp-marquee__track">{[...MARQUEE, ...MARQUEE].map((m, i) => <span key={i}>{m}</span>)}</div></div>
 
-      {/* AGENTS */}
+      {/* NĂNG LỰC NGHIỆP VỤ */}
       <section id="agents" className="lp-section">
         <div className="lp-section__head">
-          <div className="lp-kicker">ĐỘI CHUYÊN GIA</div>
-          <h2>Một Main điều phối — bốn phòng ban chuyên sâu</h2>
-          <p>Hub-and-spoke: mọi bàn giao qua Main, không side-channel. Thêm nghiệp vụ mới = thêm tool + prompt — đội không đổi.</p>
+          <div className="lp-kicker">NĂNG LỰC NGHIỆP VỤ</div>
+          <h2>Một quy trình xuyên suốt bốn mảng chuyên môn</h2>
+          <p>RM nhận kết quả theo từng sản phẩm công việc, biết rõ nội dung đã kiểm tra, phần còn thiếu và bước bàn giao tiếp theo.</p>
         </div>
         <div className="lp-agents">
-          {Object.values(AGENTS).map((a, i) => (
+          {Object.values(WORKSTREAMS).map((a, i) => (
             <div className="lp-agent" key={a.name}>
               <span className="lp-agent__n">0{i + 1}</span>
               <span className="lp-agent__icon" style={{ color: a.color }}>{a.icon}</span>
@@ -133,7 +130,7 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
                 <span className="lp-agent__name" style={{ color: a.color }}>{a.name}</span>
                 <span className="lp-agent__desc">{a.desc}</span>
               </span>
-              <span className="lp-agent__tools">{a.tools}</span>
+              <span className="lp-agent__tools">{a.deliverable}</span>
             </div>
           ))}
         </div>
@@ -144,7 +141,7 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
         <div className="lp-section__inner">
           <div className="lp-section__head">
             <div className="lp-kicker">CÁCH VẬN HÀNH</div>
-            <h2>Từ một câu chat đến quyết định có bằng chứng</h2>
+            <h2>Từ yêu cầu nghiệp vụ đến bàn giao có căn cứ</h2>
           </div>
           <div className="lp-steps">
             {STEPS.map((st) => (
@@ -158,14 +155,14 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
           </div>
           <div className="lp-example">
             <div className="lp-example__body">
-              <div className="lp-kicker lp-kicker--dim">VÍ DỤ THẬT — CA VAY 5 TỶ</div>
+              <div className="lp-kicker lp-kicker--dim">VÍ DỤ — KHOẢN VAY 5 TỶ</div>
               <div className="lp-example__text">
                 "Gỗ Việt Phát vay 5 tỷ mở rộng xưởng…" → <em className="ok">DSCR 1,40 ✓</em> · <em className="ok">LTV 62,5% ✓</em> · <em className="warn">⚠ thiếu PCCC 2026</em> → <b>DUYỆT CÓ ĐIỀU KIỆN</b> · giải ngân <em className="warn">🔒 chờ người duyệt</em>
               </div>
             </div>
             <div className="lp-example__nums">
               <div><s>3–5 ngày</s><span>quy trình cũ · 4 phòng ban</span></div>
-              <div><b>4 phút</b><span>đội agent + 1 lần duyệt</span></div>
+              <div><b>1 luồng</b><span>phối hợp + 1 lần duyệt</span></div>
             </div>
           </div>
         </div>
@@ -175,7 +172,7 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
       <section id="control" className="lp-section">
         <div className="lp-section__head">
           <div className="lp-kicker">NGÂN HÀNG KIỂM SOÁT ĐƯỢC</div>
-          <h2>Không phải hộp đen — mọi bước có vết</h2>
+          <h2>Mọi bước rõ trách nhiệm và có thể đối chiếu</h2>
         </div>
         <div className="lp-controls">
           {CONTROLS.map((c) => (
@@ -190,8 +187,8 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
 
       {/* CTA */}
       <section className="lp-cta">
-        <h2>Sẵn sàng gặp đội chuyên gia số?</h2>
-        <p>Tài khoản RM để chạy ca — tài khoản Admin để thấy toàn bộ Control Tower.</p>
+        <h2>Sẵn sàng mở Phiên xử lý sơ thẩm?</h2>
+        <p>Tài khoản RM để chuẩn bị và bàn giao; tài khoản quản lý để theo dõi phê duyệt.</p>
         <div className="lp-cta__row">
           <button type="button" className="lp-btn lp-btn--primary lp-btn--lg" onClick={() => setAuthOpen(true)}>Tạo tài khoản →</button>
           <button type="button" className="lp-btn lp-btn--ghost lp-btn--lg" onClick={() => setAuthOpen(true)}>Đăng nhập</button>
@@ -201,10 +198,10 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
       {/* FOOTER */}
       <footer className="lp-footer">
         <span className="lp-logo lp-logo--sm">G</span>
-        <span className="lp-footer__name">Digital Expert Guild</span>
+        <span className="lp-footer__name">BANK Digital</span>
         <span className="lp-footer__note">· Hackathon #132</span>
         <span className="lp-nav__spacer" />
-        <span className="lp-footer__note">Workspace · Control Tower</span>
+        <span className="lp-footer__note">Sơ thẩm · Middle Office · Phê duyệt</span>
       </footer>
 
       {/* AUTH MODAL — Login THẬT (user/pass + tab Đăng ký khách mới + nút Google khi server bật). */}
@@ -215,7 +212,7 @@ export function Landing({ onSuccess }: { onSuccess: (user: AuthUser) => void }) 
             <button type="button" className="lp-modal__close" aria-label="Đóng" onClick={() => setAuthOpen(false)}>✕</button>
             {/* Login tự lo mọi đường vào: user/pass · tab Đăng ký khách mới (T9-3) · nút Google (ẩn khi
                server tắt — gỡ signup-hint google cứng ở đây để khối Google ẩn TRỌN khi providers.google=false). */}
-            <Login onSuccess={onSuccess} googleEnabled={googleEnabled} />
+            <Login onSuccess={onSuccess} googleEnabled={googleEnabled} nextPath={nextPath} />
           </div>
         </div>
       )}

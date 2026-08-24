@@ -1,0 +1,2 @@
+
+CỔNG TỜ TRÌNH: ĐÃ ĐỦ $role_count role chuyên gia khác nhau đã done ($role_text). BẮT BUỘC gọi `present` với `type: "document"`, title đúng `"$title"`, items đúng 6 mục theo thứ tự: $sections. Mỗi item phải có `source` string khác rỗng; nêu DSCR/LTV/CIC, pháp lý 3 trụ + lane + assessment, điều khoản và khuyến nghị kèm căn cứ ma trận thẩm quyền; top-level `sources` liệt kê tool/role đã dùng.

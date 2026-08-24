@@ -63,9 +63,24 @@ describe('Login — đăng ký khách mới (D-57)', () => {
   it('googleEnabled=true → nút Google hiện (cả tab đăng nhập lẫn đăng ký)', () => {
     render(<Login onSuccess={vi.fn()} googleEnabled={true} />);
     expect(screen.getByTestId('login-google')).toHaveTextContent(/Đăng nhập với Google/);
+    expect(screen.getByTestId('login-google')).toHaveAttribute('href', '/api/auth/google/start');
     // đổi sang tab đăng ký → nút vẫn hiện (text đổi)
     fireEvent.click(screen.getByTestId('tab-register'));
     expect(screen.getByTestId('login-google')).toHaveTextContent(/Đăng ký với Google/);
+  });
+
+  it('Google href mang safe relative next đã encode; unsafe absolute/protocol-relative bị bỏ', () => {
+    const nextPath = '/?tab=approvals&approval=0198a4e1-7b6c-7abc-0012-1234567890ab';
+    const { rerender } = render(<Login onSuccess={vi.fn()} googleEnabled={true} nextPath={nextPath} />);
+    expect(screen.getByTestId('login-google')).toHaveAttribute(
+      'href',
+      `/api/auth/google/start?next=${encodeURIComponent(nextPath)}`,
+    );
+
+    rerender(<Login onSuccess={vi.fn()} googleEnabled={true} nextPath="//evil.example/steal" />);
+    expect(screen.getByTestId('login-google')).toHaveAttribute('href', '/api/auth/google/start');
+    rerender(<Login onSuccess={vi.fn()} googleEnabled={true} nextPath="https://evil.example/steal" />);
+    expect(screen.getByTestId('login-google')).toHaveAttribute('href', '/api/auth/google/start');
   });
 
   it('googleEnabled=undefined (đang tải providers) → RESERVE skeleton, CHƯA nút thật (chống layout-shift)', () => {

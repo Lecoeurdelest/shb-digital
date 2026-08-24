@@ -201,5 +201,10 @@ def conv_provider_env(conv_provider: str | None) -> dict[str, str]:
     """
     providers.reload()
     name = conv_provider or providers.effective_default()
+    # Check tại điểm dùng: chặn cả conversation cũ trỏ provider đã disable lẫn providers.yaml bị
+    # đổi nóng sang host ngoài DC sau startup. Demo no-op để giữ tương thích ngược.
+    from app.runtime_security import enforce_bank_provider_selection
+
+    enforce_bank_provider_selection(name, providers)
     _, env = providers.resolve_env(name)
     return env

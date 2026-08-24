@@ -10,8 +10,8 @@ tool thật trên Postgres, hành động nhạy cảm bị **phanh ở tầng t
 
 ## Thứ tự đọc trước khi sửa code
 
-1. [`SPEC.md`](SPEC.md) — sản phẩm + nguyên lý. **§14 = danh sách KHÔNG-làm** (không Redis,
-   không WebSocket, không debounce, không outbox…) — đừng thêm primitive ngoài danh sách cho phép.
+1. [`SPEC.md`](SPEC.md) — sản phẩm + nguyên lý. **§14 = giới hạn scope**; D-76 cho phép
+   outbox/Redis/vector/search qua datastore capability khi có benchmark + runbook, không bật mặc định.
 2. [`docs/CONTRACT.md`](docs/CONTRACT.md) — shape API/SSE/error. **Đổi shape → sửa file này TRƯỚC**,
    rồi mới sửa code cả 2 phía.
 3. [`docs/patterns/00-INDEX.md`](docs/patterns/00-INDEX.md) — đọc đúng pattern theo phần bạn chạm
@@ -28,6 +28,7 @@ docker compose up -d db                                  # PG15 @ :5432 (shb/shb
 # Backend — làm việc từ backend/
 uv sync
 uv run alembic upgrade head
+uv run python -m app.prompting.sync                     # đăng ký version; thêm --activate khi release
 uv run python -m app.db.seed_from_lab && uv run python -m app.db.seed_users
 uv run uvicorn app.main:app --port 8000 --reload         # DUY NHẤT :8000 — không mọc port mới
 uv run pytest                                            # set TEST_DATABASE_URL=...  để tách DB test

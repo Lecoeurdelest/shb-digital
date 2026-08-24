@@ -15,7 +15,7 @@ import psycopg2
 import psycopg2.extras
 
 from app import config
-from app.db.config import DATABASE_URL
+from app.storage import connect_core
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -73,10 +73,10 @@ def upsert_google_user(*, google_sub: str, email: str) -> dict[str, Any]:
     Idempotent: gọi lại cùng sub → trả đúng row cũ. Trả {id, username, role}.
     """
     email_norm = email.lower().strip()
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT id, username, role FROM users WHERE google_sub=%s", (google_sub,))
+            cur.execute("SELECT id, username, role, tenant_id FROM users WHERE google_sub=%s", (google_sub,))
             row = cur.fetchone()
             if row:
                 return dict(row)
@@ -88,7 +88,7 @@ def upsert_google_user(*, google_sub: str, email: str) -> dict[str, Any]:
                 (email_norm, email_norm, google_sub),
             )
             conn.commit()
-            cur.execute("SELECT id, username, role FROM users WHERE google_sub=%s", (google_sub,))
+            cur.execute("SELECT id, username, role, tenant_id FROM users WHERE google_sub=%s", (google_sub,))
             return dict(cur.fetchone())
     finally:
         conn.close()

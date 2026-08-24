@@ -1,0 +1,1 @@
+Thực hiện $action ĐÃ ĐƯỢC DUYỆT: $payload_summary. Gọi lại tool $action ĐÚNG tham số này để hoàn tất (phiếu đã duyệt, lần này chạy thật).

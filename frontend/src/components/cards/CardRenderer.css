@@ -27,6 +27,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.card__time {
+  flex: none;
+  color: var(--faint);
+  font: 500 9px var(--mono);
+  white-space: nowrap;
+}
 .card__type {
   font: 600 9px var(--mono);
   color: var(--faint);

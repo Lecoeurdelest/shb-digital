@@ -45,13 +45,22 @@ services:
       # DNS chớp trong container = crash-loop (sự cố deploy 18/7). Env đã sync đủ lúc build.
       UV_NO_SYNC: "1"
       APP_URL: ${APP_URL:-http://localhost:3011}   # link CTA mail (S10 → digital.tinhdev.com)
+      # D-71: webhook chỉ là chuông cửa. URL rỗng = tắt; generic + không amount là mặc định an toàn.
+      # CẤM SHB_NOTIFY_INCLUDE_AMOUNT=1 trên mọi kênh nằm ngoài bank DC.
+      SHB_NOTIFY_WEBHOOK_URL: ${SHB_NOTIFY_WEBHOOK_URL:-}
+      SHB_NOTIFY_CHANNEL: ${SHB_NOTIFY_CHANNEL:-generic}
+      SHB_NOTIFY_INCLUDE_AMOUNT: ${SHB_NOTIFY_INCLUDE_AMOUNT:-0}
+      # D-78: chỉ profile scale mới đặt hai URL nội bộ này. Không có URL → vẫn fallback PG an toàn.
+      REDIS_URL: ${REDIS_URL:-}
+      QDRANT_URL: ${QDRANT_URL:-}
     depends_on:
       db: { condition: service_healthy }
-    # migration LUÔN chạy (idempotent) → seed NẾU-RỖNG (D-62: restart giữa demo KHÔNG wipe khách
-    # C9xx đã đăng ký — gate S10 "session bền"). seed_users idempotent (ON CONFLICT). uvicorn 1
-    # worker no-reload (D-38). Reset chủ động = exec reset_demo trong container (deploy.md).
+    # migration LUÔN chạy (idempotent) → đăng ký prompt version mới nhưng KHÔNG đè binding đang
+    # được operator chọn → seed NẾU-RỖNG (D-62). seed_users idempotent. uvicorn 1 worker no-reload
+    # (D-38). Reset chủ động = exec reset_demo trong container (deploy.md).
     command: >
       sh -c "uv run alembic upgrade head &&
+             uv run python -m app.prompting.sync &&
              uv run python -m app.db.seed_if_empty &&
              uv run python -m app.db.seed_users &&
              uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -83,11 +92,30 @@ services:
       - "3011:80"
     networks: [shb132]
 
+  redis:
+    image: redis:7.4-alpine
+    profiles: ["scale"]
+    command: redis-server --save '' --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lfu
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [shb132]
+
+  qdrant:
+    image: qdrant/qdrant:v1.16.3
+    profiles: ["scale"]
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks: [shb132]
+
 volumes:
   hf_cache:
   shb132_pg_data:
   claude_home:
   conv_data:
+  qdrant_data:
 
 networks:
   shb132:

@@ -4,10 +4,8 @@ không block event loop). DB = kho render (SPEC §8); nguồn "đang chạy" là
 Task = dataclass nhẹ (không ORM session — INSERT raw, id server_default D-28c). conv_id là TEXT
 toàn hệ (D-31: tasks.conv_id text tự do — tester dùng 'tester-ca-a-conv'; T1-3 dùng str(uuid)).
 
-D-34: store dùng `psycopg2.connect()` PER-CALL (KHÔNG qua pool get_pool()/acquire()/release()
-của mount/pg_adapter.py) → 2 connection strategy. Có chủ đích S1: render DB (ops tables) ≠ tool
-conn (business tables qua pool cho executor). Ổn dưới 1-worker (bounded to_thread executor cap).
-S2 khi tải cao / connection churn → thống nhất về 1 pool. Xem D-34."""
+D-34 closed: render CRUD và tool executor dùng cùng datastore registry/pool; mỗi hàm vẫn sở hữu
+transaction riêng và trả lease ở finally."""
 
 from __future__ import annotations
 
@@ -20,7 +18,8 @@ from typing import Any
 import psycopg2
 import psycopg2.extras
 
-from app.db.config import DATABASE_URL
+from app.storage import connect_core
+from app.tenancy import DEFAULT_TENANT_ID
 
 
 @dataclass
@@ -76,7 +75,7 @@ def task_to_dict(task: Task) -> dict[str, Any]:
 
 
 def _create_task_sync(conv_id: str, role: str, title: str, brief: str) -> Task:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -97,7 +96,7 @@ def _update_status_sync(task_id: str, status: str, result: dict | None = None, m
     """S6 guard-B (#2 race): terminal status BẤT BIẾN — NGOẠI LỆ DUY NHẤT `failed{server restart}`
     (cờ-giả hạ-tầng boot-cleanup) bị done/timeout THẬT đè. failed-THẬT (user hủy/lỗi tool) KHÔNG bị
     đè. rowcount=0 = write bị guard chặn → log warning (lộ nguồn-ghi-lạ, không nuốt im)."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             if mark_started:
@@ -124,7 +123,7 @@ def _update_status_sync(task_id: str, status: str, result: dict | None = None, m
 
 
 def _get_task_sync(task_id: str) -> Task | None:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -144,7 +143,7 @@ def _get_task_sync(task_id: str) -> Task | None:
 
 
 def _board_sync(conv_id: str) -> list[dict[str, Any]]:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute("SELECT role, status, title FROM tasks WHERE conv_id=%s ORDER BY queued_at", (conv_id,))
@@ -154,7 +153,7 @@ def _board_sync(conv_id: str) -> list[dict[str, Any]]:
 
 
 def _get_conv_session_id_sync(conv_id: str) -> str | None:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT sdk_session_id FROM conversations WHERE id::text=%s", (conv_id,))
@@ -165,7 +164,7 @@ def _get_conv_session_id_sync(conv_id: str) -> str | None:
 
 
 def _set_conv_session_id_sync(conv_id: str, session_id: str | None) -> None:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             cur.execute("UPDATE conversations SET sdk_session_id=%s WHERE id::text=%s", (session_id, conv_id))
@@ -185,7 +184,7 @@ def _cleanup_orphans_sync(boot_time: datetime | None = None) -> int:
       còn task sống (queued/running) → set 'idle' (user chat tiếp resume bình thường §8).
       waiting_approval GIỮ (hợp lệ — phiếu chờ người, không phải kẹt).
     """
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             if boot_time is not None:
@@ -213,17 +212,22 @@ def _cleanup_orphans_sync(boot_time: datetime | None = None) -> int:
 
 # ── Conversation + Message (T1-3: render + persist) ─────────────────────────
 def _create_conversation_sync(
-    user_id: str, title: str, provider: str | None = None, model: str | None = None
+    user_id: str,
+    title: str,
+    provider: str | None = None,
+    model: str | None = None,
+    tenant_id: str = DEFAULT_TENANT_ID,
+    group_id: str | None = None,
 ) -> dict[str, Any]:
     """D-45b (c): lưu provider/model per-conv (null → server-default lúc chạy). Resume-consistency."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO conversations (user_id, title, status, provider, model, created_at) "
-                "VALUES (%s, %s, 'idle', %s, %s, now()) "
-                "RETURNING id, user_id, title, status, sdk_session_id, provider, model, created_at",
-                (user_id, title, provider or None, model or None),
+                "INSERT INTO conversations (tenant_id,group_id,user_id,title,status,provider,model,created_at) "
+                "VALUES (%s,%s,%s,%s,'idle',%s,%s,now()) "
+                "RETURNING id,tenant_id,group_id,user_id,title,status,sdk_session_id,provider,model,created_at",
+                (tenant_id, group_id, user_id, title, provider or None, model or None),
             )
             row = cur.fetchone()
         conn.commit()
@@ -235,6 +239,8 @@ def _create_conversation_sync(
 def _conv_to_dict(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(row["id"]),
+        "tenant_id": str(row["tenant_id"]),
+        "group_id": str(row["group_id"]) if row.get("group_id") else None,
         "user_id": row.get("user_id"),
         "title": row.get("title"),
         "status": row.get("status"),
@@ -246,11 +252,11 @@ def _conv_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _get_conversation_sync(conv_id: str) -> dict[str, Any] | None:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, user_id, title, status, sdk_session_id, provider, model, created_at "
+                "SELECT id,tenant_id,group_id,user_id,title,status,sdk_session_id,provider,model,created_at "
                 "FROM conversations WHERE id::text=%s",
                 (conv_id,),
             )
@@ -260,28 +266,29 @@ def _get_conversation_sync(conv_id: str) -> dict[str, Any] | None:
         conn.close()
 
 
-def _list_conversations_sync(user_id: str) -> list[dict[str, Any]]:
-    conn = psycopg2.connect(DATABASE_URL)
+def _list_conversations_sync(user_id: str, tenant_id: str = DEFAULT_TENANT_ID) -> list[dict[str, Any]]:
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, user_id, title, status, sdk_session_id, provider, model, created_at "
-                "FROM conversations WHERE user_id=%s ORDER BY created_at DESC",
-                (user_id,),
+                "SELECT id,tenant_id,group_id,user_id,title,status,sdk_session_id,provider,model,created_at "
+                "FROM conversations WHERE tenant_id=%s AND user_id=%s ORDER BY created_at DESC",
+                (tenant_id, user_id),
             )
             return [_conv_to_dict(dict(r)) for r in cur.fetchall()]
     finally:
         conn.close()
 
 
-def _list_all_conversations_sync() -> list[dict[str, Any]]:
-    """D-56: admin (ngân hàng) → MỌI ca (không filter user_id). Giám sát toàn cửa khách."""
-    conn = psycopg2.connect(DATABASE_URL)
+def _list_all_conversations_sync(tenant_id: str = DEFAULT_TENANT_ID) -> list[dict[str, Any]]:
+    """D-79: admin thấy mọi ca trong tenant, không thấy tenant khác."""
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT id, user_id, title, status, sdk_session_id, provider, model, created_at "
-                "FROM conversations ORDER BY created_at DESC"
+                "SELECT id,tenant_id,group_id,user_id,title,status,sdk_session_id,provider,model,created_at "
+                "FROM conversations WHERE tenant_id=%s ORDER BY created_at DESC",
+                (tenant_id,),
             )
             return [_conv_to_dict(dict(r)) for r in cur.fetchall()]
     finally:
@@ -289,7 +296,7 @@ def _list_all_conversations_sync() -> list[dict[str, Any]]:
 
 
 def _set_conv_status_sync(conv_id: str, status: str) -> None:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             cur.execute("UPDATE conversations SET status=%s WHERE id::text=%s", (status, conv_id))
@@ -300,7 +307,12 @@ def _set_conv_status_sync(conv_id: str, status: str) -> None:
 
 # ── T15-2/T15-3: rename + switch provider/model + hard delete ────────────────
 def _update_conversation_sync(
-    conv_id: str, title: str | None, provider: str | None, model: str | None
+    conv_id: str,
+    title: str | None,
+    provider: str | None,
+    model: str | None,
+    group_id: str | None = None,
+    update_group: bool = False,
 ) -> dict[str, Any] | None:
     """PATCH partial: chỉ set field TRUYỀN (None = không đổi). Trả conv mới, None nếu ca không tồn tại.
     Validate provider/model là việc của caller (router) — store chỉ ghi. id::text so khớp (conv_id text)."""
@@ -315,14 +327,17 @@ def _update_conversation_sync(
     if model is not None:
         sets.append("model=%s")
         vals.append(model)
+    if update_group:
+        sets.append("group_id=%s")
+        vals.append(group_id)
     if not sets:  # không field nào → chỉ trả conv hiện tại (router đã chặn body rỗng, defensive)
         return _get_conversation_sync(conv_id)
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
                 f"UPDATE conversations SET {', '.join(sets)} WHERE id::text=%s "  # noqa: S608 — sets là literal cột, không phải input
-                "RETURNING id, user_id, title, status, sdk_session_id, provider, model, created_at",
+                "RETURNING id,tenant_id,group_id,user_id,title,status,sdk_session_id,provider,model,created_at",
                 (*vals, conv_id),
             )
             row = cur.fetchone()
@@ -337,7 +352,7 @@ def _delete_conversation_sync(conv_id: str) -> str:
     'running'; ok → xoá messages+cards+tasks+conv (D-67: nội dung ca), GIỮ tool_calls + approvals
     ĐÃ QUYẾT (audit append-only) → 'deleted'. Ca không tồn tại → 'not_found'.
     1 TX (advisor): check-pending + mọi DELETE cùng conn — không nửa-xoá, không check-then-delete hở."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT status FROM conversations WHERE id::text=%s", (conv_id,))
@@ -365,7 +380,7 @@ def _delete_conversation_sync(conv_id: str) -> str:
 
 
 def _add_message_sync(conv_id: str, sender: str, content: str, meta: dict | None = None) -> dict[str, Any]:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -392,7 +407,7 @@ def _msg_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _list_messages_sync(conv_id: str) -> list[dict[str, Any]]:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -406,7 +421,7 @@ def _list_messages_sync(conv_id: str) -> list[dict[str, Any]]:
 
 def _insert_card_sync(conv_id: str, task_id: str | None, card_type: str, data: dict) -> dict[str, Any]:
     """INSERT card → trả row với id VỎ sinh (server_default). task_id null OK (main gọi ngoài sub)."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -439,7 +454,7 @@ def _card_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _list_cards_sync(conv_id: str) -> list[dict[str, Any]]:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -452,7 +467,7 @@ def _list_cards_sync(conv_id: str) -> list[dict[str, Any]]:
 
 
 def _list_tasks_sync(conv_id: str) -> list[dict[str, Any]]:
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
@@ -471,22 +486,27 @@ async def create_task(conv_id: str, role: str, title: str, brief: str) -> Task:
 
 
 async def create_conversation(
-    user_id: str, title: str, provider: str | None = None, model: str | None = None
+    user_id: str,
+    title: str,
+    provider: str | None = None,
+    model: str | None = None,
+    tenant_id: str = DEFAULT_TENANT_ID,
+    group_id: str | None = None,
 ) -> dict[str, Any]:
-    return await asyncio.to_thread(_create_conversation_sync, user_id, title, provider, model)
+    return await asyncio.to_thread(_create_conversation_sync, user_id, title, provider, model, tenant_id, group_id)
 
 
 async def get_conversation(conv_id: str) -> dict[str, Any] | None:
     return await asyncio.to_thread(_get_conversation_sync, conv_id)
 
 
-async def list_conversations(user_id: str) -> list[dict[str, Any]]:
-    return await asyncio.to_thread(_list_conversations_sync, user_id)
+async def list_conversations(user_id: str, tenant_id: str = DEFAULT_TENANT_ID) -> list[dict[str, Any]]:
+    return await asyncio.to_thread(_list_conversations_sync, user_id, tenant_id)
 
 
-async def list_all_conversations() -> list[dict[str, Any]]:
-    """D-56 admin: mọi ca (không scope user_id)."""
-    return await asyncio.to_thread(_list_all_conversations_sync)
+async def list_all_conversations(tenant_id: str = DEFAULT_TENANT_ID) -> list[dict[str, Any]]:
+    """D-79 admin: mọi ca trong tenant."""
+    return await asyncio.to_thread(_list_all_conversations_sync, tenant_id)
 
 
 async def set_conv_status(conv_id: str, status: str) -> None:
@@ -496,7 +516,7 @@ async def set_conv_status(conv_id: str, status: str) -> None:
 def _save_task_metrics_sync(task_id: str, m: dict[str, Any]) -> None:
     """T16-1: UPDATE task với chỉ số THẬT từ ResultMessage (token/duration/model + cost jsonb).
     Best-effort: id sai/lỗi → nuốt (không vỡ flow sub). Field None → cột NULL sạch (ADDITIVE)."""
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = connect_core()
     try:
         with conn.cursor() as cur:
             cur.execute(
@@ -530,10 +550,23 @@ async def save_task_metrics(task_id: str, metrics: dict[str, Any]) -> None:
 
 
 async def update_conversation(
-    conv_id: str, title: str | None = None, provider: str | None = None, model: str | None = None
+    conv_id: str,
+    title: str | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    group_id: str | None = None,
+    update_group: bool = False,
 ) -> dict[str, Any] | None:
-    """T15-2/T15-3: PATCH partial (title/provider/model). None = không đổi. None-return = ca không tồn tại."""
-    return await asyncio.to_thread(_update_conversation_sync, conv_id, title, provider, model)
+    """PATCH partial; ``update_group`` distinguishes absent from explicit null (ungroup)."""
+    return await asyncio.to_thread(
+        _update_conversation_sync,
+        conv_id,
+        title,
+        provider,
+        model,
+        group_id,
+        update_group,
+    )
 
 
 async def delete_conversation(conv_id: str) -> str:

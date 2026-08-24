@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "prompts": {
+    "main.system": {
+      "file": "main/system.md",
+      "scope": "main",
+      "description": "System prompt for the MAIN orchestrator",
+      "variables": ["credit_memo_min_roles", "credit_memo_title", "credit_memo_section_lines"]
+    },
+    "event.user_message": {
+      "file": "events/user_message.txt",
+      "scope": "event",
+      "variables": ["content"]
+    },
+    "event.task_done.exec_failed": {
+      "file": "events/task_done_exec_failed.txt",
+      "scope": "event",
+      "variables": ["action", "payload_summary", "attempts"]
+    },
+    "event.task_done.operations_disbursed": {
+      "file": "events/task_done_operations_disbursed.txt",
+      "scope": "event",
+      "variables": ["result_summary"]
+    },
+    "event.task_done.generic": {
+      "file": "events/task_done_generic.txt",
+      "scope": "event",
+      "variables": ["role", "outcome", "result_summary", "board_json"]
+    },
+    "event.credit_memo.blocked": {
+      "file": "events/credit_memo_blocked.txt",
+      "scope": "event",
+      "variables": ["minimum_roles", "role_text"]
+    },
+    "event.credit_memo.ready": {
+      "file": "events/credit_memo_ready.txt",
+      "scope": "event",
+      "variables": ["role_count", "role_text", "title", "sections"]
+    },
+    "event.approval.approved": {
+      "file": "events/approval_approved.txt",
+      "scope": "event",
+      "variables": ["action", "payload_summary"]
+    },
+    "event.approval.rejected_reason": {
+      "file": "events/approval_rejected_reason.txt",
+      "scope": "event",
+      "variables": ["action", "payload_summary", "reason"]
+    },
+    "event.approval.rejected": {
+      "file": "events/approval_rejected.txt",
+      "scope": "event",
+      "variables": ["action", "payload_summary"]
+    },
+    "task.approved_execution": {
+      "file": "tasks/approved_execution.txt",
+      "scope": "task",
+      "description": "Brief for the operations retry after a human approval",
+      "variables": ["action", "payload_summary"]
+    },
+    "compare.single.system": {
+      "file": "compare/single_agent.md",
+      "scope": "compare",
+      "description": "System prompt for the no-tool single-agent benchmark",
+      "variables": []
+    },
+    "customer.new": {
+      "file": "customer/new.txt",
+      "scope": "main_context",
+      "variables": []
+    },
+    "customer.existing": {
+      "file": "customer/existing.txt",
+      "scope": "main_context",
+      "variables": ["who"]
+    }
+  }
+}

@@ -29,9 +29,11 @@ def _mk_approval(conv_id: str, status: str, decided_by: str, decided_at: datetim
     conn.autocommit = True
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO approvals (conv_id, action, payload, payload_hash, status, decided_by, decided_at) "
-            "VALUES (%s,'disburse','{}',%s,%s,%s,%s)",
-            (conv_id, ph, status, decided_by, decided_at),
+            "INSERT INTO approvals (conv_id,action,payload,payload_hash,status,decided_by,decided_at,used_at,receipt) "
+            "VALUES (%s,'disburse','{}',%s,%s,%s,%s,"
+            "CASE WHEN %s='used' THEN %s ELSE NULL END,"
+            "CASE WHEN %s='used' THEN '{\"fixture\":true}'::jsonb ELSE NULL END)",
+            (conv_id, ph, status, decided_by, decided_at, status, decided_at, status),
         )
     conn.close()
 

@@ -35,6 +35,8 @@ describe('ToolRankBar', () => {
     render(<ToolRankBar trace={trace} />);
     expect(screen.getByTestId('tool-rank-credit_assess')).toHaveTextContent('2');
     expect(screen.getByTestId('tool-rank-cust_get')).toHaveTextContent('1');
+    expect(screen.getByText('Đánh giá tín dụng')).toBeInTheDocument();
+    expect(screen.queryByText('credit_assess')).not.toBeInTheDocument();
   });
   it('trace rỗng → empty note', () => {
     render(<ToolRankBar trace={[]} />);

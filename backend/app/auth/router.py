@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
@@ -21,6 +21,8 @@ from app.auth.security import make_token
 from app.auth.service import UsernameTaken, authenticate, register
 from app.config import AUTH_COOKIE, JWT_TTL_SECONDS
 from app.errors import ApiError
+from app.storage import connect_core
+from app.tenancy import DEFAULT_TENANT_ID
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")  # format thô (demo-grade), không RFC đầy đủ
 
@@ -96,6 +98,20 @@ def login(body: LoginBody, response: Response) -> dict:
 # → set cookie JWT shb NHƯ login thường → 302 về FE. FE không cần trang callback (cookie theo host).
 
 _STATE_COOKIE = "oauth_state"
+_NEXT_COOKIE = "oauth_next"
+
+
+def _safe_oauth_next(value: str | None) -> str | None:
+    """Chỉ nhận path cùng origin; cookie được kiểm lại vì client có thể tự giả mạo."""
+    if not value or len(value) > 2048 or not value.startswith("/") or value.startswith("//"):
+        return None
+    decoded = unquote(value)
+    if decoded.startswith("//") or "\\" in decoded or any(ord(char) < 32 for char in decoded):
+        return None
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc:
+        return None
+    return value
 
 
 @router.get("/providers")
@@ -107,7 +123,7 @@ def providers() -> dict:
 
 
 @router.get("/google/start")
-def google_start() -> RedirectResponse:
+def google_start(next: str | None = None) -> RedirectResponse:
     """Start Google OAuth — redirect to account chooser (CSRF state in httponly cookie).
 
     Redirect sang màn chọn account Google. State ngẫu nhiên vào cookie httponly (chống CSRF)."""
@@ -131,6 +147,19 @@ def google_start() -> RedirectResponse:
     }
     resp = RedirectResponse(f"{google_oauth.GOOGLE_AUTH_URL}?{urlencode(params)}")
     resp.set_cookie(_STATE_COOKIE, state, httponly=True, samesite="lax", max_age=600, secure=config.COOKIE_SECURE)
+    safe_next = _safe_oauth_next(next)
+    if safe_next is not None:
+        resp.set_cookie(
+            _NEXT_COOKIE,
+            safe_next,
+            httponly=True,
+            samesite="lax",
+            max_age=600,
+            secure=config.COOKIE_SECURE,
+        )
+    else:
+        # Xóa path cũ để request mới thiếu/invalid `next` không tái dùng redirect từ lần trước.
+        resp.delete_cookie(_NEXT_COOKIE)
     return resp
 
 
@@ -175,8 +204,11 @@ def google_callback(request: Request, code: str | None = None, state: str | None
             retryable=True,
         ) from e
     user = google_oauth.upsert_google_user(google_sub=info["sub"], email=info["email"])
-    token = make_token(user_id=str(user["id"]), username=user["username"], role=user["role"])
-    resp = RedirectResponse(config.FRONTEND_URL)
+    tenant_id = str(user.get("tenant_id") or DEFAULT_TENANT_ID)
+    token = make_token(user_id=str(user["id"]), username=user["username"], role=user["role"], tenant_id=tenant_id)
+    safe_next = _safe_oauth_next(request.cookies.get(_NEXT_COOKIE))
+    destination = config.FRONTEND_URL.rstrip("/") + safe_next if safe_next is not None else config.FRONTEND_URL
+    resp = RedirectResponse(destination)
     resp.set_cookie(
         key=AUTH_COOKIE,
         value=token,
@@ -186,6 +218,7 @@ def google_callback(request: Request, code: str | None = None, state: str | None
         secure=config.COOKIE_SECURE,
     )
     resp.delete_cookie(_STATE_COOKIE)
+    resp.delete_cookie(_NEXT_COOKIE)
     return resp
 
 
@@ -219,7 +252,14 @@ def _me_payload(claims: dict) -> dict:
     phá). owner_id của REQUESTER (JOIN users by claims.sub). DEV_SKIP_AUTH → admin owner_id=None."""
     owner_id = _owner_id_of(claims.get("sub"))
     username, role = claims.get("username"), claims.get("role")
-    return {"username": username, "role": role, "owner_id": owner_id, "user": {"username": username, "role": role}}
+    tenant_id = str(claims["tenant_id"])
+    return {
+        "username": username,
+        "role": role,
+        "owner_id": owner_id,
+        "tenant_id": tenant_id,
+        "user": {"username": username, "role": role, "tenant_id": tenant_id},
+    }
 
 
 @router.get("/me")
@@ -244,10 +284,8 @@ def _owner_id_of(user_id: str | None) -> str | None:
         return None
     import psycopg2
 
-    from app.db.config import DATABASE_URL
-
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = connect_core()
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT owner_id FROM users WHERE id::text=%s", (user_id,))

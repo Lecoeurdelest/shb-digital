@@ -2,7 +2,7 @@
 
 > Bản "cách build" cho `SPEC.md` §9 (bảng event) + §8 (DB = kho render).
 > Tự chứa: đọc doc này + spec là dựng được cả publisher/endpoint phía BE lẫn hook phía FE.
-> Phạm vi: chỉ SSE (spec §14 cấm WebSocket), 1 uvicorn worker, in-process, KHÔNG Redis (spec §12).
+> Phạm vi hiện hành: SSE, 1 uvicorn worker, fanout in-process; chưa bật broker/replay publisher.
 
 ---
 
@@ -16,8 +16,9 @@ Mọi quyết định trong doc này suy từ một câu:
 
 Hệ quả trực tiếp:
 
-- **Không cần outbox, không cần replay-cursor, không cần Last-Event-ID** (spec §14 cấm build).
-  Reconnect = refetch full state + nghe tiếp. Sự kiện lỡ trong lúc đứt mạng đã nằm trong DB state.
+- **Đường hiện tại không cần replay để render đúng:** reconnect = refetch full state + nghe tiếp;
+  sự kiện lỡ trong lúc đứt mạng đã nằm trong DB state. D-76 có schema outbox cho P1 nhiều worker,
+  nhưng chưa đổi contract này cho tới khi publisher/replay được triển khai và kiểm restart.
 - **Event chỉ được bắn SAU khi ghi DB** (§5 doc này). Bắn trước mà ghi fail → FE thấy thứ
   DB không có → refetch lại "mất" dữ liệu → UI nhảy lùi. Bắn sau thì tệ nhất là FE biết muộn.
 - Mất 1 event không phải bug chí mạng; **2 nguồn sự thật lệch nhau mới là bug chí mạng**.

@@ -4,6 +4,80 @@
 > Format: `quyết gì — vì sao — cách đổi`. NGƯỜI đọc lại async + override (human-wins).
 > Entry đã tiêu hóa vào kit thì xoá — sổ chỉ giữ quyết định CÒN SỐNG (lịch sử đầy đủ: git log).
 
+- **D-79 · Multi-tenant nền tảng = tenant là isolation/partition key; conversation group chỉ là
+  thư mục UX, chưa phải horizontal scaling** (người yêu cầu 24/8, agent đánh giá + thi hành) — live
+  DB còn nhỏ và runtime vẫn 1 worker/SSE in-process/transcript local disk, nên thêm tenant không tự
+  phân tải và chưa đủ căn cứ bật shard/replica. P0 thêm `tenants`, gắn `tenant_id` bất biến vào user,
+  conversation và các bảng vận hành nóng/audit; mọi API lấy tenant từ JWT/account, admin chỉ thấy
+  trong tenant. `conversation_groups` thuộc tenant, một conversation tối đa một group, xóa group chỉ
+  ungroup. Tenant là khóa index/routing để sau này sticky-route hoặc shard có benchmark; không nhận
+  tenant từ body/query, không đổi `conversation` thành case/team, không bật RLS trước khi toàn bộ
+  tool/service connection có tenant context đáng tin. — cách đổi: khi có IdP provisioning và SLO
+  đa-replica, thêm tenant resolver từ issuer/organization claim, shared session + outbox publisher,
+  benchmark theo tenant rồi mới chọn sticky worker/partition/shard; RLS chỉ bật sau dual-run audit
+  chứng minh không có connection nào thiếu `app.tenant_id`.
+- **D-77 · Intake hồ sơ = cổng server-to-server có idempotency + case read-model; SDK/chat chỉ là bề mặt làm việc** (người chốt 24/8, sau đánh giá UX/nghiên cứu bank-grade) — một hồ sơ không được sinh từ `conversation.title`, thao tác nhập tay hay webhook D-71. P0 nhận event chuẩn hoá từ LOS/SAHA/BFF qua API Gateway vào `integration_inbox` + `external_case_links` trong một transaction, sau đó Tower đọc một `CaseSummary` nghiệp vụ. `applications` từ LAB chỉ là nguồn demo/read-only, không bị đổi nghĩa thành mã hồ sơ ngoài. Mặc định source tắt; khi bật chỉ `shadow`/`preassessment_only`: tạo mapping/phiên làm việc nhưng **không** tự gọi tool giải ngân hoặc phê duyệt. Config không-secret nằm trong YAML versioned GitOps, secret nằm env/secret manager; thay đổi production cần maker-checker/PR, không có form hot-edit trên Tower. — cách đổi: khi bank có API Gateway/IdP thật, thay adapter service-auth và bật source/product theo rollout `off → shadow → selected → on`, giữ nguyên envelope + inbox/mapping.
+- **D-78 · Scale retrieval = Qdrant derived index + Redis cache, PostgreSQL vẫn là nguồn chuẩn** (người chốt 24/8: dữ liệu bank lớn cần phụ tải thật) — `notes_search` trước đây nạp toàn bộ `interaction_notes` rồi cosine O(N) trong process. Profile Compose `scale` thêm Qdrant cho vector index và Redis TTL 60 giây cho kết quả lặp; route chỉ dùng index khi có URL/config, có index data và query thành công, còn lại fallback đường PostgreSQL/LAB cũ. Backfill chạy bounded batch, upsert idempotent theo `note_id`; Redis không AOF, Qdrant có volume/snapshot. Không chuyển approval, tiền, workflow, audit, prompt catalog hay identity khỏi transaction Postgres; chưa thêm OpenSearch/Kafka vì chưa có SLO full-text/event throughput chứng minh cần. — cách đổi: khi ingestion note có write path, phát outbox event sau commit cho indexer thay polling; khi Qdrant thành dependency bắt buộc của bank profile, đánh dấu store `required:true` trong topology GitOps và đưa healthcheck vào readiness.
+- **D-76 · DB vận hành v2 = Postgres làm transactional core + datastore registry theo capability;
+  prompt có version ngoài code** (người chốt 24/8: cho phép tạo/dùng công nghệ và DB mới) — không
+  thay Postgres chỉ để "polyglot": tiền, approval, workflow và audit vẫn cần một transaction. Runtime
+  lấy store qua `configs/datastores.json`; `core/prompts/knowledge/events` hiện cùng trỏ Postgres,
+  driver mới đăng ký qua entry point `bank_digital.datastores`. Vector DB, Redis hay search store chỉ
+  bật cho đúng capability sau benchmark và có thể fail độc lập; không được thành nguồn sự thật của
+  tiền/trạng thái. Ba migration tới `2f9c1a6e4d33` thêm `parties`, UUID FK song song với mã text
+  legacy, idempotency/check receipt, lease/attempt/outbox và prompt catalog. Prompt repo là fallback
+  đã review; DB binding chọn version theo môi trường và sync được advisory-lock khi nhiều replica
+  startup. D-34 đã trả nợ bằng pool chung có connect/acquire timeout; D-31 chuyển sang dual-reference
+  để giữ test/legacy trong cửa sổ migration. Schema P1 đã có nhưng runtime mặc định
+  vẫn 1 worker, chưa được tuyên bố cứu task/replay cho tới khi worker claimer + outbox publisher chạy
+  thật. D-76 lật các lệnh cấm tuyệt đối về outbox/Redis/vector ở SPEC §14 thành cổng theo bằng chứng.
+  — cách đổi: đổi alias/driver trong config và deploy adapter; rollback schema theo từng Alembic
+  revision, không đổi core tiền sang DB khác nếu chưa chứng minh atomicity tương đương.
+- **D-75 · Bề mặt RM/khách/public = quy trình nghiệp vụ, không phải bảng điều khiển AI** (người chốt
+  24/8, gói UX sau S21) — thay đổi này chỉ ở **presentation** của SPA reference: gọi đúng đơn vị hiện
+  có là `Phiên xử lý`, ưu tiên sản phẩm công việc và tiến độ, còn trao đổi là công cụ nhập yêu cầu.
+  Không hiện ở bề mặt RM/khách/public: picker provider/model, token/cost, thinking/raw tool trace,
+  Main/SUB hay JSON kỹ thuật. Runtime vẫn tự chọn provider/model; SSE, audit, metrics, card/source,
+  phanh và phân quyền giữ nguyên. **Không được đổi tên conversation thành hồ sơ**: repo chưa có
+  quan hệ application↔conversation hoặc case read-model/API; lớp `Case/Application Workspace` là P1,
+  chỉ được làm sau khi sửa `docs/CONTRACT.md` trước và có dữ liệu thật. D-75 lật phần UI picker của
+  D-45b nhưng không xoá provider/model contract hay năng lực vận hành kỹ thuật. — cách đổi: nếu cần
+  benchmark/demo kỹ thuật, mở một surface admin/lab tách quyền; không đưa telemetry trở lại composer RM.
+  Workspace/SDK chỉ hiển thị trạng thái phiếu; Duyệt/Từ chối chỉ diễn ra trong Control Tower theo
+  D-71/D-74, kể cả khi người đang mở Workspace có vai trò admin.
+- **D-74 · Sản phẩm chính = headless core + Embed SDK; SPA hiện tại chỉ là reference host +
+  Control Tower** (người chốt 24/8, kickoff S21) — kênh SAHA/website/LOS không import `Workspace`
+  hay Control Tower. SDK là package phát hành độc lập: entry headless không phụ thuộc React/DOM,
+  React compound components dùng state/actions/meta được inject, và standalone Web Component chạy
+  trong Shadow DOM. SDK chỉ mở conversation/chat/canvas; **không có approval API**, nên không tạo
+  thêm đường approve ngoài Tower (D-71). Mặc định tích hợp qua reverse proxy `/api` cùng origin dùng
+  cookie; khác origin chỉ được mở bằng CORS allowlist tường minh + Bearer token do host cấp, stream
+  bằng fetch-SSE vì native EventSource không gắn Authorization. Profile demo không được gọi là
+  bank-DC; profile `bank_dc` phải fail-fast nếu còn secret/password dev hoặc provider ngoài allowlist.
+  — cách đổi: host có chuẩn BFF/SSO khác thì thay auth adapter của SDK, giữ nguyên REST/SSE contract
+  và không đưa quyết định phê duyệt vào package embed.
+- **D-73 · Định vị sản phẩm = máy sơ thẩm + vận hành middle-office; KHÔNG cạnh tranh máy tự
+  quyết khoản vay nhỏ** (người chốt 23/8, kickoff S18 ngày 24/8) — bench nội bộ cho thấy single
+  nhanh/rẻ hơn ở ca một-phòng, multi thắng đúng lớp ca liên-phòng có bàn giao; SHB đã có đường
+  tự động khoản vay nhỏ theo TT 06/2023, còn LLM tự ra quyết định tín dụng chưa có nền pháp lý
+  tương ứng. Persona chính = bàn RM/cán bộ tín dụng + bàn phê duyệt; cửa khách giữ làm demo/sandbox.
+  Con người ký, máy chuẩn bị tờ trình, nguồn và cảnh báo. — cách đổi: chỉ mở lại auto-approve qua
+  ma trận ngưỡng được ngân hàng ký duyệt; không đổi phanh tầng tool.
+- **D-72 · Ngưỡng tầng-1: constant → `assumptions.auto_approve_threshold_vnd`, có shadow-mode
+  thật** (người chốt 23/8, kickoff S18 ngày 24/8) — thiếu key = 500M VND để tương thích; key hợp
+  lệ được tôn trọng chính xác; `0` = nhánh shadow cưỡng chế MỌI giải ngân về người trước cả tầng
+  green; value hỏng/lỗi đọc = `0` (fail-closed). Để shadow vẫn đo được phản-thực, snapshot
+  recommendation dưới override `<=0` dùng ma trận danh nghĩa 500M, còn route thật luôn qua người.
+  Đọc config phải cô lập khỏi transaction tiền để lỗi SELECT không làm transaction tạo phiếu bị
+  abort. — cách đổi: xoá key để về default demo 500M.
+- **D-71 · Kênh chat ngoài (Lark/Teams/webhook) = CHUÔNG CỬA, không phải đường dữ liệu** (người
+  chốt 23/8, kickoff S19 package ngày 24/8) — payload tối thiểu: action + 8 ký tự đầu conv_id +
+  status + deep-link về Control Tower; KHÔNG tên khách/nội dung hồ sơ/CIC; amount chỉ qua env flag,
+  default OFF. CẤM duyệt từ chat: quyết định chỉ diễn ra trong Tower có auth + audit. **D-71 lật
+  hẹp D-15** đúng phần notification outbound này; D-15 vẫn giữ ngoài scope cho mọi tích hợp chat
+  hai chiều/data-pipeline khác. — cách đổi: tắt URL webhook; chỉ mở rộng payload khi kênh on-prem/
+  private có thoả thuận xử lý dữ liệu và ngân hàng chốt lại contract.
+
 - **D-68 · Retrieval PG-adapt + read-scope (T12-2)** (architect chốt 19/7, backend thi hành) —
   (a) **memoryview→bytes**: psycopg2 trả cột bytea = memoryview; fn LAB notes_search làm
   `b"".join(embedding)` raise TypeError → ép bytes TẠI `PGConnAdapter._coerce_row` (choke trung
@@ -509,11 +583,14 @@
     cùng họ) → MAIN present(document) stamp task_id sub thay null (vi phạm N5). Fix T2: reset cả 3.
     **Luật S3+:** thêm contextvar mới (vd CTX_APPROVAL) → PHẢI thêm reset ở run_main_turn (mirror).
     Architect nhận sót: discriminator #5 khi accept D-33 chỉ nói CTX_ACTOR, không liệt kê đủ.
-- **D-34 · `store` per-call `psycopg2.connect` (bypass T1-1 pool) — note S1, revisit S2** (backend
+- **D-34 · ✅ CLOSED bởi D-76: `store` đã dùng chung datastore registry + threaded PG pool.** Bản
+  ghi gốc: `store` per-call `psycopg2.connect` (bypass T1-1 pool) — note S1, revisit S2 (backend
   nêu T1-3) — store tạo conn mỗi call thay vì get_pool()/acquire()/release() của T1-1 → 2 connection
   strategy. Ổn dưới 1-worker S1 (bounded to_thread cap). S2 khi tải cao → thống nhất về pool. — Đổi:
   thống nhất pool ngay nếu thấy connection churn.
-- **D-31 · `tasks.conv_id` + `messages.conv_id` = TEXT ràng-buộc-mềm (drop FK cứng);
+- **D-31 · SUPERSEDED HẸP bởi D-76 dual-reference:** `conv_id` text vẫn giữ cho contract/legacy,
+  đồng thời `conversation_id` UUID FK được trigger đồng bộ. Bản ghi gốc: `tasks.conv_id` +
+  `messages.conv_id` = TEXT ràng-buộc-mềm (drop FK cứng);
   `conversations.id` VẪN uuid PK** (backend nêu T1-2 — architect RATIFY sau review spine) —
   conv_id là ĐỊNH DANH XUYÊN TẦNG dạng string (registry key idempotency `(conv_id,role)` +
   SDK cwd folder `data/conversations/<conv_id>/` sanitize + SSE topic + event routing), KHÔNG

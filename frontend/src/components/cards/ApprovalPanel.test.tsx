@@ -60,7 +60,8 @@ describe('ApprovalPanel', () => {
   it('status=rejected → badge TỪ CHỐI + text dừng', () => {
     render(<ApprovalPanel card={approvalCard({ status: 'rejected', reason: 'DSCR thấp' })} onDecide={vi.fn()} />);
     expect(screen.getByText(/TỪ CHỐI/)).toBeInTheDocument();
-    expect(screen.getByText(/Main dừng hành động/)).toBeInTheDocument();
+    expect(screen.getByText(/hệ thống dừng hành động/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Main dừng hành động/)).not.toBeInTheDocument();
     expect(screen.getByText(/DSCR thấp/)).toBeInTheDocument();
   });
 

@@ -53,3 +53,25 @@ describe('mock conversation CRUD (T15-2/3)', () => {
     expect(mockBackend.getFullState(c.id).conversation.id).toBe(c.id);
   });
 });
+
+describe('mock conversation groups (D-79)', () => {
+  it('tạo nhóm, chuyển phiên và xoá nhóm thì phiên về chưa phân nhóm', () => {
+    mockBackend.reset();
+    const group = mockBackend.createConversationGroup('Doanh nghiệp');
+    const conv = mockBackend.createConversation('Ca', undefined, undefined, group.id);
+    expect(mockBackend.listConversationGroups()).toEqual([group]);
+    expect(conv.group_id).toBe(group.id);
+
+    const moved = mockBackend.updateConversation(conv.id, { group_id: null });
+    expect(moved.group_id).toBeNull();
+    mockBackend.updateConversation(conv.id, { group_id: group.id });
+    mockBackend.deleteConversationGroup(group.id);
+    expect(mockBackend.getFullState(conv.id).conversation.group_id).toBeNull();
+  });
+
+  it('chặn tên nhóm trùng không phân biệt hoa thường', () => {
+    mockBackend.reset();
+    mockBackend.createConversationGroup('Ưu tiên');
+    expect(() => mockBackend.createConversationGroup(' ưu TIÊN ')).toThrow();
+  });
+});

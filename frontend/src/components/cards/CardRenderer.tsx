@@ -1,5 +1,5 @@
-// CardRenderer.tsx — 1 SWITCH theo card.type → 7 component (canvas-present §3). Default branch
-// render THÔ (type lạ không crash — N3 vỏ-mù). Mọi body đọc field qua cardUtil (defensive):
+// CardRenderer.tsx — switch theo card.type → component nghiệp vụ. Type lạ fail-safe, không render
+// raw type/payload/JSON (D-75). Mọi body đọc field qua cardUtil (defensive):
 // field thiếu → bỏ qua; value MIXED (number|string); pass NULLABLE → null=không badge.
 // Look-and-feel tham khảo design/workspace/cards.jsx (D-13).
 import type { Card } from '../../types';
@@ -26,11 +26,14 @@ const WIDE = new Set(['case_file', 'document', 'approval', 'form']);
 
 export function CardRenderer({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts, onFormDraftChange }: CardProps) {
   const wide = WIDE.has(card.type);
+  const known = isKnownCardType(card.type);
+  const timestamp = formatCardTimestamp(card.ts);
   return (
     <div className={`card${wide ? ' card--wide' : ''}`} id={`card-${card.id}`} data-testid={`card-${card.type}`}>
       <div className="card__head">
-        <span className="card__title">{card.title ?? cardTypeLabel(card.type)}</span>
-        <span className="card__type">{card.type}</span>
+        <span className="card__title">{cardDisplayTitle(card, known)}</span>
+        {timestamp && <time className="card__time" dateTime={card.ts}>Cập nhật {timestamp}</time>}
+        <span className="card__type">{cardTypeLabel(card.type)}</span>
       </div>
       <div className="card__body">
         <CardBody card={card} onCite={onCite} onDecide={onDecide} canDecide={canDecide} onFormSubmit={onFormSubmit}
@@ -60,21 +63,48 @@ function CardBody({ card, onCite, onDecide, canDecide, onFormSubmit, formDrafts,
       return <FormCard card={card} onSubmit={onFormSubmit}
         draftValues={formDrafts?.[card.id] ?? {}} onDraftChange={onFormDraftChange} />;
     default:
-      return <RawBody card={card} />;
+      return <UnsupportedBody />;
   }
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  metric: 'Bảng chỉ số',
-  checklist: 'Điều kiện',
-  options: 'So sánh gói',
-  timeline: 'Lộ trình',
-  case_file: 'Hồ sơ',
-  document: 'Tờ trình',
-  approval: 'Phê duyệt',
+  metric: 'Chỉ số sơ thẩm',
+  checklist: 'Danh mục kiểm tra',
+  options: 'Phương án đề xuất',
+  timeline: 'Tiến độ xử lý',
+  case_file: 'Thông tin hồ sơ',
+  document: 'Tài liệu nghiệp vụ',
+  approval: 'Trạng thái phê duyệt',
+  form: 'Thông tin cần bổ sung',
 };
+function isKnownCardType(type: string): boolean {
+  return Object.hasOwn(TYPE_LABEL, type);
+}
 function cardTypeLabel(type: string): string {
-  return TYPE_LABEL[type] ?? type;
+  return TYPE_LABEL[type] ?? 'Thông tin nghiệp vụ';
+}
+
+function cardDisplayTitle(card: Card, known: boolean): string {
+  if (!known) return 'Nội dung chưa hỗ trợ';
+  if (card.type === 'approval') {
+    const action = renderValue(cardField(card, 'action'));
+    return action === '—' ? 'Trạng thái phê duyệt' : `Phê duyệt ${action.toLocaleLowerCase('vi')}`;
+  }
+  if (
+    card.type === 'document'
+    && typeof card.title === 'string'
+    && /tự động duyệt|auto[-_ ]?rule|ops_disburse|disburse|loan_id|loan_amount_vnd/i.test(card.title)
+  ) {
+    return 'Kết quả thực hiện';
+  }
+  return renderValue(card.title ?? cardTypeLabel(card.type));
+}
+
+function formatCardTimestamp(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 16).replace('T', ' ');
 }
 
 // ── metric: bảng chỉ số. value MIXED, pass NULLABLE (null→không badge), source→chip ──
@@ -188,14 +218,11 @@ function OptionsBody({ card, onCite }: { card: Card; onCite?: CiteFn }) {
   );
 }
 
-// ── timeline: item shape TỰ DO (N3 vỏ-mù) — DF-A-05-FE render TOLERANT theo evidence prod.
-// Shape thật sub emit: {name, detail, status, assignee}. Dòng chính = step??name; dòng mô tả =
-// detail??description??value; meta chips = owner/assignee/eta/status + field string LẠ nối vào mô tả.
-// Item rỗng hẳn → "(chưa có mô tả)". KHÔNG migrate data — card cũ (2afff539) tự đọc được sau fix.
+// ── timeline: chỉ allowlist field nghiệp vụ. Item rỗng → copy an toàn; field lạ không được nối vào
+// mô tả vì có thể là telemetry kỹ thuật từ payload tolerant (D-75).
 const TIMELINE_PRIMARY_KEYS = ['step', 'name'];
 const TIMELINE_DESC_KEYS = ['detail', 'description', 'value'];
 const TIMELINE_META_KEYS = ['owner', 'assignee', 'eta', 'status'];
-const TIMELINE_KNOWN = new Set([...TIMELINE_PRIMARY_KEYS, ...TIMELINE_DESC_KEYS, ...TIMELINE_META_KEYS]);
 
 function asRec(it: unknown): Record<string, unknown> {
   return it && typeof it === 'object' ? (it as Record<string, unknown>) : {};
@@ -203,7 +230,9 @@ function asRec(it: unknown): Record<string, unknown> {
 function firstStr(rec: Record<string, unknown>, keys: string[]): string | null {
   for (const k of keys) {
     const v = rec[k];
-    if (v != null && String(v).trim()) return String(v).trim();
+    if ((typeof v === 'string' || typeof v === 'number') && String(v).trim()) {
+      return renderValue(v).trim();
+    }
   }
   return null;
 }
@@ -212,18 +241,11 @@ function firstStr(rec: Record<string, unknown>, keys: string[]): string | null {
 function timelineTitle(rec: Record<string, unknown>): string {
   return firstStr(rec, TIMELINE_PRIMARY_KEYS) ?? firstStr(rec, TIMELINE_DESC_KEYS) ?? '(chưa có mô tả)';
 }
-// dòng mô tả — detail/description/value + field string LẠ (ngoài known) nối vào, KHÔNG vứt nội dung.
+// dòng mô tả — chỉ detail/description/value, không tolerant field lạ trên bề mặt người dùng.
 function timelineDesc(rec: Record<string, unknown>): string {
-  const parts: string[] = [];
-  // chỉ lấy desc key nếu KHÁC cái đã dùng làm title (tránh lặp)
   const title = firstStr(rec, TIMELINE_PRIMARY_KEYS);
   const desc = firstStr(rec, TIMELINE_DESC_KEYS);
-  if (title && desc && desc !== title) parts.push(desc);
-  for (const [k, v] of Object.entries(rec)) {
-    if (TIMELINE_KNOWN.has(k)) continue;
-    if (typeof v === 'string' || typeof v === 'number') { const s = String(v).trim(); if (s) parts.push(s); }
-  }
-  return parts.join(' · ');
+  return title && desc && desc !== title ? desc : '';
 }
 
 function TimelineBody({ card }: { card: Card }) {
@@ -236,7 +258,7 @@ function TimelineBody({ card }: { card: Card }) {
         const rec = asRec(it);
         const desc = timelineDesc(rec);
         const metaChips = TIMELINE_META_KEYS
-          .map((k) => (rec[k] != null && String(rec[k]).trim() ? String(rec[k]).trim() : null))
+          .map((k) => firstStr(rec, [k]))
           .filter((v): v is string => v !== null);
         return (
           <div key={i} className="card-timeline__row">
@@ -313,10 +335,12 @@ function DocumentBody({ card, onCite }: { card: Card; onCite?: CiteFn }) {
   );
 }
 
-// ── default: type lạ → render THÔ (title + JSON items). KHÔNG crash (N3). ──
-function RawBody({ card }: { card: Card }) {
+// ── default: type lạ → fail-safe giống SDK nhúng, không lộ payload. ──
+function UnsupportedBody() {
   return (
-    <pre className="card-raw">{JSON.stringify(card.items ?? card, null, 2)}</pre>
+    <div className="card-empty">
+      Vui lòng mở nội dung này trên hệ thống ngân hàng để xem chi tiết.
+    </div>
   );
 }
 

@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from app.auth.deps import require_admin
 from app.errors import ApiError
 from app.orch import store_approvals
+from app.tenancy import tenant_id_from_claims
 
 log = logging.getLogger("api.approvals")
 
@@ -41,7 +42,22 @@ async def list_approvals(status: str = Query("pending"), claims: dict = Depends(
         raise ApiError(
             400, "bad_status", f"status '{status}' không hỗ trợ.", "Chỉ status=pending ở S3.", retryable=False
         )
-    return await store_approvals.list_pending()
+    return await store_approvals.list_pending(tenant_id=tenant_id_from_claims(claims))
+
+
+@router.get("/{approval_id}")
+async def get_approval(approval_id: str, claims: dict = Depends(require_admin)) -> dict[str, Any]:
+    """Admin đọc trực tiếp một phiếu ở mọi trạng thái; auth chạy trước lookup để không lộ tồn tại."""
+    approval = await store_approvals.get_approval(approval_id, tenant_id_from_claims(claims))
+    if approval is None:
+        raise ApiError(
+            404,
+            "not_found",
+            f"Không có phiếu '{approval_id}'.",
+            "Kiểm lại id hoặc liên kết.",
+            retryable=False,
+        )
+    return approval
 
 
 @router.post("/{approval_id}/decide")
@@ -62,11 +78,15 @@ async def decide(approval_id: str, body: DecideBody, claims: dict = Depends(requ
         )
 
     decided = await store_approvals.decide(
-        approval_id, body.decision, decided_by=claims.get("username", "admin"), reason=body.reason
+        approval_id,
+        body.decision,
+        decided_by=claims.get("username", "admin"),
+        reason=body.reason,
+        tenant_id=tenant_id_from_claims(claims),
     )
     if decided is None:
         # phân biệt 404 (không tồn tại) vs 409 (đã quyết) — chống double-wake
-        if await store_approvals.approval_exists(approval_id):
+        if await store_approvals.approval_exists(approval_id, tenant_id_from_claims(claims)):
             raise ApiError(
                 409,
                 "approval_already_decided",
@@ -78,11 +98,23 @@ async def decide(approval_id: str, body: DecideBody, claims: dict = Depends(requ
 
     # SSE approval.decided + card sync + đánh thức main — SAU khi decide commit (§5)
     _emit_and_wake(decided)
+    # D-71: chuông cửa ngoài DC chỉ sau commit + SSE/wake; helper nuốt mọi lỗi vận chuyển/config.
+    _notify_channel_decided(decided)
     # HOOK a (T9-2): mail báo khách khoản vay được duyệt/từ chối — best-effort async, KHÔNG chặn.
     # SAU _emit_and_wake (SSE/wake xong). Ca bank/không email → helper tự skip.
     _notify_decided(decided)
     decided.pop("_card_row", None)  # nội bộ (emit card SSE) — KHÔNG lên API response
     return decided
+
+
+def _notify_channel_decided(decided: dict[str, Any]) -> None:
+    """Ranh best-effort để lỗi adapter không đổi response decide đã commit."""
+    try:
+        from app.notify.channels import notify_channel_approval_decided
+
+        notify_channel_approval_decided(decided)
+    except Exception as exc:  # noqa: BLE001 — hậu commit, chỉ log class để không lộ business data
+        log.warning("notify decided doorbell lỗi exception=%s", type(exc).__name__)
 
 
 def _notify_decided(decided: dict[str, Any]) -> None:

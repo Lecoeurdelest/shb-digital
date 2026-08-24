@@ -17,7 +17,7 @@ from typing import Any
 import psycopg2
 import psycopg2.extras
 
-from app.db.config import DATABASE_URL
+from app.storage import connect_core
 
 log = logging.getLogger("notify.hooks")
 
@@ -32,7 +32,7 @@ def app_url() -> str:
 def owner_greeting(conv_id: str) -> str:
     """Tên khách sở hữu ca (customers.full_name qua owner_id) cho 'Kính gửi'. Không có → 'Quý khách'."""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = connect_core()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -52,7 +52,7 @@ def _conv_owner_email(conv_id: str) -> str | None:
     """Email KHÁCH tạo ca (conversations.user_id → users role=customer + email NOT NULL). None = bank
     /không email → skip. Best-effort (DB lỗi → None, không raise)."""
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = connect_core()
         try:
             with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
                 cur.execute(

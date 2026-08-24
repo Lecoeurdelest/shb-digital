@@ -19,9 +19,8 @@ from typing import Any
 
 import psycopg2
 import psycopg2.extensions
-import psycopg2.pool
 
-from app.db.config import DATABASE_URL
+from app.storage.registry import get_registry
 
 # match `?` placeholder ngoài chuỗi literal ('...'/"..."). credit.py/customers.py không có
 # `?` trong string literal nào (verify: grep "'.*?.*'" rỗng) — nhưng regex vẫn tránh quote-aware
@@ -184,22 +183,18 @@ class PGConnAdapter:
 
 
 # ---------------------------------------------------------------------------
-# Pool — psycopg2 sync conn (DECISIONS D-22: chạy trong run_in_executor ở T1-2)
+# Pool — registry core dùng chung (D-34 được đóng: một pool cho tool + runtime store)
 # ---------------------------------------------------------------------------
 
-_pool: psycopg2.pool.ThreadedConnectionPool | None = None
 
-
-def get_pool() -> psycopg2.pool.ThreadedConnectionPool:
-    global _pool
-    if _pool is None:
-        _pool = psycopg2.pool.ThreadedConnectionPool(minconn=1, maxconn=10, dsn=DATABASE_URL)
-    return _pool
+def get_pool():
+    """Compatibility name; trả connection-store thay vì lộ implementation pool."""
+    return get_registry().connection_store("core")
 
 
 def acquire() -> psycopg2.extensions.connection:
-    return get_pool().getconn()
+    return get_pool().acquire()
 
 
 def release(conn: psycopg2.extensions.connection) -> None:
-    get_pool().putconn(conn)
+    get_pool().release(conn)

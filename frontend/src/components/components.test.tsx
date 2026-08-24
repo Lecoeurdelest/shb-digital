@@ -32,10 +32,23 @@ describe('MessageBubble', () => {
     expect(container.querySelector('.msg-bubble--note-error')).toBeFalsy();
   });
 
-  it('system + meta.error → variant --note-error (CONTRACT §4b main fail)', () => {
+  it('system + meta.error → thông báo nghiệp vụ, không lộ lỗi runtime', () => {
     const m: Message = { ...msg('system', '⚠ MAIN hết trần retry'), meta: { error: true } };
     const { container } = render(<MessageBubble msg={m} />);
     expect(container.querySelector('.msg-bubble--note-error')).toBeTruthy();
+    expect(screen.getByText(/Không thể hoàn tất bước xử lý/i)).toBeInTheDocument();
+    expect(screen.queryByText(/MAIN hết trần retry/i)).not.toBeInTheDocument();
+  });
+
+  it('assistant có meta telemetry → chỉ hiện nội dung nghiệp vụ', () => {
+    const m: Message = {
+      ...msg('assistant', 'Kết quả sơ thẩm'),
+      meta: { metrics: { model: 'glm-4.6', input_tokens: 100, cost_usd: 0.2 } },
+    };
+    render(<MessageBubble msg={m} />);
+    expect(screen.getByText('Kết quả sơ thẩm')).toBeInTheDocument();
+    expect(screen.queryByTestId('main-metrics')).not.toBeInTheDocument();
+    expect(screen.queryByText(/glm-4.6|token|\$0.2/i)).not.toBeInTheDocument();
   });
 
   it('streaming bubble → có cursor + testid', () => {

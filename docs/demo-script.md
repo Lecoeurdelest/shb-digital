@@ -1,11 +1,12 @@
-# DEMO SCRIPT v9 — SYSTEM #132 "BANK Digital — Chi nhánh ngân hàng số" (thi Đà Nẵng) — HAI CỬA SỔ + 3 TRỤ + KHÁCH MỚI (D-56/D-52/D-57/D-61)
+# DEMO SCRIPT v10 — SYSTEM #132 “Pre-assessment + Middle-office Copilot” (thi Đà Nẵng) — HAI CỬA SỔ + 3 TRỤ (D-73)
 
 > Tài khoản demo (KHÁCH-DN · KHÁCH-CN · ADMIN) đã gửi riêng BTC — repo không chứa credential.
 
-> Kể 5 deliverable đề #132 trong 1 mạch chuyện ~10-13 phút, THEO HƯỚNG D-56: app là CỬA KHÁCH
-> HÀNG — khách tự chat với đội chuyên gia số, khoản nhỏ agent TỰ DUYỆT theo ma trận, khoản lớn
-> bắn về NGÂN HÀNG duyệt. **Sân khấu = 2 cửa sổ Chrome cạnh nhau: TRÁI = khách (b001) ·
-> PHẢI = ngân hàng (admin).** Cả 2 cửa sổ phải VISIBLE (badge poll dừng khi tab ẩn — đừng
+> Kể 5 deliverable đề #132 trong 1 mạch chuyện ~10-13 phút, mở từ **bàn RM/underwriting của
+> ngân hàng** theo D-73: hệ chuẩn bị tờ trình sơ thẩm, nguồn và cảnh báo; con người quyết định và
+> ký. **Sân khấu = 2 cửa sổ Chrome cạnh nhau: PHẢI = bàn ngân hàng/RM (admin, vai chính) · TRÁI =
+> cửa khách (b001, demo/sandbox hỗ trợ).** Cửa khách chứng minh intake, read-scope và vòng đời,
+> không phải persona sản phẩm chính. Cả 2 cửa sổ phải VISIBLE (badge poll dừng khi tab ẩn — đừng
 > minimize cửa sổ bank).
 >
 > Setup trước MỖI lần chạy: `cd backend && uv run python -m app.db.reset_demo` (users KHÔNG bị
@@ -15,33 +16,38 @@
 > Cơ khí Xưởng X, B001) · **[KHÁCH-CN c001]** (khách cá nhân — Nguyễn Văn An, C001) · **[ADMIN]**
 > (ngân hàng).
 
-## Mạch chuyện: "Doanh nghiệp tự đến chi nhánh số — vay, được thẩm định, giải ngân"
+## Mạch chuyện: “RM nhận hồ sơ phức tạp — máy chuẩn bị, người ký”
 
-### CẢNH 1 — Khách tự chat với ĐỘI CHUYÊN GIA (deliverable #1 + #2) — ~3 phút
-- Cửa sổ TRÁI: login **[KHÁCH-DN b001]** → "b001 · Khách hàng". CHỈ RA: khách KHÔNG thấy Control
-  Tower, không thấy nút duyệt — "đây là cửa khách, như app ngân hàng thật".
-- ⚠️ Hệ TỰ BIẾT khách là ai (MAIN inject B001) — khách không cần khai mã. NHƯNG vẫn nêu
-  MỤC ĐÍCH + TÀI SẢN (luật Pháp chế #3/#6 — thiếu là nó dừng hỏi, đúng nghề nhưng tốn nhịp).
-- Gõ: **"Công ty tôi muốn vay 5 tỷ MỞ RỘNG SẢN XUẤT, thế chấp nhà xưởng (COL06) — khảo sát
-  nhanh giúp tôi: sức khoẻ tín dụng, pháp lý hồ sơ thế chấp, gói vay phù hợp. Chưa phải hồ sơ
-  chính thức."** ("khảo sát... chưa chính thức" = tín hiệu FAN-OUT.)
-- CHỈ lobby 3D (chi nhánh số): các chuyên gia SÁNG ĐÈN chạy SONG SONG — "điều phối viên tự
-  phân rã việc" (#2). MAIN xưng "anh/chị" với khách — chỉ cho giám khảo thấy nó ĐANG nói
-  chuyện với khách hàng, không phải nhân viên.
-- Mở khối "Diễn tiến đội" (F1): 🧠 suy nghĩ + 🔧 tool call sống. Click 1 sub → SubAgentView.
-- ~60-90s: canvas đầy card CÓ NGUỒN (DSCR, pháp lý, gói vay) — chip nguồn: "mọi con số truy
-  được về tool".
-- *Thoát hiểm: Main chọn tuần-tự thay song-song → kể luôn "nó đang đi đúng quy trình tín dụng
-  — bàn giao thật giữa phòng ban" (D-52) — cả hai đường đều điểm cộng.*
+### CẢNH 1 — Bàn RM lập tờ trình với ĐỘI CHUYÊN GIA (deliverable #1 + #2) — ~3 phút
 
-### CẢNH 2 — PHANH PHÂN TẦNG 2 CỬA SỔ: khoản nhỏ TỰ DUYỆT, khoản lớn BAY về ngân hàng (deliverable #3 — CẢNH ĂN TIỀN) — ~3 phút
+- Cửa sổ PHẢI: login **[ADMIN]** → Workspace → “+ Ca mới”. Giới thiệu: “Đây là bàn
+  RM/underwriting; khách hàng không ngồi điều khiển quyết định tín dụng.”
+- Gõ: **“Tôi là RM đang lập tờ trình sơ thẩm hồ sơ doanh nghiệp B001 vay 5 tỷ MỞ RỘNG SẢN
+  XUẤT, thế chấp nhà xưởng COL06. Hãy phối hợp kiểm tra sức khoẻ tín dụng, pháp lý tài sản và gói
+  vay; nêu nguồn, cảnh báo và đề xuất để tôi rà soát.”**
+- CHỈ lobby 3D: các chuyên gia SÁNG ĐÈN — “MAIN tự phân rã và bàn giao việc” (#2). Mở khối
+  “Diễn tiến đội” (F1): 🧠 suy nghĩ + 🔧 tool call sống; click một sub để xem brief/trace/kết quả.
+- ~60–90s: canvas có card CÓ NGUỒN (DSCR, pháp lý, gói vay) và tờ trình sơ thẩm. Chỉ chip nguồn:
+  “máy chuẩn bị và dẫn căn cứ; RM kiểm tra, sửa nếu cần rồi trình ký.”
+- Nhịp phụ 20s ở cửa sổ TRÁI: login **[KHÁCH-DN b001]**. Chỉ ra khách không thấy Control Tower,
+  không có nút duyệt và chỉ thấy hồ sơ của mình: “cửa này là demo/sandbox chứng minh intake và
+  phân tách dữ liệu; persona chính vẫn là bàn RM vừa xem.”
+- *Thoát hiểm: MAIN chọn tuần-tự thay song-song → kể “nó đang đi đúng quy trình tín dụng và bàn
+  giao thật giữa phòng ban” (D-52); cả hai đường đều chứng minh orchestration.*
+
+### CẢNH 2 — PHANH TẦNG TOOL + BÀN PHÊ DUYỆT 2 CỬA SỔ (deliverable #3) — ~3 phút
+
+> **Cách kể theo D-73:** các nhánh `auto-rule` dưới đây được giữ để chứng minh ma trận thẩm quyền,
+> fail-closed và regression của phanh hiện có; chúng không phải lời chào bán máy tự quyết khoản
+> vay nhỏ. Pilot đặt ngưỡng `0`: mọi hồ sơ về người, hệ chỉ đưa khuyến nghị có nguồn.
+
 **Chuẩn bị:** cửa sổ PHẢI đã login **[ADMIN]**, để ở Workspace (thấy nút 🗼 Control Tower).
 **Nhịp A — khoản nhỏ, ma trận cho tự duyệt (⚠️ v9 sửa theo SEED THẬT + Fix-A cross-owner:
 khách CHỈ giải ngân được loan CỦA MÌNH — L006 là của C003, b001 gõ sẽ bị từ chối đúng luật!):**
 - TRÁI: login **[KHÁCH-CN c001]** → gõ: **"Giải ngân khoản vay L001 số tiền 340 triệu."** (L001 CỦA
   C001, 340tr < 500tr) → ~15-45s: card **"✅ Tự động duyệt & thực thi"** + biên nhận LUÔN —
-  "dưới ngưỡng 500 triệu, ma trận thẩm quyền cho agent tự duyệt. Nhưng NHÌN: phiếu vẫn ghi
-  `decided_by='auto-rule'` + lý do — tự động CÓ KIỂM SOÁT, audit đủ."
+  “đây là nhánh tương thích demo của ma trận. NHÌN: phiếu vẫn ghi `decided_by='auto-rule'` +
+  lý do — cơ chế kỹ thuật có kiểm soát và audit đủ; cấu hình pilot D-73 sẽ đóng nhánh này về người.”
 **Nhịp B — khoản lớn: phiếu BAY sang ngân hàng:**
 - TRÁI: login lại **[KHÁCH-DN b001]** → gõ: **"Giải ngân khoản vay L007 số tiền 3 tỷ đồng."** (L007
   CỦA B001, dư nợ 3 tỷ — v9 sửa: script cũ ghi "1 tỷ" lệch seed) → ~5-10s: card
@@ -68,11 +74,12 @@ pain người ra đề):**
   VƯỢT ngưỡng 500tr* → nhưng ~15s: **✅ TỰ ĐỘNG DUYỆT** — phiếu `auto-rule`, reason **"Hồ sơ
   XANH — assessment #N"**. → *"Ma trận thẩm quyền 3 tầng: khoản nhỏ tự chạy · khoản vừa CHỈ tự
   chạy khi 3 nguồn chấm XANH — có số biên bản truy được · khoản lớn và hồ sơ chưa xanh (DN 3 tỷ
-  vừa nãy) vẫn qua người. Không chặn hết, không thả hết — đúng pain ngân hàng thật."*
+  vừa nãy) vẫn qua người. Đây là bằng chứng engine tôn trọng ma trận, không phải định vị sản phẩm;
+  trong pilot shadow, RM vẫn xem khuyến nghị và ký.”*
 - *Tương phản kể miệng: khách C001 tra công an CHƯA CÓ bản ghi → hệ nói "chưa xác minh được",
   KHÔNG đoán sạch/bẩn → bắt buộc người xem. Agent trung thực với dữ liệu thiếu.*
 
-### CẢNH 2B — KHÁCH MỚI từ số 0 + MAIL VỀ ĐIỆN THOẠI (D-57 — vòng đời trọn) — đo thật ~11'
+### CẢNH 2B — CỬA KHÁCH DEMO/SANDBOX: khách mới + mail (D-57, cảnh hỗ trợ) — đo thật ~11'
 TRỌN vòng (register 2'52 + form 3'54 + thẩm định 4'21) — **DEMO MẶC ĐỊNH: warm-up account +
 form trước giờ G, trên sân khấu kể từ bước THẨM ĐỊNH (~4') hoặc chỉ nhịp duyệt→mail (~2')**.
 - TRÁI: Đăng xuất → tab **"Đăng ký khách mới"** → tạo account NGAY TRÊN SÂN KHẤU (username tự
@@ -109,8 +116,9 @@ form trước giờ G, trên sân khấu kể từ bước THẨM ĐỊNH (~4') 
   "Cùng bộ máy — trí khôn nằm ở tool + kỷ luật hệ thống, không khoá vào 1 nhà model."
 
 ## Câu chốt
-"Khách tự đến chi nhánh số, đội chuyên gia AI phục vụ, khoản nhỏ tự quyết theo ma trận có audit,
-khoản lớn con người ngân hàng giữ chìa — 5 deliverable chạy live, không video."
+“Đây là copilot sơ thẩm và vận hành middle office cho hồ sơ phức tạp: đội chuyên gia chuẩn bị tờ
+trình, nguồn và cảnh báo; con người ngân hàng giữ quyền quyết định và ký. Năm deliverable đề #132
+chạy live; cửa khách chỉ là demo/sandbox của vòng đời end-to-end.”
 
 ## Sự cố & thoát hiểm
 | Sự cố | Thoát |
@@ -126,8 +134,8 @@ khoản lớn con người ngân hàng giữ chìa — 5 deliverable chạy live
 | Mất mạng provider | đổi SHB_PROVIDER (claude-cli/zai dự phòng) |
 | DB bẩn giữa buổi | reset_demo 1 lệnh (~5s) — users giữ nguyên |
 
-## Timing (C1/C2 đo THẬT rehearsal 18/7 · C3-C5 kế thừa v4) — mục tiêu ≤13ph
-C1 **2'10" đo thật** · C2 nhịp A **43" đo thật** (model latency — đừng hứa "15 giây", nói
+## Timing (C1 cũ/C2 đo rehearsal 18/7 · mở bàn RM D-73 cần đo lại · C3-C5 kế thừa v4) — mục tiêu ≤13ph
+C1 cũ **2'10" tham chiếu** · C2 nhịp A **43" đo thật** (model latency — đừng hứa "15 giây", nói
 "chưa tới 1 phút") + nhịp B **~3' đo thật** (gồm đổi vai thủ công 1-browser; 2 cửa sổ song
 song nhanh hơn) + nhịp C **~5' đo thật** (thẩm định 3 trụ ~3-4' với CÂU ĐÚNG mục-đích-mua-nhà
 + giải ngân xanh 1'15") · C3 ~1.5ph · C4 ~2.5ph · C5 ~1ph. TỔNG đầy đủ ~15' — mặc định demo
@@ -137,7 +145,7 @@ CẮT C5 (kể miệng 1 câu) để về ≤13'; bị giục thêm → C1 rút 
 ## Checklist trước giờ G
 - [ ] `reset_demo` sạch · [ ] server :8000 `DEV_SKIP_AUTH=0` + health OK · [ ] .env đủ key
 - [ ] login thử b001 + c019 + admin · [ ] 2 cửa sổ xếp cạnh nhau, CẢ HAI visible
-- [ ] 1 vòng rehearsal trọn 2-cửa-sổ <13' (đo lại timing v6 — chưa đo THẬT sau D-56)
+- [ ] 1 vòng rehearsal trọn 2-cửa-sổ <13' (đo lại timing sau mở bàn RM theo D-73)
 - [ ] browser zoom/máy chiếu OK (floor 1366×768)
 
 > **Luật vận hành (giữ từ v4):** KHÔNG restart server / KHÔNG đụng DB / KHÔNG chạy pytest trên
