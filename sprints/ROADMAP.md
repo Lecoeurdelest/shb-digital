@@ -236,9 +236,18 @@
 - **Plan:** `plan_sprint_20.md` · **End:** `end_sprint_20.md` · **Evidence:**
   `evidence/s20-tester-1.md`, `evidence/s20-tester-2.md`.
 
-## Sprint 23 — Segment = config 📝 DRAFT (chưa kickoff/dispatch)
+## Sprint 23 — Segment = config 🚧 KICKOFF (24/8)
 
-- **Theme:** nhận segment tín chấp qua config fail-closed; reason-code/RFI/counter-offer có nguồn.
-- **Ranh:** S22 đã có evidence UX reframe. D-77 intake shadow chỉ tạo case/link/conversation rỗng;
-  không tạo approval hoặc sample `shadow_reviews`. Gate segment không dùng dashboard S20 làm proxy.
-- **Plan:** `plan_sprint_23.md`; baseline/decisions/final dispatch chỉ được chốt ở kickoff S23.
+- **Theme:** nhận segment tín chấp qua config v2 tenant-bound; reason-code/RFI/counter-offer có
+  runtime proof nhưng không mở auto-approval.
+- **Gate:** source credential bind `tenant_slug`; invalid config/taxonomy fail trước agent boot;
+  intake chỉ tạo durable link/conversation rỗng. Operator start rõ ràng, context allowlist; mọi
+  linked conversation bị tool guard chặn hành động nhạy cảm. Memo reason code validate trước write;
+  RFI đúng hai key sau commit + exact-case; C009 CO-01 có candidate + same-amount credit reassessment
+  + active wiki citation. Hai tester gate song song, PM review riêng.
+- **Ranh:** D-81 tách intake shadow khỏi approval `shadow_reviews`; external party chưa là internal
+  owner, full LOS four-role defer S24. D-83 best-effort không claim exactly-once; D-82 tool catalog
+  sở hữu số. Không outbox/bảng/start endpoint/card/scoring mới.
+- **Baseline:** **613 BE pass + 17 skip + 336 FE pass = 949 pass + 17 skip**; caveat optional
+  `pyvi` và default-parallel Vitest timing-flake phải xuất hiện trong evidence.
+- **Plan:** `plan_sprint_23.md`.
