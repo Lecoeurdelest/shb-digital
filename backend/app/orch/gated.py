@@ -323,6 +323,24 @@ def _branch_human(conn: ConnLike, cur: Any, ctx: dict[str, Any]) -> _GatedResult
     )
 
 
+def _linked_preassessment_refusal(cur: Any, conv_id: str) -> dict[str, Any] | None:
+    """D-81 choke point: a tenant-consistent intake link makes every money branch unreachable."""
+    cur.execute(
+        "SELECT 1 FROM conversations c JOIN external_case_links e "
+        "ON e.conversation_id=c.id AND e.tenant_id=c.tenant_id "
+        "WHERE c.id::text=%s LIMIT 1",
+        (conv_id,),
+    )
+    if cur.fetchone() is None:
+        return None
+    return {
+        "code": "preassessment_only",
+        "message": "Phiên intake này chỉ dùng để sơ thẩm, không được thực hiện hành động giải ngân.",
+        "hint": "Bàn giao hồ sơ sang quy trình phê duyệt được ngân hàng cấu hình riêng.",
+        "retryable": False,
+    }
+
+
 def _gated_txn(
     action: str,
     conv_id: str,
@@ -330,19 +348,36 @@ def _gated_txn(
     args: dict[str, Any],
     threshold_vnd: float | None = None,
 ) -> _GatedResult:
-    """LÕI ĐỒNG BỘ — 1 conn, 1 tx, 4 bước, KHÔNG await bên trong (advisor #1). commit/rollback/close.
+    """LÕI ĐỒNG BỘ — preflight read + 1 money tx, 4 bước, KHÔNG await bên trong.
 
-    T11-2 refactor: tách 5 nhánh → helper (0 đổi hành vi). GIỮ NGUYÊN: cross-owner guard TRƯỚC lock,
-    advisory-lock đầu tx, thứ tự nhánh 1→2→3→auto/human, except cửa-cuối rollback. 33 money-test guard.
+    D-81 preflight chặn linked case trước config read; money tx recheck để đóng race. GIỮ NGUYÊN:
+    cross-owner trước lock, advisory-lock đầu money flow, thứ tự 1→2→3→auto/human và rollback cửa cuối.
     """
-    ph = payload_hash(action, args)
-    # Caller production truyền tường minh. Default chỉ giữ seam test gọi _gated_txn trực tiếp;
-    # helper mở conn RIÊNG trước money conn nên lỗi config không poison transaction bên dưới.
+    # Preflight dùng lease tuần tự (không nested): linked intake return trước cả threshold loader.
+    # Money transaction bên dưới kiểm LẠI để đóng race link được tạo giữa preflight và threshold.
+    guard_conn = connect_core()
+    try:
+        with guard_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as guard_cur:
+            refusal = _linked_preassessment_refusal(guard_cur, conv_id)
+        guard_conn.rollback()
+    finally:
+        guard_conn.close()
+    if refusal is not None:
+        return _GatedResult(refusal)
+
+    # D-72: config read dùng connection riêng trước money transaction để pool size=1 không bị
+    # nested-acquire và lỗi config không poison transaction.
     if threshold_vnd is None:
         threshold_vnd = auto_approve_threshold()
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # D-81: SQL đầu tiên của money transaction; recheck đóng race sau preflight.
+            refusal = _linked_preassessment_refusal(cur, conv_id)
+            if refusal is not None:
+                conn.rollback()
+                return _GatedResult(refusal)
+
             # GUARD CROSS-OWNER (T9-4, money-adjacent): ca creator KHÁCH → loan PHẢI thuộc hồ sơ creator.
             # TRƯỚC advisory-lock + 4-step (không phí lock/phiếu cho ca bị chặn). fail-closed. Ca bank →
             # qua như cũ. Chỉ disburse. (KHÔNG phải 1 trong 5 nhánh — early-exit thứ 6 giữ tại chỗ.)
@@ -352,6 +387,7 @@ def _gated_txn(
                     conn.rollback()  # chưa ghi gì — rollback sạch, không giữ lock
                     return _GatedResult(refusal)
 
+            ph = payload_hash(action, args)
             # SERIALIZE per-key (chống race phiếu-rác): advisory-xact-lock deterministic (sha256, KHÔNG
             # hash() Python — PYTHONHASHSEED). tx-scoped → release ở commit/rollback. Chi tiết D-40.
             idempotency_key = approval_idempotency_key(conv_id, action, ph)
@@ -394,9 +430,9 @@ def gated(action: str, inner_read_handler: Callable) -> Callable:
         conv_id = registry.CTX_CONV.get()
         task_id = registry.CTX_TASK.get() or None  # Ops sub task (đúng — không leak, inside sub)
         try:
-            # D-72: config read cô lập TRƯỚC money transaction rồi truyền tường minh vào verdict.
-            threshold_vnd = await asyncio.to_thread(auto_approve_threshold)
-            result: _GatedResult = await asyncio.to_thread(_gated_txn, action, conv_id, task_id, args, threshold_vnd)
+            # `_gated_txn` phải tự preflight linked-intake TRƯỚC khi đọc threshold; truyền threshold
+            # từ wrapper sẽ làm production đi ngược D-81 dù direct-unit test vẫn xanh.
+            result: _GatedResult = await asyncio.to_thread(_gated_txn, action, conv_id, task_id, args)
         except OpsDisburseBlocked as e:
             # T12-3b: block ops_disburse (LAB verify chặn) — _gated_txn ĐÃ rollback (except cửa-cuối
             # chạy TRƯỚC ở đây → phiếu về 'approved'). Trả THẲNG payload 4-field NGUYÊN VĂN của LAB

@@ -36,11 +36,14 @@ interface Props {
   onBack: () => void;
   initialTab?: ControlTowerTab;
   focusedApprovalId?: string;
+  focusedCaseId?: string;
   onOpenCaseConversation?: (conversationId: string) => void;
 }
 
-export function ControlTower({ onBack, initialTab, focusedApprovalId, onOpenCaseConversation }: Props) {
-  const [tab, setTab] = useState<ControlTowerTab>(initialTab ?? (focusedApprovalId ? 'queue' : 'overview'));
+export function ControlTower({ onBack, initialTab, focusedApprovalId, focusedCaseId, onOpenCaseConversation }: Props) {
+  const [tab, setTab] = useState<ControlTowerTab>(
+    initialTab ?? (focusedApprovalId ? 'queue' : focusedCaseId ? 'assessments' : 'overview'),
+  );
   // T16-3: anomaly row-click ở Tổng quan → nhảy tab Nhật ký + seed filter mã phiên (không route mới).
   const [auditSeed, setAuditSeed] = useState('');
   const openAudit = (convId: string) => { setAuditSeed(convId); setTab('audit'); };
@@ -74,7 +77,9 @@ export function ControlTower({ onBack, initialTab, focusedApprovalId, onOpenCase
         {tab === 'overview' && <StatsOverview />}
         {tab === 'shadow' && <ShadowMatchView />}
         {tab === 'queue' && <ApprovalQueue focusedApprovalId={focusedApprovalId} />}
-        {tab === 'assessments' && <CaseWorkbench onOpenCaseConversation={onOpenCaseConversation} />}
+        {tab === 'assessments' && (
+          <CaseWorkbench focusedCaseId={focusedCaseId} onOpenCaseConversation={onOpenCaseConversation} />
+        )}
         {tab === 'audit' && <AuditView seedConvId={auditSeed} />}
         {tab === 'agents' && <ProcessingStatus />}
         {tab === 'technical' && (

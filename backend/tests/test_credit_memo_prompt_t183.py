@@ -1,5 +1,10 @@
 """[BACKEND] T18-3 — contract prompt tờ trình sơ thẩm, deterministic từ task board."""
 
+from types import SimpleNamespace
+
+import pytest
+
+from app.orch import main_prompts
 from app.orch.main_prompts import _build_event_prompt
 from app.orch.main_skill import (
     CREDIT_MEMO_MIN_DISTINCT_DONE_ROLES,
@@ -7,6 +12,20 @@ from app.orch.main_skill import (
     CREDIT_MEMO_TITLE,
     MAIN_SKILL,
 )
+from app.prompting import FilePromptCatalog
+from app.reason_taxonomy import get_reason_taxonomy
+
+
+@pytest.fixture(autouse=True)
+def _repository_prompt_catalog(monkeypatch: pytest.MonkeyPatch):
+    """File-contract tests must not depend on whichever immutable DB version a prior run bound.
+
+    Deployment activates repository versions through ``app.prompting.sync``; that integration is
+    covered separately in ``test_prompt_catalog.py``.
+    """
+    files = FilePromptCatalog()
+    service = SimpleNamespace(render=lambda key, values: files.render(key, values))
+    monkeypatch.setattr(main_prompts, "get_prompt_service", lambda: service)
 
 
 def _task_done_prompt(board: list[dict]) -> str:
@@ -28,6 +47,10 @@ def test_main_skill_locks_six_section_credit_memo_contract():
     assert "DSCR, LTV và CIC" in MAIN_SKILL
     assert "3 trụ, lane" in MAIN_SKILL and "assessment #id" in MAIN_SKILL
     assert "ma trận thẩm quyền" in MAIN_SKILL
+    assert "`reason_codes`" in MAIN_SKILL
+    assert get_reason_taxonomy().checksum in MAIN_SKILL
+    for code in get_reason_taxonomy().codes:
+        assert MAIN_SKILL.count(f"`{code.id}`") == 1
     assert "`source` phải là string\n  khác rỗng" in MAIN_SKILL
     for section in CREDIT_MEMO_SECTIONS:
         assert MAIN_SKILL.count(f"`{section}`") == 1
@@ -64,6 +87,7 @@ def test_two_distinct_completed_roles_require_standard_credit_memo():
     assert "items đúng 6 mục theo thứ tự" in prompt
     assert "`source` string khác rỗng" in prompt
     assert "top-level `sources`" in prompt
+    assert "`reason_codes`" in prompt
     for section in CREDIT_MEMO_SECTIONS:
         assert f"`{section}`" in prompt
 

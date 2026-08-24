@@ -40,11 +40,17 @@ log = logging.getLogger("app")
 async def lifespan(_app: FastAPI):
     # boot-cleanup (§7): task DB queued/running mồ côi từ đời trước → failed('server restart')
     # DEV_SKIP_AUTH cảnh báo (D-39): flag ON → mọi request = admin, không được dùng prod/demo thật
+    from app.case_intake.config import load_case_intake_config
     from app.config import DEV_SKIP_AUTH
     from app.orch import main_session, registry, store
+    from app.reason_taxonomy import activate_reason_taxonomy
     from app.runtime_security import validate_runtime_security
 
     validate_runtime_security()  # bank_dc: chặn startup trước mọi DB cleanup/agent boot
+    # D-81/D-82: artifact tĩnh hỏng phải chặn trước mọi mutation/agent boot; tenant DB chỉ resolve
+    # trong transaction intake nên DB availability không bị biến thành startup dependency ở đây.
+    load_case_intake_config()
+    activate_reason_taxonomy()
 
     if DEV_SKIP_AUTH:
         log.warning("⚠️  DEV_SKIP_AUTH ON — mọi request = admin, BỎ auth. KHÔNG dùng prod/demo thật.")

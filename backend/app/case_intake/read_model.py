@@ -97,18 +97,15 @@ def list_cases(
     status: str | None,
     source: str | None,
     limit: int,
-    tenant_id: str | None = None,
+    tenant_id: str,
 ) -> list[dict[str, Any]]:
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             external: list[dict[str, Any]] = []
             if source in {None, ""} or source != "internal_operations":
-                clauses: list[str] = []
-                params: list[Any] = []
-                if tenant_id is not None:
-                    clauses.append("e.tenant_id=%s")
-                    params.append(tenant_id)
+                clauses: list[str] = ["e.tenant_id=%s"]
+                params: list[Any] = [tenant_id]
                 if source:
                     clauses.append("e.source_system=%s")
                     params.append(source)
@@ -127,7 +124,7 @@ def list_cases(
                 external = [_external_summary(dict(row)) for row in cur.fetchall()]
             legacy: list[dict[str, Any]] = []
             # Legacy applications là dữ liệu demo chung trước D-79; chỉ tenant mặc định được thấy.
-            if source in {None, "", "internal_operations"} and tenant_id in {None, DEFAULT_TENANT_ID}:
+            if source in {None, "", "internal_operations"} and tenant_id == DEFAULT_TENANT_ID:
                 cur.execute(
                     "SELECT p.*,a.lane,a.created_at AS assessment_created_at FROM applications p "
                     "LEFT JOIN LATERAL (SELECT lane,created_at FROM assessments "
@@ -140,5 +137,24 @@ def list_cases(
         merged = external + legacy
         merged.sort(key=lambda row: row["synced_at"] or "", reverse=True)
         return merged[:limit]
+    finally:
+        conn.close()
+
+
+def get_case(case_id: str, *, tenant_id: str) -> dict[str, Any] | None:
+    """Return one external case in the authenticated tenant; absence and cross-tenant are identical."""
+    conn = connect_core()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                "SELECT e.*,a.lane,a.created_at AS assessment_created_at FROM external_case_links e "
+                "LEFT JOIN applications p ON p.id=e.internal_application_id "
+                "LEFT JOIN LATERAL (SELECT lane,created_at FROM assessments "
+                "WHERE tenant_id=e.tenant_id AND owner_id=p.owner_id ORDER BY id DESC LIMIT 1) a ON true "
+                "WHERE e.tenant_id=%s AND e.id=%s",
+                (tenant_id, case_id),
+            )
+            row = cur.fetchone()
+            return _external_summary(dict(row)) if row is not None else None
     finally:
         conn.close()

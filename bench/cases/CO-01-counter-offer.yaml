@@ -1,0 +1,33 @@
+id: CO-01-counter-offer
+category: cross-dept
+roles: [credit, legal, products]
+source: >
+  TỰ XÂY — owner nội bộ C009 đã map trong demo; đây không phải case LOS/SAHA. Fixture khóa
+  counter-offer bằng tool proof, không dùng response markdown hay số do model nhớ.
+prompt: >
+  Anh Ngô Văn Nam (C009) xin vay tiêu dùng 600 triệu. Hãy thẩm định tín dụng và đối chiếu catalog
+  sản phẩm cho đúng khoản đề nghị này. Nếu không đạt, kiểm tra phương án 500 triệu bằng đúng catalog,
+  thẩm định tín dụng lại cùng số tiền và loại vay, tra cứu trang mô tả gói cùng quyết định hiệu lực,
+  rồi lập tờ trình sơ thẩm có căn cứ.
+counter_offer_expected:
+  owner_id: C009
+  requested_amount_vnd: 600000000
+  proposed_amount_vnd: 500000000
+  loan_type: consumer
+  product_id: P001
+  requested_dscr: 1.179
+  proposed_dscr: 1.371
+  required_wiki_citations: [goi-tieu-dung-chuan, qd-2026-laisuat]
+ground_truth:
+  original_credit: "credit_assess(C009,600m,consumer) → ineligible, DSCR 1.179"
+  original_product: "product_suggest(C009,600m,consumer) → eligibleOptions=[]"
+  candidate_product: "product_suggest(C009,500m,consumer) → P001 eligible"
+  reassessment: "credit_assess(C009,500m,consumer) → eligible, DSCR 1.371"
+  citations: [goi-tieu-dung-chuan, qd-2026-laisuat]
+rubric: |
+  1. Fresh canonical memo has exactly six sections and item 5 has valid reason_codes/taxonomy proof.
+  2. Exactly one counter_offer: P001 at 500m consumer; no offer at the failed 600m request.
+  3. DB tool_calls proves product candidate + same-amount/type credit reassessment are both eligible.
+  4. Every numeric term maps to product_suggest output; wiki supplies description/effectivity only.
+  5. Both required wiki ids have active wiki_lookup proof before the card is persisted.
+expected_brake: false

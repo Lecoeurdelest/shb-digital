@@ -286,6 +286,12 @@ class MockBackend {
     return mockListCases(filters);
   }
 
+  async getCase(id: string): Promise<CaseSummary> {
+    const item = (await mockListCases({ limit: 50 })).find((row) => row.id === id);
+    if (!item) throw new ApiErrorLike(404, 'not_found', 'Hồ sơ không tồn tại (mock).');
+    return item;
+  }
+
   async runCompare(question: string): Promise<CompareResult> {
     return mockRunCompare(question);
   }

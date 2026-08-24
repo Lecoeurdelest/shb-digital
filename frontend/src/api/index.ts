@@ -47,6 +47,7 @@ export interface ConversationApi {
   getCostTrend(window: StatsWindow, bucket: 'hour' | 'day', groupBy: 'model' | 'role'): Promise<CostTrendResponse>;
   listAssessments(owner?: string, limit?: number): Promise<Assessment[]>;
   listCases(filters?: CaseListFilters): Promise<CaseSummary[]>;
+  getCase(id: string): Promise<CaseSummary>;
   // Form intake + bell (T9-3)
   submitForm(convId: string, cardId: string, values: Record<string, string>, consentGranted: true): Promise<FormSubmitResult>;
   getNotifications(): Promise<NotificationItem[]>;
@@ -155,6 +156,9 @@ const mockApi: ConversationApi = {
   async listCases(filters: CaseListFilters = {}) {
     return mockBackend.listCases(filters);
   },
+  async getCase(id: string) {
+    return mockBackend.getCase(id);
+  },
   async submitForm(convId: string, cardId: string, values: Record<string, string>, consentGranted: true) {
     return mockBackend.submitForm(convId, cardId, values, consentGranted);
   },
@@ -219,6 +223,7 @@ const realApi: ConversationApi = {
   getCostTrend: apiClient.getCostTrend,
   listAssessments: apiClient.listAssessments,
   listCases: apiClient.listCases,
+  getCase: apiClient.getCase,
   submitForm: apiClient.submitForm,
   getNotifications: apiClient.getNotifications,
   openEventSource: browserEventSource,

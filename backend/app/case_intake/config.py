@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -15,8 +16,15 @@ class CaseIntakeConfigError(ValueError):
 
 
 @dataclass(frozen=True)
+class ProductProfile:
+    workflow_profile: str
+    auto_start: str
+
+
+@dataclass(frozen=True)
 class SourceConfig:
     name: str
+    tenant_slug: str
     enabled: bool
     modes: frozenset[str]
     accepted_schema_versions: frozenset[int]
@@ -26,10 +34,17 @@ class SourceConfig:
     allowed_products: frozenset[str]
     max_payload_bytes: int
     api_key_env: str
+    product_profiles: dict[str, ProductProfile]
 
     def api_key(self) -> str | None:
         value = os.environ.get(self.api_key_env)
         return value if value else None
+
+    def profile_for(self, product_code: str) -> ProductProfile:
+        return self.product_profiles.get(
+            product_code,
+            ProductProfile(workflow_profile=self.workflow_profile, auto_start=self.auto_start),
+        )
 
 
 @dataclass(frozen=True)
@@ -45,6 +60,10 @@ _EVENT_TYPES = {
     "case.preassessment_requested",
     "case.cancelled",
 }
+_V1_PRODUCTS = {"SME_SECURED"}
+_V2_PRODUCTS = {*_V1_PRODUCTS, "UNSECURED_CONSUMER", "UNSECURED_PUBLIC"}
+_TENANT_SLUG = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
+_PROFILE_KEYS = {"workflow_profile", "auto_start"}
 
 
 def _string_set(raw: Any, field: str) -> frozenset[str]:
@@ -53,14 +72,31 @@ def _string_set(raw: Any, field: str) -> frozenset[str]:
     return frozenset(item.strip() for item in raw)
 
 
-def _source(name: str, raw: Any) -> SourceConfig:
+def _profile(raw: Any, field: str) -> ProductProfile:
+    if not isinstance(raw, dict) or set(raw) != _PROFILE_KEYS:
+        raise CaseIntakeConfigError(f"{field} must contain exactly workflow_profile and auto_start")
+    profile = ProductProfile(
+        workflow_profile=raw.get("workflow_profile"),
+        auto_start=raw.get("auto_start"),
+    )
+    if profile.workflow_profile != "preassessment_only" or profile.auto_start not in {"off", "shadow"}:
+        raise CaseIntakeConfigError(f"{field} has an unsafe workflow profile or rollout mode")
+    return profile
+
+
+def _source(name: str, raw: Any, *, version: int) -> SourceConfig:
     if not isinstance(raw, dict):
         raise CaseIntakeConfigError(f"source {name!r} must be an object")
     modes = _string_set(raw.get("modes", []), f"source {name!r} modes")
     events = _string_set(raw.get("allowed_event_types", []), f"source {name!r} allowed_event_types")
     products = _string_set(raw.get("allowed_products", []), f"source {name!r} allowed_products")
+    supported_products = _V1_PRODUCTS if version == 1 else _V2_PRODUCTS
+    if products - supported_products:
+        raise CaseIntakeConfigError(f"source {name!r} contains unsupported products")
     versions = raw.get("accepted_schema_versions", [])
-    if not isinstance(versions, list) or any(not isinstance(item, int) or item < 1 for item in versions):
+    if not isinstance(versions, list) or any(
+        isinstance(item, bool) or not isinstance(item, int) or item < 1 for item in versions
+    ):
         raise CaseIntakeConfigError(f"source {name!r} accepted_schema_versions must contain positive integers")
     unknown_events = events - _EVENT_TYPES
     if unknown_events:
@@ -77,8 +113,28 @@ def _source(name: str, raw: Any) -> SourceConfig:
     api_key_env = raw.get("api_key_env")
     if not isinstance(api_key_env, str) or not api_key_env.startswith("SHB_") or not api_key_env.endswith("_API_KEY"):
         raise CaseIntakeConfigError(f"source {name!r} api_key_env is invalid")
-    return SourceConfig(
+    if version == 1:
+        tenant_slug = "bank-digital-default"
+        product_profiles: dict[str, ProductProfile] = {}
+    else:
+        tenant_slug = raw.get("tenant_slug")
+        if not isinstance(tenant_slug, str) or _TENANT_SLUG.fullmatch(tenant_slug) is None:
+            raise CaseIntakeConfigError(f"source {name!r} tenant_slug is invalid")
+        profiles_raw = raw.get("product_profiles")
+        if not isinstance(profiles_raw, dict):
+            raise CaseIntakeConfigError(f"source {name!r} product_profiles must be an object")
+        product_profiles = {}
+        for product_code, profile_raw in profiles_raw.items():
+            if product_code not in products:
+                raise CaseIntakeConfigError(f"source {name!r} product profile is outside allowed_products")
+            product_profiles[product_code] = _profile(
+                profile_raw,
+                f"source {name!r} product profile {product_code!r}",
+            )
+
+    source = SourceConfig(
         name=name,
+        tenant_slug=tenant_slug,
         enabled=raw.get("enabled") is True,
         modes=modes,
         accepted_schema_versions=frozenset(versions),
@@ -88,20 +144,29 @@ def _source(name: str, raw: Any) -> SourceConfig:
         allowed_products=products,
         max_payload_bytes=max_bytes,
         api_key_env=api_key_env,
+        product_profiles=product_profiles,
     )
+    for product_code in products - _V1_PRODUCTS:
+        resolved = source.profile_for(product_code)
+        if resolved != ProductProfile(workflow_profile="preassessment_only", auto_start="shadow"):
+            raise CaseIntakeConfigError(
+                f"source {name!r} product {product_code!r} must use preassessment_only with shadow"
+            )
+    return source
 
 
 def load_case_intake_config(path: Path | None = None) -> CaseIntakeConfig:
     config_path = path or Path(os.environ.get("SHB_CASE_INTAKE_CONFIG", DEFAULT_CONFIG_PATH))
     try:
         raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
         raise CaseIntakeConfigError("case intake configuration cannot be loaded") from exc
-    if not isinstance(raw, dict) or raw.get("version") != 1 or not isinstance(raw.get("sources"), dict):
-        raise CaseIntakeConfigError("case intake configuration must use schema version 1")
+    version = raw.get("version") if isinstance(raw, dict) else None
+    if isinstance(version, bool) or version not in {1, 2} or not isinstance(raw.get("sources"), dict):
+        raise CaseIntakeConfigError("case intake configuration must use schema version 1 or 2")
     sources: dict[str, SourceConfig] = {}
     for name, value in raw["sources"].items():
         if not isinstance(name, str) or not name.strip() or name != name.strip().lower():
             raise CaseIntakeConfigError("case intake source names must be lowercase non-empty strings")
-        sources[name] = _source(name, value)
-    return CaseIntakeConfig(version=1, sources=sources)
+        sources[name] = _source(name, value, version=version)
+    return CaseIntakeConfig(version=version, sources=sources)

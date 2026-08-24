@@ -18,4 +18,20 @@ describe('apiClient.listCases', () => {
       expect.objectContaining({ credentials: 'include' }),
     );
   });
+
+  it('GET exact case encodes only the path id and reads a raw CaseSummary', async () => {
+    const row = { id: '0198a4e1-7b6c-7abc-0012-1234567890ab' };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => row,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(apiClient.getCase(row.id)).resolves.toEqual(row);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/cases/${row.id}`,
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
 });

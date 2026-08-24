@@ -20,6 +20,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from app.case_intake.context import linked_case_prompt_block
 from app.mount.mount_role import mount_role
 from app.orch import registry, store
 from app.orch.audit_emit import _audit_main_tool_call, _audit_tool_call, _emit_thinking  # S8: tách audit/SSE
@@ -155,7 +156,11 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
 
 
 def _build_main_options(
-    conv_id: str, resume: str | None, provider_env: dict[str, str] | None = None, model: str | None = None
+    conv_id: str,
+    resume: str | None,
+    provider_env: dict[str, str] | None = None,
+    model: str | None = None,
+    tenant_id: str | None = None,
 ) -> Any:
     """Options MAIN: skill điều phối + orch_* + common. model=conv.model hoặc MAIN_MODEL. resume bền.
 
@@ -171,7 +176,7 @@ def _build_main_options(
 
     # D-56 MAIN identity inject: ca creator = KHÁCH → prepend block khách (xưng anh/chị, mặc định về
     # khách này, KHÔNG tra hồ sơ người khác). creator = ngân hàng → MAIN_SKILL như cũ (không block).
-    skill = get_main_skill() + _customer_prompt_block(conv_id)
+    skill = get_main_skill() + _customer_prompt_block(conv_id) + linked_case_prompt_block(conv_id, tenant_id)
 
     return ClaudeAgentOptions(
         system_prompt=skill,
@@ -228,14 +233,30 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
     cmodel = _conv.get("model") if _conv else None  # D-45b (c): model per-conv → MAIN (null → MAIN_MODEL)
     expected = await store.get_conv_session_id(conv_id)
     try:
-        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=expected, provider_env=penv, model=cmodel))
+        client = ClaudeSDKClient(
+            options=_build_main_options(
+                conv_id,
+                resume=expected,
+                provider_env=penv,
+                model=cmodel,
+                tenant_id=_conv.get("tenant_id") if _conv else None,
+            )
+        )
         await client.connect()
     except ProcessError:
         if not expected:
             raise
         log.warning("resume %s chết → fresh (conv %s)", expected, conv_id)
         await store.set_conv_session_id(conv_id, None)
-        client = ClaudeSDKClient(options=_build_main_options(conv_id, resume=None, provider_env=penv, model=cmodel))
+        client = ClaudeSDKClient(
+            options=_build_main_options(
+                conv_id,
+                resume=None,
+                provider_env=penv,
+                model=cmodel,
+                tenant_id=_conv.get("tenant_id") if _conv else None,
+            )
+        )
         await client.connect()
 
     registry.main_clients[conv_id] = client  # cho interrupt (§7) — pop trong finally
