@@ -1,6 +1,6 @@
 // api/mockData.ts — cụm generator STATELESS tách khỏi mock.ts (nợ ghi từ S14 — file gốc >400
 // LOC). Các hàm ở đây KHÔNG đụng room/turnText của MockBackend — thuần data-shape cho
-// getModels/getStats/getCost/getCostTrend/listAssessments/listCases/runCompare. MockBackend (mock.ts)
+// getModels/getStats/getCost/getCostTrend/shadow/listAssessments/listCases/runCompare. MockBackend
 // delegate 1-dòng sang đây — giữ NGUYÊN behavior/shape, chỉ DI CHUYỂN code.
 
 import type {
@@ -11,6 +11,10 @@ import type {
   CostResponse,
   CostTrendResponse,
   ModelsResponse,
+  ShadowMatchStats,
+  ShadowMismatch,
+  ShadowMismatchFilters,
+  ShadowMismatchPage,
   StatsResponse,
   StatsWindow,
 } from '../types';
@@ -43,6 +47,55 @@ export async function mockGetStats(window: StatsWindow = '24h'): Promise<StatsRe
       approved: spark(12), green: spark(9), total: spark(20),
     },
   };
+}
+
+const MOCK_SHADOW_MISMATCHES: ShadowMismatch[] = [
+  {
+    approval_id: '0198a4e1-7b6c-7abc-0012-1234567890ab',
+    conv_id: 'conv-shadow-green-002',
+    system_lane: 'green',
+    system_recommendation: 'auto-eligible',
+    human_decision: 'rejected',
+    human_reason: 'Cần kiểm tra thêm chứng từ dòng tiền.',
+    decided_at: '2026-08-24T08:42:00Z',
+  },
+];
+
+export async function mockGetShadowMatch(): Promise<ShadowMatchStats> {
+  await delay(MOCK_LATENCY_MS);
+  return {
+    total: 3,
+    comparable: 3,
+    matched: 2,
+    rate: 2 / 3,
+    by_lane: [
+      { lane: 'green', total: 2, comparable: 2, matched: 1, rate: 0.5 },
+      { lane: 'red', total: 1, comparable: 1, matched: 1, rate: 1 },
+    ],
+    by_day: [
+      { date: '2026-08-23', total: 1, comparable: 1, matched: 1, rate: 1 },
+      { date: '2026-08-24', total: 2, comparable: 2, matched: 1, rate: 0.5 },
+    ],
+  };
+}
+
+export async function mockListShadowMismatches(
+  filters: ShadowMismatchFilters = {},
+): Promise<ShadowMismatchPage> {
+  await delay(MOCK_LATENCY_MS);
+  const from = filters.from ? Date.parse(filters.from) : Number.NEGATIVE_INFINITY;
+  const to = filters.to ? Date.parse(filters.to) : Number.POSITIVE_INFINITY;
+  const filtered = MOCK_SHADOW_MISMATCHES.filter((item) => {
+    const decidedAt = Date.parse(item.decided_at);
+    return (!filters.lane || item.system_lane === filters.lane) && decidedAt >= from && decidedAt < to;
+  });
+  const start = filters.cursor?.startsWith('mock-shadow-')
+    ? Number(filters.cursor.slice('mock-shadow-'.length)) || 0
+    : 0;
+  const limit = filters.limit ?? 50;
+  const items = filtered.slice(start, start + limit);
+  const end = start + items.length;
+  return { items, next_cursor: end < filtered.length ? `mock-shadow-${end}` : null };
 }
 
 // S16 T16-3: cost & vận hành AI (contract). Data gần thực: model zai/wrap/claude-cli, 4 role,

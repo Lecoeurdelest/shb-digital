@@ -5,6 +5,7 @@ import { conversationApi } from '../api';
 import { useApprovalBadge } from '../hooks/useApprovalBadge';
 import { ThemeToggle } from './ThemeToggle';
 import { StatsOverview } from './stats/StatsOverview';
+import { ShadowMatchView } from './stats/ShadowMatchView';
 import { CaseWorkbench } from './stats/CaseWorkbench';
 import { ApprovalQueue } from './ApprovalQueue';
 import { shortId, summarize } from './controlTowerFormat';
@@ -16,10 +17,11 @@ const TechnicalOperationsView = lazy(() => import('./stats/TechnicalOperationsVi
   default: module.TechnicalOperationsView,
 })));
 
-export type ControlTowerTab = 'overview' | 'queue' | 'assessments' | 'audit' | 'agents' | 'technical' | 'config' | 'compare';
+export type ControlTowerTab = 'overview' | 'shadow' | 'queue' | 'assessments' | 'audit' | 'agents' | 'technical' | 'config' | 'compare';
 
 const TAB_LABEL: Record<ControlTowerTab, string> = {
   overview: 'Tổng quan',
+  shadow: 'Đối chiếu shadow',
   queue: 'Hàng chờ duyệt',
   assessments: 'Cơ sở sơ thẩm',
   audit: 'Nhật ký kiểm soát',
@@ -28,7 +30,7 @@ const TAB_LABEL: Record<ControlTowerTab, string> = {
   config: 'Cấu hình agent',
   compare: 'Phòng thử nghiệm',
 };
-const TAB_ORDER: ControlTowerTab[] = ['overview', 'queue', 'assessments', 'agents', 'audit', 'technical', 'config', 'compare'];
+const TAB_ORDER: ControlTowerTab[] = ['overview', 'shadow', 'queue', 'assessments', 'agents', 'audit', 'technical', 'config', 'compare'];
 
 interface Props {
   onBack: () => void;
@@ -70,6 +72,7 @@ export function ControlTower({ onBack, initialTab, focusedApprovalId, onOpenCase
 
       <div className="ct__body" data-scroll>
         {tab === 'overview' && <StatsOverview />}
+        {tab === 'shadow' && <ShadowMatchView />}
         {tab === 'queue' && <ApprovalQueue focusedApprovalId={focusedApprovalId} />}
         {tab === 'assessments' && <CaseWorkbench onOpenCaseConversation={onOpenCaseConversation} />}
         {tab === 'audit' && <AuditView seedConvId={auditSeed} />}

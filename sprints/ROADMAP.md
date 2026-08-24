@@ -220,3 +220,25 @@
 - **Mốc:** **531 BE pass + 17 skip + 276 FE pass = 807 pass + 17 skip**; SDK **35 file /
   86.298 byte**.
 - **Plan:** `plan_sprint_21.md` · **End:** `end_sprint_21.md`.
+
+## Sprint 20 — Máy đo shadow + consent pre-pilot ✅ ĐÓNG KỸ THUẬT (24/8)
+
+- **Theme:** “MÁY ĐO” — admin nhìn được tỷ lệ system↔human, drill-down exact-ticket; form khách
+  ghi proof consent version/checksum cùng transaction hồ sơ.
+- **Gate:** mismatch API tenant-scoped với UTC/keyset cursor; Tower hiển thị ba comparable thành
+  `66,7%`; exact-ticket highlight; form thiếu consent zero write, form có consent commit atomic.
+  Tester-1 PASS 6/6 + migration hai chiều; tester-2 PASS live/browser/consent và fresh post-change
+  **949 pass + 17 skip**. PM cross-review cả hai. Mốc S21 `807 + 17 skip` chỉ là historical
+  reference vì PM-01 không chạy fresh baseline trước dispatch; PM-02 dependency tester đã sửa để
+  hai gate song song sau dev.
+- **Ranh:** D-80 là foundation kỹ thuật, không phải DPIA/compliance. Pilot dữ liệu thật NO-GO cho
+  tới bank sign-off và đánh giá tác động áp dụng.
+- **Plan:** `plan_sprint_20.md` · **End:** `end_sprint_20.md` · **Evidence:**
+  `evidence/s20-tester-1.md`, `evidence/s20-tester-2.md`.
+
+## Sprint 23 — Segment = config 📝 DRAFT (chưa kickoff/dispatch)
+
+- **Theme:** nhận segment tín chấp qua config fail-closed; reason-code/RFI/counter-offer có nguồn.
+- **Ranh:** S22 đã có evidence UX reframe. D-77 intake shadow chỉ tạo case/link/conversation rỗng;
+  không tạo approval hoặc sample `shadow_reviews`. Gate segment không dùng dashboard S20 làm proxy.
+- **Plan:** `plan_sprint_23.md`; baseline/decisions/final dispatch chỉ được chốt ở kickoff S23.

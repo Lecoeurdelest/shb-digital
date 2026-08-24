@@ -201,16 +201,29 @@ async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
 
     present_form THẬT: persist card type 'form' (fields server-side + status='pending') → SSE.
     id/conv/task VỎ-inject (§15). Model KHÔNG bơm fields — chống model tự chế shape hồ sơ."""
+    from app import consent
     from app.orch import registry, store
     from app.sse.emit import emit
 
     conv_id = registry.CTX_CONV.get()
     task_id = registry.CTX_TASK.get() or None
+    try:
+        wording = consent.load_wording()
+    except consent.ConsentWordingError:
+        return _text(
+            {
+                "code": "consent_wording_unavailable",
+                "message": "Nội dung đồng ý pre-pilot chưa sẵn sàng.",
+                "hint": "Báo quản trị kiểm tra artifact wording trước khi mở form.",
+                "retryable": False,
+            }
+        )
     card_data = {
         "type": "form",
         "title": "Hồ sơ vay — thông tin khách hàng",
         "fields": FORM_FIELDS,
         "status": "pending",
+        "consent": wording.snapshot(),
     }
     try:
         card_row = await store.insert_card(conv_id, task_id, "form", card_data)

@@ -114,12 +114,23 @@ def _mk_form_card(conv_id: str) -> str:
     """Tạo form card pending cho conv (mô phỏng present_form đã chạy)."""
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
+    from app import consent
     from app.orch.common_tools import FORM_FIELDS
 
     with conn.cursor() as cur:
         cur.execute(
             "INSERT INTO cards (conv_id, type, data, ts) VALUES (%s, 'form', %s, now()) RETURNING id::text",
-            (conv_id, psycopg2.extras.Json({"type": "form", "fields": FORM_FIELDS, "status": "pending"})),
+            (
+                conv_id,
+                psycopg2.extras.Json(
+                    {
+                        "type": "form",
+                        "fields": FORM_FIELDS,
+                        "status": "pending",
+                        "consent": consent.load_wording().snapshot(),
+                    }
+                ),
+            ),
         )
         return cur.fetchone()[0]
 
@@ -139,7 +150,11 @@ def _submit(conv: str, card_id: str, cookies: dict, values: dict | None = None):
     return client.post(
         f"/api/conversations/{conv}/form-submit",
         cookies=cookies,
-        json={"card_id": card_id, "values": values if values is not None else _GOOD_VALUES},
+        json={
+            "card_id": card_id,
+            "values": values if values is not None else _GOOD_VALUES,
+            "consent_granted": True,
+        },
     )
 
 

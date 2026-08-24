@@ -5,7 +5,7 @@
 
 import { apiClient, ApiRequestError } from './client';
 import { createMockEventSource, mockBackend, type MinimalEventSource } from './mock';
-import type { AgentConfigResponse, ApprovalRow, Assessment, AuditRow, AuthUser, CaseListFilters, CaseSummary, CompareResult, Conversation, ConversationFullState, ConversationGroup, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, StatsResponse, StatsWindow } from '../types';
+import type { AgentConfigResponse, ApprovalRow, Assessment, AuditRow, AuthUser, CaseListFilters, CaseSummary, CompareResult, Conversation, ConversationFullState, ConversationGroup, CostResponse, CostTrendResponse, FormSubmitResult, LoginResult, ModelsResponse, NotificationItem, ShadowMatchStats, ShadowMismatchFilters, ShadowMismatchPage, StatsResponse, StatsWindow } from '../types';
 
 // True when the app talks to the in-memory mock backend instead of the real REST API.
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API !== 'false';
@@ -41,12 +41,14 @@ export interface ConversationApi {
   runCompare(question: string): Promise<CompareResult>;
   // Admin stats + assessments (S13) + cost dashboard (S16 T16-3)
   getStats(window?: StatsWindow): Promise<StatsResponse>;
+  getShadowMatch(): Promise<ShadowMatchStats>;
+  listShadowMismatches(filters?: ShadowMismatchFilters): Promise<ShadowMismatchPage>;
   getCost(window?: StatsWindow): Promise<CostResponse>;
   getCostTrend(window: StatsWindow, bucket: 'hour' | 'day', groupBy: 'model' | 'role'): Promise<CostTrendResponse>;
   listAssessments(owner?: string, limit?: number): Promise<Assessment[]>;
   listCases(filters?: CaseListFilters): Promise<CaseSummary[]>;
   // Form intake + bell (T9-3)
-  submitForm(convId: string, cardId: string, values: Record<string, string>): Promise<FormSubmitResult>;
+  submitForm(convId: string, cardId: string, values: Record<string, string>, consentGranted: true): Promise<FormSubmitResult>;
   getNotifications(): Promise<NotificationItem[]>;
   openEventSource(convId: string): MinimalEventSource;
 }
@@ -135,6 +137,12 @@ const mockApi: ConversationApi = {
   async getStats(window: StatsWindow = '24h') {
     return mockBackend.getStats(window);
   },
+  async getShadowMatch() {
+    return mockBackend.getShadowMatch();
+  },
+  async listShadowMismatches(filters: ShadowMismatchFilters = {}) {
+    return mockBackend.listShadowMismatches(filters);
+  },
   async getCost(window: StatsWindow = '24h') {
     return mockBackend.getCost(window);
   },
@@ -147,8 +155,8 @@ const mockApi: ConversationApi = {
   async listCases(filters: CaseListFilters = {}) {
     return mockBackend.listCases(filters);
   },
-  async submitForm(convId: string, cardId: string, values: Record<string, string>) {
-    return mockBackend.submitForm(convId, cardId, values);
+  async submitForm(convId: string, cardId: string, values: Record<string, string>, consentGranted: true) {
+    return mockBackend.submitForm(convId, cardId, values, consentGranted);
   },
   async getNotifications() {
     return mockBackend.getNotifications();
@@ -205,6 +213,8 @@ const realApi: ConversationApi = {
   getModels: apiClient.getModels,
   runCompare: apiClient.runCompare,
   getStats: apiClient.getStats,
+  getShadowMatch: apiClient.getShadowMatch,
+  listShadowMismatches: apiClient.listShadowMismatches,
   getCost: apiClient.getCost,
   getCostTrend: apiClient.getCostTrend,
   listAssessments: apiClient.listAssessments,
