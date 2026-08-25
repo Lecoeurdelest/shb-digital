@@ -1,0 +1,506 @@
+erDiagram
+  AGENT_CONFIG_EVENTS {
+    uuid id PK "NOT NULL"
+    text prompt_key "NOT NULL"
+    text environment "NOT NULL"
+    integer version "NOT NULL"
+    text action "NOT NULL"
+    text actor "NOT NULL"
+    timestamptz created_at "NOT NULL"
+  }
+  ALEMBIC_VERSION {
+    varchar version_num PK "NOT NULL"
+  }
+  APPLICATIONS {
+    text id PK "NOT NULL"
+    text owner_id
+    text product_id
+    bigint loan_amount_vnd
+    text loan_type
+    text collateral_id
+    text status
+    integer credit_ok
+    integer legal_ok
+    text human_approval
+    text approval_ref
+    text created_at
+    text party_id
+  }
+  APPROVAL_EXECUTION_ATTEMPTS {
+    uuid id PK "NOT NULL"
+    uuid approval_id
+    integer attempt_no "NOT NULL"
+    text worker_id "NOT NULL"
+    text status "NOT NULL"
+    text error_code
+    jsonb result_snapshot
+    timestamptz started_at "NOT NULL"
+    timestamptz ended_at
+    uuid tenant_id "NOT NULL"
+  }
+  APPROVALS {
+    uuid id PK "NOT NULL"
+    text conv_id "NOT NULL"
+    uuid task_id
+    text action "NOT NULL"
+    jsonb payload "NOT NULL"
+    text payload_hash "NOT NULL"
+    text status "NOT NULL"
+    text decided_by
+    timestamptz decided_at
+    text reason
+    timestamptz used_at
+    jsonb receipt
+    integer exec_attempts "NOT NULL"
+    integer system_assessment_id
+    text system_lane
+    text system_recommendation
+    uuid conversation_id
+    text idempotency_key "NOT NULL"
+    timestamptz created_at "NOT NULL"
+    timestamptz updated_at "NOT NULL"
+    integer row_version "NOT NULL"
+    uuid tenant_id "NOT NULL"
+  }
+  ASSESSMENTS {
+    integer id PK "NOT NULL"
+    text owner_id
+    text loan_type
+    bigint loan_amount_vnd
+    text lane
+    text criteria_json
+    text basis
+    text created_at
+    text party_id
+    uuid tenant_id "NOT NULL"
+  }
+  ASSUMPTIONS {
+    varchar key PK "NOT NULL"
+    text value
+  }
+  BUSINESSES {
+    varchar id PK "NOT NULL"
+    text name
+    text sector
+    bigint annual_revenue
+    bigint equity
+    integer years_operating
+    text tax_code
+    text address
+  }
+  CARDS {
+    uuid id PK "NOT NULL"
+    text conv_id "NOT NULL"
+    uuid task_id
+    text type "NOT NULL"
+    jsonb data "NOT NULL"
+    timestamptz ts "NOT NULL"
+    uuid conversation_id
+    uuid tenant_id "NOT NULL"
+  }
+  CIC_RECORDS {
+    varchar owner_id PK "NOT NULL"
+    integer cic_group
+    text history_note
+    text party_id
+  }
+  COLLATERAL_LEGAL {
+    varchar collateral_id PK "NOT NULL"
+    text dispute_status
+    text zoning_status
+    text note
+  }
+  COLLATERALS {
+    varchar id PK "NOT NULL"
+    varchar owner_id
+    text type
+    bigint appraised_value
+    text docs_status
+    text party_id
+  }
+  CONSENT_RECORDS {
+    uuid id PK "NOT NULL"
+    uuid tenant_id "NOT NULL"
+    text subject_type "NOT NULL"
+    text subject_ref "NOT NULL"
+    text purpose "NOT NULL"
+    text wording_version "NOT NULL"
+    varchar wording_checksum "NOT NULL"
+    boolean granted "NOT NULL"
+    timestamptz recorded_at "NOT NULL"
+    timestamptz granted_at
+    text actor "NOT NULL"
+    text source "NOT NULL"
+    text source_ref "NOT NULL"
+  }
+  CONVERSATION_GROUPS {
+    uuid id PK "NOT NULL"
+    uuid tenant_id "NOT NULL"
+    text name "NOT NULL"
+    text created_by "NOT NULL"
+    timestamptz created_at "NOT NULL"
+    timestamptz updated_at "NOT NULL"
+  }
+  CONVERSATIONS {
+    uuid id PK "NOT NULL"
+    text user_id
+    text title
+    text status
+    text sdk_session_id
+    timestamptz created_at "NOT NULL"
+    text provider
+    text model
+    timestamptz updated_at "NOT NULL"
+    timestamptz deleted_at
+    integer row_version "NOT NULL"
+    uuid tenant_id "NOT NULL"
+    uuid group_id
+  }
+  CUSTOMERS {
+    varchar id PK "NOT NULL"
+    text full_name
+    integer age
+    text occupation
+    bigint monthly_income
+    text region
+    text id_number
+    text address
+    text segment
+  }
+  DISBURSEMENTS {
+    text id PK "NOT NULL"
+    text application_id
+    bigint amount_vnd
+    text beneficiary
+    text status
+    text executed_at
+    text receipt_code
+  }
+  EMPLOYMENT_RECORDS {
+    text owner_id PK "NOT NULL"
+    text employer
+    text position
+    integer tenure_months
+    bigint verified_income_vnd
+    text status
+    text verified_at
+    text party_id
+  }
+  EXTERNAL_CASE_LINKS {
+    uuid id PK "NOT NULL"
+    text source_system "NOT NULL"
+    text external_case_id "NOT NULL"
+    text internal_application_id
+    text party_reference
+    text assigned_rm_subject
+    text product_code
+    bigint loan_amount_vnd
+    jsonb document_refs "NOT NULL"
+    jsonb missing_fields "NOT NULL"
+    bigint source_version "NOT NULL"
+    varchar content_hash "NOT NULL"
+    text case_status "NOT NULL"
+    timestamptz data_as_of "NOT NULL"
+    uuid conversation_id
+    timestamptz created_at "NOT NULL"
+    timestamptz synced_at "NOT NULL"
+    uuid tenant_id "NOT NULL"
+  }
+  INTEGRATION_INBOX {
+    uuid id PK "NOT NULL"
+    text source_system "NOT NULL"
+    text event_id "NOT NULL"
+    text event_type "NOT NULL"
+    integer schema_version "NOT NULL"
+    text external_case_id "NOT NULL"
+    bigint source_version "NOT NULL"
+    jsonb payload "NOT NULL"
+    varchar payload_hash "NOT NULL"
+    jsonb receipt "NOT NULL"
+    timestamptz received_at "NOT NULL"
+    uuid tenant_id "NOT NULL"
+  }
+  INTERACTION_NOTES {
+    integer note_id PK "NOT NULL"
+    text owner_id "NOT NULL"
+    text ts "NOT NULL"
+    text channel "NOT NULL"
+    text rm "NOT NULL"
+    text note_text "NOT NULL"
+    bytea embedding
+    text party_id
+  }
+  LEGAL_REQUIREMENTS {
+    text loan_type PK "NOT NULL"
+    text doc_code PK "NOT NULL"
+    text doc_name
+    integer mandatory
+  }
+  LOANS {
+    varchar loan_id PK "NOT NULL"
+    varchar owner_id
+    bigint principal
+    bigint outstanding
+    bigint monthly_payment
+    text status
+    text party_id
+  }
+  MESSAGES {
+    uuid id PK "NOT NULL"
+    text conv_id "NOT NULL"
+    timestamptz ts "NOT NULL"
+    text sender
+    text content
+    jsonb meta
+    uuid conversation_id
+    uuid tenant_id "NOT NULL"
+  }
+  OUTBOX_EVENTS {
+    uuid id PK "NOT NULL"
+    text aggregate_type "NOT NULL"
+    text aggregate_id "NOT NULL"
+    text event_type "NOT NULL"
+    jsonb payload "NOT NULL"
+    text status "NOT NULL"
+    integer attempt_count "NOT NULL"
+    timestamptz available_at "NOT NULL"
+    text locked_by
+    timestamptz locked_until
+    timestamptz published_at
+    text last_error
+    timestamptz created_at "NOT NULL"
+  }
+  OWNER_DOCUMENTS {
+    varchar owner_id PK "NOT NULL"
+    text doc_code PK "NOT NULL"
+    text status
+    text party_id
+  }
+  PARTIES {
+    text owner_id PK "NOT NULL"
+    text party_type "NOT NULL"
+    text display_name
+    timestamptz created_at "NOT NULL"
+    timestamptz updated_at "NOT NULL"
+  }
+  PARTY_RELATIONS {
+    text from_id PK "NOT NULL"
+    text to_id PK "NOT NULL"
+    text relation PK "NOT NULL"
+    float8 pct
+    text from_party_id
+    text to_party_id
+  }
+  POLICE_RECORDS {
+    text owner_id PK "NOT NULL"
+    text id_number
+    text full_name
+    text address
+    text criminal_status
+    text record_type
+    integer record_year
+    text notes
+    text party_id
+  }
+  PROCEDURE_STEPS {
+    text application_id PK "NOT NULL"
+    text step PK "NOT NULL"
+    text status
+    text done_at
+  }
+  PRODUCTS {
+    text id PK "NOT NULL"
+    text name
+    text loan_type
+    float8 rate_annual
+    integer term_max_months
+    bigint amount_min_vnd
+    bigint amount_max_vnd
+    float8 fee_pct
+    bigint income_min_vnd
+    integer cic_max_group
+    text segment
+    text status
+    text note
+  }
+  PROMPT_BINDINGS {
+    text prompt_key PK "NOT NULL"
+    text environment PK "NOT NULL"
+    uuid version_id "NOT NULL"
+    text activated_by "NOT NULL"
+    timestamptz activated_at "NOT NULL"
+  }
+  PROMPT_DEFINITIONS {
+    text prompt_key PK "NOT NULL"
+    text scope "NOT NULL"
+    text description
+    jsonb variables "NOT NULL"
+    text default_file
+    timestamptz created_at "NOT NULL"
+    timestamptz updated_at "NOT NULL"
+  }
+  PROMPT_VERSIONS {
+    uuid id PK "NOT NULL"
+    text prompt_key "NOT NULL"
+    integer version "NOT NULL"
+    text content "NOT NULL"
+    varchar checksum "NOT NULL"
+    jsonb metadata "NOT NULL"
+    text created_by "NOT NULL"
+    timestamptz created_at "NOT NULL"
+  }
+  RESTRICTED_PURPOSES {
+    text purpose_code PK "NOT NULL"
+    text purpose_name
+    text restriction
+    text legal_basis
+  }
+  SHADOW_REVIEWS {
+    uuid approval_id PK "NOT NULL"
+    text conv_id "NOT NULL"
+    text system_lane
+    text system_recommendation "NOT NULL"
+    text human_decision "NOT NULL"
+    text human_reason
+    timestamptz decided_at "NOT NULL"
+    boolean match
+    uuid conversation_id
+    uuid tenant_id "NOT NULL"
+  }
+  TASK_ATTEMPTS {
+    uuid id PK "NOT NULL"
+    uuid task_id
+    uuid conversation_id
+    integer attempt_no "NOT NULL"
+    text worker_id "NOT NULL"
+    text status "NOT NULL"
+    text error_code
+    jsonb metrics
+    timestamptz started_at "NOT NULL"
+    timestamptz ended_at
+    uuid tenant_id "NOT NULL"
+  }
+  TASKS {
+    uuid id PK "NOT NULL"
+    text conv_id "NOT NULL"
+    text role
+    text title
+    text status
+    jsonb input
+    jsonb result
+    timestamptz queued_at
+    timestamptz started_at
+    timestamptz ended_at
+    jsonb cost
+    bigint input_tokens
+    bigint output_tokens
+    bigint cache_read_tokens
+    bigint cache_create_tokens
+    bigint duration_ms
+    text model
+    uuid conversation_id
+    uuid parent_task_id
+    integer attempt_count "NOT NULL"
+    text lease_owner
+    timestamptz lease_until
+    timestamptz heartbeat_at
+    integer row_version "NOT NULL"
+    uuid tenant_id "NOT NULL"
+  }
+  TENANTS {
+    uuid id PK "NOT NULL"
+    text slug "NOT NULL"
+    text name "NOT NULL"
+    timestamptz created_at "NOT NULL"
+    timestamptz updated_at "NOT NULL"
+  }
+  TOOL_CALLS {
+    uuid id PK "NOT NULL"
+    uuid task_id
+    text conv_id
+    timestamptz ts "NOT NULL"
+    text actor "NOT NULL"
+    text tool "NOT NULL"
+    jsonb input
+    jsonb output
+    jsonb cost
+    uuid conversation_id
+    uuid tenant_id "NOT NULL"
+  }
+  USERS {
+    uuid id PK "NOT NULL"
+    varchar username "NOT NULL"
+    text pass_hash
+    text role "NOT NULL"
+    text owner_id
+    text email
+    text google_sub
+    text party_id
+    uuid tenant_id "NOT NULL"
+  }
+  WIKI_LINKS {
+    text from_page PK "NOT NULL"
+    text to_page PK "NOT NULL"
+  }
+  WIKI_PAGES {
+    text id PK "NOT NULL"
+    text role "NOT NULL"
+    text title "NOT NULL"
+    text topic
+    text tags
+    text legal_basis
+    text effective_from
+    text effective_to
+    text status
+    text body "NOT NULL"
+    text source_file
+    text so_hieu
+    text dieu
+    text amended_by
+    text source_url
+    text crawled_at
+  }
+  PARTIES ||--o{ APPLICATIONS : "fk_applications_party_id:party_id->owner_id"
+  APPROVALS ||--o{ APPROVAL_EXECUTION_ATTEMPTS : "approval_execution_attempts_approval_id_fkey:approval_id->id"
+  TENANTS ||--o{ APPROVAL_EXECUTION_ATTEMPTS : "fk_approval_execution_attempts_tenant_id:tenant_id->id"
+  CONVERSATIONS ||--o{ APPROVALS : "fk_approvals_conversation_id:conversation_id->id"
+  TENANTS ||--o{ APPROVALS : "fk_approvals_tenant_id:tenant_id->id"
+  PARTIES ||--o{ ASSESSMENTS : "fk_assessments_party_id:party_id->owner_id"
+  TENANTS ||--o{ ASSESSMENTS : "fk_assessments_tenant_id:tenant_id->id"
+  PARTIES ||--o{ BUSINESSES : "fk_businesses_party:id->owner_id"
+  CONVERSATIONS ||--o{ CARDS : "fk_cards_conversation_id:conversation_id->id"
+  TENANTS ||--o{ CARDS : "fk_cards_tenant_id:tenant_id->id"
+  PARTIES ||--o{ CIC_RECORDS : "fk_cic_records_party_id:party_id->owner_id"
+  PARTIES ||--o{ COLLATERALS : "fk_collaterals_party_id:party_id->owner_id"
+  TENANTS ||--o{ CONSENT_RECORDS : "consent_records_tenant_id_fkey:tenant_id->id"
+  TENANTS ||--o{ CONVERSATION_GROUPS : "conversation_groups_tenant_id_fkey:tenant_id->id"
+  CONVERSATION_GROUPS ||--o{ CONVERSATIONS : "fk_conversations_group_id:group_id->id"
+  TENANTS ||--o{ CONVERSATIONS : "fk_conversations_tenant_id:tenant_id->id"
+  PARTIES ||--o{ CUSTOMERS : "fk_customers_party:id->owner_id"
+  PARTIES ||--o{ EMPLOYMENT_RECORDS : "fk_employment_records_party_id:party_id->owner_id"
+  CONVERSATIONS ||--o{ EXTERNAL_CASE_LINKS : "external_case_links_conversation_id_fkey:conversation_id->id"
+  TENANTS ||--o{ EXTERNAL_CASE_LINKS : "fk_external_case_links_tenant_id:tenant_id->id"
+  TENANTS ||--o{ INTEGRATION_INBOX : "fk_integration_inbox_tenant_id:tenant_id->id"
+  PARTIES ||--o{ INTERACTION_NOTES : "fk_interaction_notes_party_id:party_id->owner_id"
+  PARTIES ||--o{ LOANS : "fk_loans_party_id:party_id->owner_id"
+  CONVERSATIONS ||--o{ MESSAGES : "fk_messages_conversation_id:conversation_id->id"
+  TENANTS ||--o{ MESSAGES : "fk_messages_tenant_id:tenant_id->id"
+  PARTIES ||--o{ OWNER_DOCUMENTS : "fk_owner_documents_party_id:party_id->owner_id"
+  PARTIES ||--o{ PARTY_RELATIONS : "fk_party_relations_from_party_id:from_party_id->owner_id"
+  PARTIES ||--o{ PARTY_RELATIONS : "fk_party_relations_to_party_id:to_party_id->owner_id"
+  PARTIES ||--o{ POLICE_RECORDS : "fk_police_records_party_id:party_id->owner_id"
+  PROMPT_VERSIONS ||--o{ PROMPT_BINDINGS : "prompt_bindings_prompt_key_version_id_fkey:prompt_key,version_id->prompt_key,id"
+  PROMPT_DEFINITIONS ||--o{ PROMPT_VERSIONS : "prompt_versions_prompt_key_fkey:prompt_key->prompt_key"
+  APPROVALS ||--o{ SHADOW_REVIEWS : "fk_shadow_reviews_approval:approval_id->id"
+  CONVERSATIONS ||--o{ SHADOW_REVIEWS : "fk_shadow_reviews_conversation_id:conversation_id->id"
+  TENANTS ||--o{ SHADOW_REVIEWS : "fk_shadow_reviews_tenant_id:tenant_id->id"
+  TENANTS ||--o{ TASK_ATTEMPTS : "fk_task_attempts_tenant_id:tenant_id->id"
+  CONVERSATIONS ||--o{ TASK_ATTEMPTS : "task_attempts_conversation_id_fkey:conversation_id->id"
+  TASKS ||--o{ TASK_ATTEMPTS : "task_attempts_task_id_fkey:task_id->id"
+  CONVERSATIONS ||--o{ TASKS : "fk_tasks_conversation_id:conversation_id->id"
+  TASKS ||--o{ TASKS : "fk_tasks_parent_task:parent_task_id->id"
+  TENANTS ||--o{ TASKS : "fk_tasks_tenant_id:tenant_id->id"
+  CONVERSATIONS ||--o{ TOOL_CALLS : "fk_tool_calls_conversation_id:conversation_id->id"
+  TENANTS ||--o{ TOOL_CALLS : "fk_tool_calls_tenant_id:tenant_id->id"
+  PARTIES ||--o{ USERS : "fk_users_party_id:party_id->owner_id"
+  TENANTS ||--o{ USERS : "fk_users_tenant_id:tenant_id->id"

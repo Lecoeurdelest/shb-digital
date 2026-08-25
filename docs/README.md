@@ -12,6 +12,7 @@
 | [`patterns/00-INDEX.md`](patterns/00-INDEX.md) | Mục lục 5 pattern build: `claude-sdk` · `multi-agent` · `streaming-sse` · `canvas-present` · `lab-joint` | Trước khi build/sửa phần tương ứng — đọc đúng file theo task |
 | [`demo-script.md`](demo-script.md) | Kịch bản demo thi ~10-13 phút, 2 cửa sổ (khách ‖ ngân hàng), kèm đường thoát hiểm | Chuẩn bị demo / muốn hiểu happy-path end-to-end |
 | [`deploy.md`](deploy.md) | Deploy production: Docker compose + cloudflared → `digital.tinhdev.com`, seed snapshot, reset demo, rollback | Deploy / vận hành server |
+| [`db-erd-live.md`](db-erd-live.md) | DDL snapshot + ảnh ERD overview/full sinh từ live catalog tại `e6f9b2c4d105` | Cần schema SQL hoặc sơ đồ DB chính xác để review/tra cứu |
 | [`db-architecture-v2.md`](db-architecture-v2.md) | Kiến trúc datastore + ERD as-built tại Alembic head mới, issue legacy và lộ trình scale | Đánh giá DB, thêm loại DB, migrate hoặc chuẩn bị scale ngang |
 | [`db-erd-review.md`](db-erd-review.md) | Baseline ERD trước migration D-76 | Cần đối chiếu schema cũ với as-built |
 | [`db-erd-operational-target.md`](db-erd-operational-target.md) | ERD đích dài hạn còn lại ngoài phần đã migrate | Lập backlog policy/history/typed data và retention |

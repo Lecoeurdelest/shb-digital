@@ -1,0 +1,140 @@
+flowchart TB
+  TITLE["SHB DIGITAL · DATABASE MAP<br/>PostgreSQL 15 · Alembic e6f9b2c4d105<br/>43 base tables · 44 hard FKs · 109 indexes"]
+
+  subgraph ID["01 · TENANT & IDENTITY"]
+    direction TB
+    TENANTS["tenants<br/>tenant root"]
+    USERS["users<br/>login + persona"]
+    PARTIES["parties<br/>customer/business identity"]
+    CUSTOMERS["customers<br/>individual profile"]
+    BUSINESSES["businesses<br/>company profile"]
+    GROUPS["conversation_groups<br/>workspace folders"]
+  end
+
+  subgraph WF["02 · CONVERSATION & ORCHESTRATION"]
+    direction TB
+    CONVS["conversations<br/>one case / room"]
+    MESSAGES["messages<br/>durable chat"]
+    TASKS["tasks<br/>agent work items"]
+    TASK_ATTEMPTS["task_attempts<br/>worker attempt ledger"]
+    CARDS["cards<br/>structured canvas"]
+    TOOL_CALLS["tool_calls<br/>append-only audit"]
+    APPROVALS["approvals<br/>gated action + receipt"]
+    APPROVAL_ATTEMPTS["approval_execution_attempts<br/>execution ledger"]
+    SHADOW["shadow_reviews<br/>human ↔ machine ledger"]
+    OUTBOX["outbox_events<br/>durable event foundation"]
+    CONSENT["consent_records<br/>append-only proof"]
+  end
+
+  subgraph LOS["03 · CREDIT / LOS PIPELINE"]
+    direction TB
+    LOANS["loans"]
+    COLLATERALS["collaterals"]
+    PRODUCTS["products"]
+    APPLICATIONS["applications"]
+    DISBURSEMENTS["disbursements"]
+    PROCEDURES["procedure_steps"]
+  end
+
+  subgraph RISK["04 · LEGAL & RISK EVIDENCE"]
+    direction TB
+    CIC["cic_records"]
+    OWNER_DOCS["owner_documents"]
+    LEGAL_REQ["legal_requirements"]
+    COLLATERAL_LEGAL["collateral_legal"]
+    RESTRICTED["restricted_purposes"]
+    POLICE["police_records"]
+    EMPLOYMENT["employment_records"]
+    ASSESSMENTS["assessments<br/>legal decision ledger"]
+  end
+
+  subgraph KNOW["05 · KNOWLEDGE & RETRIEVAL"]
+    direction TB
+    WIKI["wiki_pages"]
+    WIKI_LINKS["wiki_links"]
+    NOTES["interaction_notes<br/>2,215 rows · vector BLOB"]
+    RELATIONS["party_relations"]
+    ASSUMPTIONS["assumptions"]
+  end
+
+  subgraph CFG["06 · CONFIGURATION & INTEGRATION"]
+    direction TB
+    PROMPT_DEFS["prompt_definitions"]
+    PROMPT_VERSIONS["prompt_versions<br/>immutable content"]
+    PROMPT_BINDINGS["prompt_bindings<br/>active per environment"]
+    CONFIG_EVENTS["agent_config_events<br/>append-only audit"]
+    EXTERNAL_CASES["external_case_links"]
+    INBOX["integration_inbox<br/>idempotent ingress"]
+    ISSUES["operational_data_issues<br/>READ-ONLY VIEW"]
+  end
+
+  TITLE --> TENANTS
+
+  TENANTS --> USERS
+  TENANTS --> GROUPS
+  TENANTS --> CONVS
+  GROUPS --> CONVS
+  PARTIES --> CUSTOMERS
+  PARTIES --> BUSINESSES
+  PARTIES --> USERS
+
+  CONVS --> MESSAGES
+  CONVS --> TASKS
+  TASKS --> TASK_ATTEMPTS
+  TASKS --> TASKS
+  CONVS --> CARDS
+  CONVS --> TOOL_CALLS
+  CONVS --> APPROVALS
+  APPROVALS --> APPROVAL_ATTEMPTS
+  APPROVALS --> SHADOW
+  CONVS --> SHADOW
+  TENANTS --> CONSENT
+
+  PARTIES --> LOANS
+  PARTIES --> COLLATERALS
+  PARTIES --> CIC
+  PARTIES --> OWNER_DOCS
+  PARTIES --> POLICE
+  PARTIES --> EMPLOYMENT
+  PARTIES --> ASSESSMENTS
+  PARTIES --> APPLICATIONS
+  PARTIES --> NOTES
+  PARTIES --> RELATIONS
+
+  PROMPT_DEFS --> PROMPT_VERSIONS
+  PROMPT_VERSIONS --> PROMPT_BINDINGS
+  CONVS --> EXTERNAL_CASES
+  TENANTS --> EXTERNAL_CASES
+  TENANTS --> INBOX
+
+  PRODUCTS -. "soft product_id" .-> APPLICATIONS
+  COLLATERALS -. "soft collateral_id" .-> APPLICATIONS
+  APPLICATIONS -. "soft application_id" .-> DISBURSEMENTS
+  APPLICATIONS -. "soft application_id" .-> PROCEDURES
+  COLLATERALS -. "soft collateral_id" .-> COLLATERAL_LEGAL
+  LEGAL_REQ -. "soft doc_code" .-> OWNER_DOCS
+  WIKI -. "soft from/to page" .-> WIKI_LINKS
+  TASKS -. "soft task_id" .-> CARDS
+  TASKS -. "soft task_id" .-> TOOL_CALLS
+  TASKS -. "soft task_id" .-> APPROVALS
+  ASSESSMENTS -. "soft snapshot" .-> APPROVALS
+  OUTBOX -. "polymorphic aggregate_id" .-> CONVS
+  ISSUES -. "diagnoses" .-> CONVS
+
+  classDef title fill:#020617,stroke:#f59e0b,color:#f8fafc,stroke-width:3px,font-size:18px;
+  classDef identity fill:#0f2f3d,stroke:#2dd4bf,color:#f0fdfa,stroke-width:2px;
+  classDef workflow fill:#172554,stroke:#60a5fa,color:#eff6ff,stroke-width:2px;
+  classDef los fill:#3b1d0f,stroke:#fb923c,color:#fff7ed,stroke-width:2px;
+  classDef risk fill:#3a1628,stroke:#f472b6,color:#fdf2f8,stroke-width:2px;
+  classDef knowledge fill:#172a1a,stroke:#4ade80,color:#f0fdf4,stroke-width:2px;
+  classDef config fill:#2e1a47,stroke:#c084fc,color:#faf5ff,stroke-width:2px;
+  classDef view fill:#1e293b,stroke:#cbd5e1,color:#f8fafc,stroke-dasharray:6 4;
+
+  class TITLE title;
+  class TENANTS,USERS,PARTIES,CUSTOMERS,BUSINESSES,GROUPS identity;
+  class CONVS,MESSAGES,TASKS,TASK_ATTEMPTS,CARDS,TOOL_CALLS,APPROVALS,APPROVAL_ATTEMPTS,SHADOW,OUTBOX,CONSENT workflow;
+  class LOANS,COLLATERALS,PRODUCTS,APPLICATIONS,DISBURSEMENTS,PROCEDURES los;
+  class CIC,OWNER_DOCS,LEGAL_REQ,COLLATERAL_LEGAL,RESTRICTED,POLICE,EMPLOYMENT,ASSESSMENTS risk;
+  class WIKI,WIKI_LINKS,NOTES,RELATIONS,ASSUMPTIONS knowledge;
+  class PROMPT_DEFS,PROMPT_VERSIONS,PROMPT_BINDINGS,CONFIG_EVENTS,EXTERNAL_CASES,INBOX config;
+  class ISSUES view;

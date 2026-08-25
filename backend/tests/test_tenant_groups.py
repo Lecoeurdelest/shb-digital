@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 import psycopg2
+import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.security import make_token
@@ -15,6 +16,24 @@ from app.tenancy import DEFAULT_TENANT_ID
 from .conftest import requires_test_db
 
 client = TestClient(app)
+
+_IMMUTABLE_TENANT_TABLES = {
+    "users",
+    "conversation_groups",
+    "conversations",
+    "messages",
+    "tasks",
+    "cards",
+    "tool_calls",
+    "approvals",
+    "shadow_reviews",
+    "assessments",
+    "task_attempts",
+    "approval_execution_attempts",
+    "external_case_links",
+    "integration_inbox",
+    "consent_records",
+}
 
 
 def _admin_headers(tenant_id: str, username: str) -> dict[str, str]:
@@ -135,3 +154,53 @@ def test_admin_endpoints_hide_other_tenant_conversation_and_ledgers():
         conn.close()
         if conv_a.get("id"):
             client.delete(f"/api/conversations/{conv_a['id']}", headers=headers_a)
+
+
+@requires_test_db
+def test_tenant_id_is_db_immutable_for_identity_group_and_conversation():
+    """D-79 phải giữ được cả khi SQL nội bộ bỏ qua API tenant scoping."""
+    tenant_b = str(uuid4())
+    marker = uuid4().hex
+    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO tenants(id,slug,name) VALUES(%s,%s,%s)", (tenant_b, f"lock-{marker}", "Lock B"))
+            cur.execute(
+                "INSERT INTO users(tenant_id,username,role) VALUES(%s,%s,'admin') RETURNING id",
+                (DEFAULT_TENANT_ID, f"lock-user-{marker}"),
+            )
+            user_id = cur.fetchone()[0]
+            cur.execute(
+                "INSERT INTO conversation_groups(tenant_id,name,created_by) VALUES(%s,%s,%s) RETURNING id",
+                (DEFAULT_TENANT_ID, f"Lock group {marker}", f"lock-user-{marker}"),
+            )
+            group_id = cur.fetchone()[0]
+            cur.execute(
+                "INSERT INTO conversations(tenant_id,user_id,title,status,created_at) "
+                "VALUES(%s,%s,'Lock conversation','idle',now()) RETURNING id",
+                (DEFAULT_TENANT_ID, f"lock-user-{marker}"),
+            )
+            conversation_id = cur.fetchone()[0]
+
+            cur.execute(
+                "SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid "
+                "WHERE NOT t.tgisinternal AND t.tgname LIKE 'trg_%_tenant_immutable'"
+            )
+            assert _IMMUTABLE_TENANT_TABLES <= {row[0] for row in cur.fetchall()}
+
+            for savepoint, statement, params in (
+                ("lock_user", "UPDATE users SET tenant_id=%s WHERE id=%s", (tenant_b, user_id)),
+                ("lock_group", "UPDATE conversation_groups SET tenant_id=%s WHERE id=%s", (tenant_b, group_id)),
+                (
+                    "lock_conversation",
+                    "UPDATE conversations SET tenant_id=%s WHERE id=%s",
+                    (tenant_b, conversation_id),
+                ),
+            ):
+                cur.execute(f"SAVEPOINT {savepoint}")
+                with pytest.raises(psycopg2.errors.CheckViolation):
+                    cur.execute(statement, params)
+                cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+    finally:
+        conn.rollback()
+        conn.close()

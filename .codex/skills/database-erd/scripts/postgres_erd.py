@@ -90,10 +90,11 @@ def render(dsn: str, schema: str, tables: set[str] | None = None) -> str:
     for table, table_columns in by_table.items():
         lines.append(f"  {_ident(table)} {{")
         for _, column, data_type, udt_name, nullable, is_pk in table_columns:
-            flags = " PK" if is_pk else ""
-            if not nullable:
-                flags += " NOT_NULL"
-            lines.append(f"    {_type_name(data_type, udt_name)} {column}{flags}")
+            # Mermaid chỉ nhận PK/FK/UK ở vị trí key. NOT_NULL là token tự do nên làm
+            # parser mới lỗi; giữ thông tin nullability trong comment hợp lệ của attribute.
+            key = " PK" if is_pk else ""
+            comment = ' "NOT NULL"' if not nullable else ""
+            lines.append(f"    {_type_name(data_type, udt_name)} {column}{key}{comment}")
         lines.append("  }")
 
     grouped_foreign_keys: dict[tuple[str, str, str], list[tuple[str, str]]] = defaultdict(list)
@@ -103,7 +104,7 @@ def render(dsn: str, schema: str, tables: set[str] | None = None) -> str:
         child_cols = ",".join(pair[0] for pair in column_pairs)
         parent_cols = ",".join(pair[1] for pair in column_pairs)
         label = f"{constraint}:{child_cols}->{parent_cols}"
-        lines.append(f"  {_ident(parent)} ||--o{{ {_ident(child)} : \"{label}\"")
+        lines.append(f'  {_ident(parent)} ||--o{{ {_ident(child)} : "{label}"')
     return "\n".join(lines)
 
 
