@@ -1,4 +1,4 @@
-"""Fail-fast policy cho runtime bank DC; demo mặc định giữ tương thích ngược."""
+"""Fail-fast bank-DC runtime policy; demo mode retains backward compatibility."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def _valid_host(host: str) -> bool:
 
 
 def parse_bank_provider_hosts(raw: str | None) -> frozenset[str]:
-    """Hostname exact, không scheme/port/path/wildcard; rỗng bị bank_dc từ chối."""
+    """Accept exact hostnames only; bank_dc rejects an empty allowlist."""
     if raw is None or not raw.strip():
         return frozenset()
     hosts: set[str] = set()
@@ -134,7 +134,7 @@ def _provider_security_violations() -> list[str]:
 
 
 def enforce_bank_provider_selection(name: str, providers) -> None:
-    """Re-check registry đã reload tại điểm dùng để config đổi nóng không mở egress ngoài DC."""
+    """Recheck the reloaded registry so hot changes cannot enable egress outside the bank DC."""
     if runtime_mode() == "demo":
         return
     failures = _provider_registry_violations(providers, selected=name)
@@ -143,7 +143,7 @@ def enforce_bank_provider_selection(name: str, providers) -> None:
 
 
 def validate_runtime_security(mode: str | None = None) -> None:
-    """Demo no-op; bank_dc gom mọi vi phạm rồi chặn startup trước khi app nhận request."""
+    """Allow demo mode; aggregate bank_dc violations before accepting requests."""
     if runtime_mode(mode) == "demo":
         return
     failures = [*_base_security_violations(), *_provider_security_violations()]

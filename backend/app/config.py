@@ -1,6 +1,7 @@
-"""App-level config — JWT + auth. Không hardcode secret (đọc env, default dev-only).
+"""Application-level JWT and authentication configuration.
 
-DATABASE_URL vẫn ở app/db/config.py (nguồn DB). File này lo phần auth/JWT.
+Read secrets from the environment, using defaults only for development.
+DATABASE_URL remains in app/db/config.py.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ _HOST_LABEL = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 
 def _valid_origin_host(host: str) -> bool:
-    """DNS/IPv4/IPv6 literal hợp lệ; wildcard và hostname mơ hồ bị chặn."""
+    """Accept exact DNS, IPv4, or IPv6 hosts; reject wildcards and ambiguous names."""
     try:
         ip_address(host)
         return True
@@ -57,14 +58,14 @@ def parse_cors_origins(raw: str | None) -> tuple[str, ...]:
     return tuple(origins)
 
 
-# JWT: HS256, secret từ env. Default CHỈ cho dev/demo on-premise (1 lệnh compose) — PROD thật
-# đặt JWT_SECRET qua env. Không commit secret thật (D-12 .env gitignored).
+# JWT secret comes from the environment. The fallback is only for the local demo;
+# production must set JWT_SECRET and never commit a real secret (D-12).
 DEFAULT_JWT_SECRET = "shb-digital-dev-secret-change-in-prod"
 JWT_SECRET = os.environ.get("JWT_SECRET", DEFAULT_JWT_SECRET)
 JWT_ALG = "HS256"
-JWT_TTL_SECONDS = int(os.environ.get("JWT_TTL_SECONDS", str(12 * 3600)))  # 12h ca làm việc
+JWT_TTL_SECONDS = int(os.environ.get("JWT_TTL_SECONDS", str(12 * 3600)))  # Twelve-hour work shift.
 
-# Cookie mang JWT (EventSource không set header — CONTRACT §1 · streaming-sse §4)
+# EventSource cannot set custom headers, so the JWT is also carried by a cookie.
 AUTH_COOKIE = "shb_token"
 
 
@@ -76,29 +77,28 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return v.strip().lower() in ("1", "true", "yes", "on")
 
 
-# DEV_SKIP_AUTH (D-39): ON → mọi request = admin (bỏ login, dev/demo nội bộ tiện). Default OFF
-# (an toàn — phải bật tường minh qua env). PROD/demo thật KHÔNG set. Boot log cảnh báo khi ON.
+# D-39: DEV_SKIP_AUTH grants admin access to every request. It defaults off and
+# must never be enabled in a real deployment; startup logs a warning if enabled.
 DEV_SKIP_AUTH = _env_bool("DEV_SKIP_AUTH", default=False)
 
-# Claims admin seed trả thẳng khi DEV_SKIP_AUTH ON (không cần cookie/JWT). sub uuid lấy DB lúc dùng.
+# DEV_SKIP_AUTH supplies admin claims without a cookie/JWT; resolve the subject from DB as needed.
 DEV_ADMIN_CLAIMS = {"username": "admin", "role": "admin"}
 
-# ── Google OAuth (cửa phát JWT THÊM cho persona KHÁCH D-56 — port pattern có sẵn, người cấp env) ──
-# Default OFF: thiếu env → app chạy y hệt cũ (login user/pass + DEV_SKIP_AUTH). Đọc các giá trị này
-# qua module attr (`config.AUTH_GOOGLE_ENABLED`) để test monkeypatch được — KHÔNG from-import.
+# D-56: Google OAuth is an additional customer authentication path, disabled by
+# default. Read the module attribute at use sites to allow test monkeypatching.
 AUTH_GOOGLE_ENABLED = _env_bool("AUTH_GOOGLE_ENABLED", default=False)
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "")
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "")
 GOOGLE_OAUTH_REDIRECT_URI = os.environ.get(
     "GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback"
 )
-# FE redirect về sau callback (cookie đã set; cookie theo host, không phân biệt port → localhost OK)
+# Return to the frontend after setting the cookie; host-based cookies also work on localhost.
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 
-# Secure flag cho MỌI cookie auth (login + google + oauth_state). Default OFF (dev http).
-# Deploy https (digital.tinhdev.com) → đặt COOKIE_SECURE=1: cookie không bao giờ đi qua http trần.
+# Apply the Secure flag to all auth cookies. It defaults off for local HTTP;
+# HTTPS deployments must set COOKIE_SECURE=1.
 COOKIE_SECURE = _env_bool("COOKIE_SECURE", default=False)
 
-# SDK nhúng khác-origin chỉ mở cho allowlist tường minh. Rỗng = không có CORS
-# middleware, giữ nguyên mô hình reverse-proxy cùng origin hiện tại.
+# Embedded clients on other origins require an explicit allowlist. Empty means
+# no CORS middleware and preserves the same-origin reverse-proxy deployment.
 CORS_ORIGINS = parse_cors_origins(os.environ.get("SHB_CORS_ORIGINS"))

@@ -1,4 +1,4 @@
-"""Readiness headless: DB, migration, provider và MCP role mounts; không lộ config nhạy cảm."""
+"""Headless readiness checks for DB, migrations, providers, and MCP role mounts."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReadinessFailure(RuntimeError):
-    """Chỉ mang tên check hỏng; chi tiết config không đi ra HTTP."""
+    """Expose failed check names without leaking configuration details over HTTP."""
 
     def __init__(self, checks: list[str]):
         self.checks = checks
@@ -82,7 +82,7 @@ async def check_role_mounts() -> int:
 
 
 async def readiness_snapshot() -> dict[str, Any]:
-    """Chạy đủ check; HTTP chỉ nhận cờ ok/count, chi tiết lỗi chỉ vào server log."""
+    """Run all checks; return only status/count over HTTP and log details server-side."""
     sync_checks = {
         "database": check_database,
         "migration_head": check_migration_head,
@@ -92,7 +92,7 @@ async def readiness_snapshot() -> dict[str, Any]:
     for name, check in sync_checks.items():
         try:
             await asyncio.to_thread(check)
-        except Exception as exc:  # noqa: BLE001 — aggregate readiness; không lộ detail ra client
+        except Exception as exc:  # noqa: BLE001 — Aggregate failures without exposing details to clients.
             failures.append(name)
             log.error("readiness check failed check=%s exception=%s", name, type(exc).__name__)
     try:
