@@ -35,43 +35,30 @@ def _add_tenant_column(table: str) -> None:
 
 
 def _backfill_tenants() -> None:
-    op.execute(
-        f"UPDATE users SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL"
-    )
+    op.execute(f"UPDATE users SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL")
     op.execute(
         "UPDATE conversations c SET tenant_id=u.tenant_id FROM users u "
         "WHERE c.user_id=u.username AND c.tenant_id IS NULL"
     )
-    op.execute(
-        f"UPDATE conversations SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL"
-    )
+    op.execute(f"UPDATE conversations SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL")
     for table in _CONVERSATION_CHILDREN:
         op.execute(
-            f"UPDATE {table} child SET tenant_id=c.tenant_id FROM conversations c "
-            "WHERE child.conversation_id=c.id"
+            f"UPDATE {table} child SET tenant_id=c.tenant_id FROM conversations c WHERE child.conversation_id=c.id"
         )
         op.execute(
             f"UPDATE {table} child SET tenant_id=c.tenant_id FROM conversations c "
             "WHERE child.tenant_id IS NULL AND child.conv_id=c.id::text"
         )
-        op.execute(
-            f"UPDATE {table} SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL"
-        )
+        op.execute(f"UPDATE {table} SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL")
+    op.execute("UPDATE task_attempts a SET tenant_id=t.tenant_id FROM tasks t WHERE a.task_id=t.id")
     op.execute(
-        "UPDATE task_attempts a SET tenant_id=t.tenant_id FROM tasks t WHERE a.task_id=t.id"
+        "UPDATE approval_execution_attempts x SET tenant_id=a.tenant_id FROM approvals a WHERE x.approval_id=a.id"
     )
     op.execute(
-        "UPDATE approval_execution_attempts x SET tenant_id=a.tenant_id "
-        "FROM approvals a WHERE x.approval_id=a.id"
-    )
-    op.execute(
-        "UPDATE external_case_links x SET tenant_id=c.tenant_id "
-        "FROM conversations c WHERE x.conversation_id=c.id"
+        "UPDATE external_case_links x SET tenant_id=c.tenant_id FROM conversations c WHERE x.conversation_id=c.id"
     )
     for table in _OTHER_TENANT_TABLES:
-        op.execute(
-            f"UPDATE {table} SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL"
-        )
+        op.execute(f"UPDATE {table} SET tenant_id='{DEFAULT_TENANT_ID}'::uuid WHERE tenant_id IS NULL")
 
 
 def _enforce_tenant_columns() -> None:
@@ -88,8 +75,7 @@ def _enforce_tenant_columns() -> None:
 
 
 def _create_sync_triggers() -> None:
-    # Trigger dual-write D-76 đã có; mở rộng tại đúng choke-point để tenant của child luôn theo
-    # conversation. Row fixture legacy không có conversation vẫn giữ tenant mặc định, không bị xóa.
+
     op.execute(
         f"""
         CREATE OR REPLACE FUNCTION shb_resolve_conversation_reference() RETURNS trigger
@@ -185,8 +171,7 @@ def upgrade() -> None:
         sa.CheckConstraint("btrim(name)<>''", name="ck_tenants_name_not_blank"),
     )
     op.execute(
-        "INSERT INTO tenants(id,slug,name) VALUES "
-        f"('{DEFAULT_TENANT_ID}'::uuid,'bank-digital-default','BANK Digital')"
+        f"INSERT INTO tenants(id,slug,name) VALUES ('{DEFAULT_TENANT_ID}'::uuid,'bank-digital-default','BANK Digital')"
     )
 
     _add_tenant_column("users")
@@ -224,15 +209,12 @@ def upgrade() -> None:
     )
     _backfill_tenants()
     _enforce_tenant_columns()
-    # Tool legal là LAB-certified nên không sửa câu INSERT. Choke-point mount đặt app.tenant_id
-    # theo conversation; default động này giữ assessment cùng tenant mà không làm rò context vào
-    # payload/model. Khi gọi ngoài conversation (seed/test), fail-safe về tenant mặc định.
+
     op.alter_column(
         "assessments",
         "tenant_id",
         server_default=sa.text(
-            "COALESCE(NULLIF(current_setting('app.tenant_id', true), '')::uuid, "
-            f"'{DEFAULT_TENANT_ID}'::uuid)"
+            f"COALESCE(NULLIF(current_setting('app.tenant_id', true), '')::uuid, '{DEFAULT_TENANT_ID}'::uuid)"
         ),
     )
     _create_sync_triggers()

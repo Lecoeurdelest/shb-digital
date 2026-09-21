@@ -26,7 +26,7 @@ EXPECTED = {
 
 def _card() -> dict[str, Any]:
     items = [
-        {"section": section, "content": f"Nội dung có nguồn {index}", "source": "credit_assess"}
+        {"section": section, "content": f"Sourced content {index}", "source": "credit_assess"}
         for index, section in enumerate(CREDIT_MEMO_SECTIONS, 1)
     ]
     items[4].update(
@@ -35,10 +35,10 @@ def _card() -> dict[str, Any]:
             "reason_taxonomy": get_reason_taxonomy().proof(),
             "counter_offer": {
                 "product_id": "P001",
-                "product_name": "Vay tiêu dùng chuẩn",
+                "product_name": "Standard consumer loan",
                 "proposed_amount_vnd": 500_000_000,
                 "loan_type": "consumer",
-                "rationale": "Phương án nhỏ hơn đã được match sản phẩm và thẩm định lại.",
+                "rationale": "The smaller alternative was matched to a product and reassessed.",
                 "terms": [
                     {"field": "rate_annual", "value": 0.15, "source": "product_suggest"},
                     {"field": "term_max_months", "value": 60, "source": "product_suggest"},
@@ -87,7 +87,7 @@ def _credit(amount: int, verdict: str, dscr: float) -> dict[str, Any]:
 def _product(amount: int, eligible: bool) -> dict[str, Any]:
     option = {
         "id": "P001",
-        "name": "Vay tiêu dùng chuẩn",
+        "name": "Standard consumer loan",
         "loanType": "consumer",
         "rateAnnual": 0.15,
         "termMaxMonths": 60,

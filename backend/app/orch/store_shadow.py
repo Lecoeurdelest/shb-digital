@@ -1,9 +1,3 @@
-"""Shadow-review ledger service (S18) — atomic insert seam + read-only aggregates.
-
-Router không chứa SQL. ``insert_review`` nhận cursor do approval decide sở hữu để decision,
-card sync và ledger cùng commit/rollback; hàm này tuyệt đối không mở conn hoặc commit riêng.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -29,11 +23,7 @@ _DIRECTION: dict[str, str] = {
 
 
 def insert_review(cur: Any, approval_row: dict[str, Any]) -> None:
-    """Ghi đúng một review bằng snapshot trên approval, trong transaction của caller.
 
-    Row cũ/manual thiếu snapshot được ghi trung tính ``human-review`` để không bịa một dự đoán có
-    hướng và không làm hỏng decide sau khi deploy migration giữa lúc còn phiếu pending.
-    """
     recommendation = approval_row.get("system_recommendation") or "human-review"
     human_decision = approval_row["status"]
     expected = _DIRECTION.get(recommendation)
@@ -73,7 +63,7 @@ _CURSOR_VERSION = 1
 
 
 class ShadowCursorError(ValueError):
-    """Cursor mismatch/tamper được router map về cùng một lỗi 400, không lộ context bên trong."""
+    pass
 
 
 def _utc_text(value: datetime | None) -> str | None:
@@ -185,7 +175,7 @@ def _shadow_match_sync(tenant_id: str | None = None) -> dict[str, Any]:
 
 
 async def get_shadow_match(tenant_id: str | None = None) -> dict[str, Any]:
-    """Admin API service wrapper; auth thuộc router."""
+
     return await asyncio.to_thread(_shadow_match_sync, tenant_id)
 
 

@@ -1,4 +1,4 @@
-"""Integration test mount_role(credit) — envelope 4-field + ground-truth C001 qua mount.
+"""Integration test for mount_role(credit): four-field envelope and C001 ground truth through the mount.
 
 Gate T1-1 Verification #2 (dscr==3.709) + #3 (bad_param). Handler async → asyncio_mode=auto.
 """
@@ -15,11 +15,8 @@ from .conftest import requires_db
 
 
 def _payload(envelope: dict) -> dict:
-    """Bóc dict nghiệp vụ khỏi MCP content envelope."""
+
     return json.loads(envelope["content"][0]["text"])
-
-
-# ── mount_role structural (không cần DB) ────────────────────────────────────
 
 
 def test_mount_role_returns_triple():
@@ -34,26 +31,23 @@ def test_mount_role_returns_triple():
     assert server is not None
 
 
-# ── Verification #3: bad_param — fn KHÔNG chạy ──────────────────────────────
-
-
 async def test_bad_param_blocks_before_fn():
     h = _make_handler(REGISTRY["credit_assess"], "credit_assess", SCHEMAS)
-    out = _payload(await h({"owner": "C001"}))  # 'owner' sai (đúng: owner_id)
+    out = _payload(await h({"owner": "C001"}))
     assert out["code"] == "bad_param"
     assert "owner" in out["message"]
     assert out["retryable"] is True
-    # hint liệt kê params hợp lệ để agent tự sửa
+
     assert "owner_id" in out["hint"]
 
 
 async def test_bad_param_lists_valid_params():
     h = _make_handler(REGISTRY["cust_search"], "cust_search", SCHEMAS)
-    out = _payload(await h({"query": "An"}))  # 'query' sai (đúng: q)
+    out = _payload(await h({"query": "An"}))
     assert out["code"] == "bad_param"
 
 
-# ── Verification #2: credit_assess(C001) qua mount handler → dscr==3.709 ─────
+# Verification #2: credit_assess(C001) through the mount handler yields dscr==3.709.
 
 
 @requires_db
@@ -83,9 +77,6 @@ async def test_credit_assess_direct_registry_c001():
         conn.close()
 
 
-# ── bad_type: param sai kiểu → bad_type 4-field, không traceback ────────────
-
-
 @requires_db
 async def test_bad_type_envelope():
     h = _make_handler(REGISTRY["credit_assess"], "credit_assess", SCHEMAS)
@@ -94,14 +85,11 @@ async def test_bad_type_envelope():
     assert out["retryable"] is False
 
 
-# ── envelope shape: mọi tool trả MCP content envelope ───────────────────────
-
-
 @requires_db
 async def test_all_credit_tools_return_envelope():
     for name in REGISTRY:
         h = _make_handler(REGISTRY[name], name, SCHEMAS)
-        # gọi với 1 param hợp lệ tối thiểu để không dừng ở bad_param
+
         args = (
             {"owner_id": "C001"}
             if name in ("credit_assess", "credit_cic_get")

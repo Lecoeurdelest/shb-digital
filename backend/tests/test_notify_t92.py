@@ -1,13 +1,3 @@
-"""[BACKEND] Test T9-2 — mail Gmail no-op-sạch + hook decide/receipt + GET /api/notifications.
-
-- send_email: thiếu env → no-op (log + False) · mock smtplib → gửi đúng to/subject · lỗi → False nuốt.
-- notify_conv_owner: lookup email owner đúng (khách có email) · bank/không-email → skip.
-- hook fail-im: send_email nổ → decide/disburse KHÔNG vỡ (200/chạy tiếp).
-- GET /notifications: ca mình derive đúng (duyệt/từ chối/giải ngân) · rỗng → [] · scope ca người khác.
-
-Fire-and-forget test qua HELPER trực tiếp (không qua endpoint — tránh race task chưa chạy khi assert).
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -25,14 +15,14 @@ from .conftest import requires_db
 
 
 def test_send_email_noop_missing_env(monkeypatch):
-    """Thiếu SMTP env → no-op: return False, KHÔNG raise, KHÔNG gọi smtplib."""
+
     monkeypatch.delenv("SMTP_USER", raising=False)
     monkeypatch.delenv("SMTP_APP_PASSWORD", raising=False)
     called = {"smtp": False}
 
     def _boom(*a, **k):
         called["smtp"] = True
-        raise AssertionError("smtplib KHÔNG được gọi khi thiếu env")
+        raise AssertionError("smtplib must not be called when the environment is missing")
 
     monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL", _boom)
     assert send_email("x@y.com", "sub", "body") is False
@@ -40,7 +30,7 @@ def test_send_email_noop_missing_env(monkeypatch):
 
 
 def test_send_email_mock_sends_correct(monkeypatch):
-    """Đủ env + mock smtplib → gửi đúng to/subject/from, return True."""
+
     monkeypatch.setenv("SMTP_USER", "sender@gmail.com")
     monkeypatch.setenv("SMTP_APP_PASSWORD", "app16charspass")
     monkeypatch.setenv("NOTIFY_FROM_NAME", "SHB Test")
@@ -65,33 +55,33 @@ def test_send_email_mock_sends_correct(monkeypatch):
             sent["from"] = msg["From"]
 
     monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL", _FakeSMTP)
-    assert send_email("cust@x.com", "Khoản vay đã duyệt", "body") is True
+    assert send_email("cust@x.com", "Loan approved", "body") is True
     assert sent["to"] == "cust@x.com"
-    assert sent["subject"] == "Khoản vay đã duyệt"
+    assert sent["subject"] == "Loan approved"
     assert "SHB Test" in sent["from"]
 
 
 def test_send_email_error_swallowed(monkeypatch):
-    """Lỗi gửi (auth sai/mạng chết) → log.warning + return False (KHÔNG raise xuyên lên flow)."""
+
     monkeypatch.setenv("SMTP_USER", "sender@gmail.com")
     monkeypatch.setenv("SMTP_APP_PASSWORD", "app16charspass")
 
     def _boom(*a, **k):
-        raise OSError("mạng chết")
+        raise OSError("network failure")
 
     monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL", _boom)
-    assert send_email("x@y.com", "s", "b") is False  # nuốt, không raise
+    assert send_email("x@y.com", "s", "b") is False
 
 
 # ── HTML brand template (T9-2 addendum) ──────────────────────────────────────
 
 
 def test_render_email_html_3_kinds():
-    """render_email_html 3 kind: brand BANK Digital (D-61) + amount VN + table-based + KHÔNG remote img."""
+
     from app.notify.email import render_email_html
 
     d = {
-        "greeting_name": "Nguyễn Văn An",
+        "greeting_name": "Test Customer",
         "loan_id": "L108",
         "amount_vnd": 594_000_000,
         "decided_by": "auto-rule",
@@ -103,14 +93,14 @@ def test_render_email_html_3_kinds():
     for kind in ("approved", "rejected", "disbursed"):
         h = render_email_html(kind, d)
         assert "BANK" in h and "<table" in h  # brand (D-61) + table-based
-        assert "594.000.000 ₫" in h  # amount VN chấm-phân-cách
-        assert "Hệ thống — tự động" in h  # auto-rule → text phân cấp
-        assert "#42" in h  # assessment ref (kể ma trận)
-        assert "src=" not in h  # KHÔNG ảnh remote/external asset
+        assert "594.000.000 ₫" in h
+        assert "System — automatic" in h
+        assert "#42" in h
+        assert "src=" not in h
 
 
 def test_render_email_html_escapes_injection():
-    """greeting_name có HTML → escape (chống injection D-60, values khách nhập)."""
+
     from app.notify.email import render_email_html
 
     h = render_email_html("approved", {"greeting_name": "<script>x</script>", "amount_vnd": 1, "app_url": "x"})
@@ -119,32 +109,32 @@ def test_render_email_html_escapes_injection():
 
 
 def test_render_email_html_rejected_shows_reason_escaped():
-    """DF-B-07: kind rejected + reject_reason → mail hiện 'Lý do từ chối' + reason; HTML trong reason ESCAPE."""
+
     from app.notify.email import render_email_html
 
     d = {
-        "greeting_name": "Nguyễn Văn An",
+        "greeting_name": "Test Customer",
         "amount_vnd": 1,
         "app_url": "x",
-        "reject_reason": 'DSCR thấp <b>1.1</b> & "rủi ro" cao',
+        "reject_reason": 'Low DSCR <b>1.1</b> & high "risk"',
     }
     h = render_email_html("rejected", d)
-    assert "Lý do từ chối" in h  # label hiện
-    assert "DSCR thấp" in h  # nội dung reason hiện
-    assert "<b>1.1</b>" not in h  # HTML trong reason bị escape (XSS)
-    assert "&lt;b&gt;" in h and "&amp;" in h and "&quot;" in h  # escape đủ < & "
+    assert "Rejection reason" in h
+    assert "Low DSCR" in h
+    assert "<b>1.1</b>" not in h
+    assert "&lt;b&gt;" in h and "&amp;" in h and "&quot;" in h
 
 
 def test_render_email_html_no_reason_row_when_absent():
-    """reject_reason vắng → KHÔNG in dòng 'Lý do từ chối' (không hiện 'Lý do: None')."""
+
     from app.notify.email import render_email_html
 
     h = render_email_html("rejected", {"greeting_name": "An", "amount_vnd": 1, "app_url": "x"})
-    assert "Lý do từ chối" not in h
+    assert "Rejection reason" not in h
 
 
 def test_send_email_multipart_when_html(monkeypatch):
-    """html_body có → multipart/alternative (plain fallback + html). Client text-only vẫn đọc plain."""
+
     monkeypatch.setenv("SMTP_USER", "s@gmail.com")
     monkeypatch.setenv("SMTP_APP_PASSWORD", "xxxx")
     captured = {}
@@ -177,7 +167,7 @@ def test_send_email_multipart_when_html(monkeypatch):
 
 
 def _mk_customer_conv(email: str | None) -> tuple[str, str]:
-    """Tạo user customer (email) + conv của họ. Trả (username, conv_id)."""
+
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
     u = "n92_" + uuid.uuid4().hex[:8]
@@ -207,19 +197,19 @@ def _rm(username: str, conv: str) -> None:
 
 @requires_db
 def test_notify_conv_owner_looks_up_customer_email():
-    """notify_conv_owner: ca khách CÓ email → _conv_owner_email trả đúng email."""
+
     from app.notify.hooks import _conv_owner_email
 
-    u, conv = _mk_customer_conv("khach@gmail.com")
+    u, conv = _mk_customer_conv("customer@gmail.com")
     try:
-        assert _conv_owner_email(conv) == "khach@gmail.com"
+        assert _conv_owner_email(conv) == "customer@gmail.com"
     finally:
         _rm(u, conv)
 
 
 @requires_db
 def test_notify_conv_owner_skips_no_email():
-    """Ca khách KHÔNG email → None (skip im, không gửi)."""
+
     from app.notify.hooks import _conv_owner_email
 
     u, conv = _mk_customer_conv(None)
@@ -231,7 +221,7 @@ def test_notify_conv_owner_skips_no_email():
 
 @requires_db
 def test_notify_conv_owner_skips_bank_conv():
-    """Ca creator = ngân hàng (admin) → None (không phải khách, không notify)."""
+
     from app.notify.hooks import _conv_owner_email
 
     conn = psycopg2.connect(DATABASE_URL)
@@ -244,7 +234,7 @@ def test_notify_conv_owner_skips_bank_conv():
         conv = cur.fetchone()[0]
     conn.close()
     try:
-        assert _conv_owner_email(conv) is None  # admin không role customer
+        assert _conv_owner_email(conv) is None
     finally:
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
@@ -252,21 +242,17 @@ def test_notify_conv_owner_skips_bank_conv():
         conn.close()
 
 
-# ── hook fail-im: send_email nổ → flow duyệt KHÔNG vỡ ─────────────────────────
-
-
 @requires_db
 def test_decide_hook_mail_fail_does_not_break_decide(monkeypatch):
-    """HOOK a: send_email raise → POST decide VẪN 200 (mail best-effort, không chặn duyệt)."""
+
     from fastapi.testclient import TestClient
 
     from app.main import app
 
-    # mail nổ mọi lúc
     monkeypatch.setattr(email_mod, "send_email", lambda *a, **k: (_ for _ in ()).throw(OSError("boom")))
     client = TestClient(app)
     admin = client.post("/api/auth/login", json={"username": "admin", "password": "admin"})
-    # seed 1 approval pending để decide
+
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
     import json as _j
@@ -286,7 +272,7 @@ def test_decide_hook_mail_fail_does_not_break_decide(monkeypatch):
     conn.close()
     try:
         r = client.post(f"/api/approvals/{aid}/decide", json={"decision": "approved"}, cookies=admin.cookies)
-        assert r.status_code == 200  # decide KHÔNG vỡ dù mail nổ
+        assert r.status_code == 200
     finally:
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
@@ -312,7 +298,7 @@ def test_notifications_empty_returns_list():
     try:
         n = client.get("/api/notifications", cookies=r.cookies)
         assert n.status_code == 200
-        assert n.json() == []  # 0 sự kiện → [] không 404
+        assert n.json() == []
     finally:
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
@@ -331,7 +317,7 @@ def test_notifications_derive_events_and_scope():
 
     u = "n92d_" + uuid.uuid4().hex[:6]
     r = client.post("/api/auth/register", json={"username": u, "password": "pass1"})
-    conv = client.post("/api/conversations", json={"title": "vay"}, cookies=r.cookies).json()["id"]
+    conv = client.post("/api/conversations", json={"title": "loan"}, cookies=r.cookies).json()["id"]
     u2 = "n92o_" + uuid.uuid4().hex[:6]
     r2 = client.post("/api/auth/register", json={"username": u2, "password": "pass1"})
     conn = psycopg2.connect(DATABASE_URL)
@@ -352,7 +338,7 @@ def test_notifications_derive_events_and_scope():
         n = client.get("/api/notifications", cookies=r.cookies).json()
         types = {e["type"] for e in n}
         assert "disbursed" in types and "approval_decided" in types
-        # scope: u2 thấy 0 sự kiện của conv (không phải ca mình)
+
         n2 = client.get("/api/notifications", cookies=r2.cookies).json()
         assert all(e["conv_id"] != conv for e in n2)
     finally:

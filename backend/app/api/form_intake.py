@@ -1,15 +1,3 @@
-"""Form intake (T9-1 D-57) — POST /api/conversations/{id}/form-submit: khách MỚI nộp hồ sơ →
-tạo customers C9xx + link users.owner_id + đánh thức MAIN. Tách khỏi conversations.py (PROD modular).
-
-VÒNG ĐỜI: register (owner_id=NULL) → MAIN present_form → khách điền → form-submit ĐÂY:
-  (a) khóa card + kiểm wording consent snapshot + đổi 'pending'→'submitted'
-  (b) mint C9xx → link users.owner_id → append consent_records  [CÙNG 1 tx, COMMIT]
-  (c) sau COMMIT mới bơm message '[HỒ SƠ ĐÃ NỘP]' + wake MAIN (§4.4)
-
-Ordering: COMMIT card/customer/link/consent TRƯỚC wake — wake trước thì turn có thể đọc trạng thái dở dang.
-loan_purpose KHÔNG vào customers (không có cột) → vào message wake (loan intent, không master data).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -33,11 +21,10 @@ log = logging.getLogger("api.form_intake")
 
 router = APIRouter(prefix="/api/conversations", tags=["form-intake"])
 
-# advisory-lock key CỐ ĐỊNH serialize mint C9xx (2 submit đồng thời → cùng max+1 → PK collision).
-# Deterministic int (không hash() Python — PYTHONHASHSEED đổi giữa process). Mirror gated.py pattern.
+
 _MINT_LOCK_KEY = 0x0900000000000001
 
-# cột customers form ghi (5 — KHỚP schema; age/region để NULL; loan_purpose KHÔNG có cột → vào wake msg).
+
 _CUSTOMER_COLS = ("full_name", "id_number", "address", "occupation", "monthly_income")
 
 
@@ -51,29 +38,26 @@ class FormSubmitBody(BaseModel):
 
 @router.post("/{conv_id}/form-submit")
 async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """Submit customer intake form → create C9xx profile, link account, wake MAIN.
 
-    Khách nộp hồ sơ → tạo customers C9xx + link + wake MAIN. 404-hide ca người khác · card sai
-    ca/không tồn tại 404 · thiếu field bắt buộc 400 · income không phải số 400 · đã submit 409."""
     if claims.get("role") != "customer":
         raise ApiError(
             403,
             "forbidden",
-            "Chỉ khách hàng mới được nộp form hồ sơ này.",
-            "Đăng nhập bằng tài khoản khách hàng sở hữu phiên xử lý.",
+            "Only customers may submit this application form.",
+            "Sign in with the customer account that owns this case.",
             retryable=False,
         )
 
     conv = await get_conversation(conv_id)
     if conv is None or not can_access_conv(conv, claims):
-        raise ApiError(404, "not_found", "Không tìm thấy hội thoại.", "Kiểm lại id.", retryable=False)
+        raise ApiError(404, "not_found", "The conversation was not found.", "Check the ID.", retryable=False)
 
     if body.consent_granted is not True:
         raise ApiError(
             400,
             "consent_required",
-            "Cần đồng ý nội dung xử lý dữ liệu trước khi nộp hồ sơ.",
-            "Đọc wording trên form và tick ô đồng ý nếu bạn chấp thuận.",
+            "Consent to data processing is required before submitting the application.",
+            "Read the form wording and select the consent checkbox if you agree.",
             retryable=True,
         )
     try:
@@ -82,8 +66,8 @@ async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends
         raise ApiError(
             400,
             "consent_wording_invalid",
-            "Nội dung đồng ý phía server không hợp lệ.",
-            "Tạm dừng nộp form và báo quản trị kiểm tra wording.",
+            "The server-side consent wording is invalid.",
+            "Stop the submission and ask an administrator to check the wording.",
             retryable=False,
         ) from exc
 
@@ -91,14 +75,19 @@ async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends
     missing = [f for f in FORM_REQUIRED if not str(values.get(f, "")).strip()]
     if missing:
         raise ApiError(
-            400, "missing_fields", f"Thiếu thông tin bắt buộc: {missing}", "Điền đủ rồi nộp lại.", retryable=True
+            400,
+            "missing_fields",
+            f"Required information is missing: {missing}",
+            "Complete all required fields and submit again.",
+            retryable=True,
         )
     try:
         income = int(float(values["monthly_income"]))
     except (TypeError, ValueError) as e:
-        raise ApiError(400, "bad_income", "Thu nhập phải là số.", "Nhập số VND (vd 15000000).", retryable=True) from e
+        raise ApiError(
+            400, "bad_income", "Income must be numeric.", "Enter a VND amount, for example 15000000.", retryable=True
+        ) from e
 
-    # tx-sync trong to_thread (D-22 — psycopg2 sync không block loop 1-worker).
     import asyncio
 
     result = await asyncio.to_thread(
@@ -112,27 +101,32 @@ async def form_submit(conv_id: str, body: FormSubmitBody, claims: dict = Depends
         wording,
     )
     if result == "already_submitted":
-        raise ApiError(409, "form_already_submitted", "Hồ sơ đã được nộp.", "Không nộp lại.", retryable=False)
+        raise ApiError(
+            409,
+            "form_already_submitted",
+            "The application has already been submitted.",
+            "Do not submit it again.",
+            retryable=False,
+        )
     if result == "card_not_found":
-        raise ApiError(404, "not_found", "Không tìm thấy form hồ sơ.", "Tải lại trang.", retryable=False)
+        raise ApiError(404, "not_found", "The application form was not found.", "Reload the page.", retryable=False)
     if result == "consent_wording_unavailable":
         raise ApiError(
             409,
             "consent_wording_unavailable",
-            "Form cũ chưa có snapshot nội dung đồng ý.",
-            "Tải lại và yêu cầu hệ thống tạo form mới.",
+            "The legacy form has no consent wording snapshot.",
+            "Reload and ask the system to create a new form.",
             retryable=False,
         )
     if result == "consent_wording_invalid":
         raise ApiError(
             400,
             "consent_wording_invalid",
-            "Snapshot nội dung đồng ý trên form không hợp lệ.",
-            "Tải lại form; nếu còn lỗi, báo quản trị.",
+            "The form consent wording snapshot is invalid.",
+            "Reload the form; if the error persists, contact an administrator.",
             retryable=False,
         )
 
-    # (c) wake MAIN SAU khi owner_id đã COMMIT (advisor: wake trước → turn đọc owner_id=NULL → re-present)
     await _wake_main(conv_id, result, values)
     return {"owner_id": result["owner_id"], "customer_created": True}
 
@@ -173,7 +167,6 @@ def _submit_txn(
                 (card_id,),
             )
 
-            # (a) mint C9xx serialize (advisory-xact-lock — tự release ở commit/rollback)
             cur.execute("SELECT pg_advisory_xact_lock(%s)", (_MINT_LOCK_KEY,))
             owner_id = _next_c9xx(cur)
             cur.execute(
@@ -187,7 +180,7 @@ def _submit_txn(
                     income,
                 ),
             )
-            # link account đang login → owner_id mới (JOIN by users.id = claims.sub)
+
             cur.execute(
                 "UPDATE users SET owner_id=%s WHERE id::text=%s AND tenant_id=%s",
                 (owner_id, user_id, tenant_id),
@@ -202,7 +195,7 @@ def _submit_txn(
                 source_ref=card_id,
                 wording=wording,
             )
-            conn.commit()  # owner_id COMMIT TRƯỚC wake (advisor ordering)
+            conn.commit()
             return {"owner_id": owner_id, "full_name": values["full_name"]}
     except Exception:
         conn.rollback()
@@ -212,8 +205,7 @@ def _submit_txn(
 
 
 def _next_c9xx(cur: Any) -> str:
-    """owner_id mới dạng C9NN zero-pad (C901, C902… — fixed-width để MAX lexical đúng, không đụng
-    seed C001-C030). Gọi TRONG advisory-lock (serialize — 2 submit không cùng max)."""
+
     cur.execute("SELECT id FROM customers WHERE id LIKE 'C9%%' ORDER BY id DESC LIMIT 1")
     row = cur.fetchone()
     n = (int(row["id"][2:]) + 1) if row else 1
@@ -221,17 +213,16 @@ def _next_c9xx(cur: Any) -> str:
 
 
 async def _wake_main(conv_id: str, result: dict, values: dict) -> None:
-    """Bơm message '[HỒ SƠ ĐÃ NỘP]' (kèm loan_purpose — loan intent) + wake MAIN qua handle_room_event
-    (CÙNG đường approval.decided/user_message — §4.4, KHÔNG cơ chế mới). Lỗi wake surface log, không nuốt."""
+
     from app.orch.room import handle_room_event
 
     content = (
-        f"[HỒ SƠ ĐÃ NỘP] Họ tên: {values.get('full_name')} · CMND: {values.get('id_number')} · "
-        f"Nghề: {values.get('occupation')} · Thu nhập: {values.get('monthly_income')} VND · "
-        f"Mục đích vay: {values.get('loan_purpose')}. Hồ sơ đã tạo (mã {result['owner_id']}) — "
-        f"hãy tiếp tục thẩm định hoặc hỏi thêm nếu cần."
+        f"[APPLICATION SUBMITTED] Full name: {values.get('full_name')} · ID number: {values.get('id_number')} · "
+        f"Occupation: {values.get('occupation')} · Income: {values.get('monthly_income')} VND · "
+        f"Loan purpose: {values.get('loan_purpose')}. Application created (ID {result['owner_id']}); "
+        f"continue the assessment or request more information if needed."
     )
     try:
         await handle_room_event(conv_id, "user_message", {"content": content})
     except Exception as e:  # noqa: BLE001
-        log.error("wake MAIN sau form-submit lỗi conv=%s: %s", conv_id, e)
+        log.error("failed to wake MAIN after form submission conv=%s: %s", conv_id, e)

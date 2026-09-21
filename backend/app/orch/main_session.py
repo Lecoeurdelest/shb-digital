@@ -1,18 +1,3 @@
-"""SDK lifecycle: MAIN (bền/phòng, resume disk) + SUB (tươi/task). claude-sdk §1-§3 + session.py.
-
-LANDMINE (session.py đã trả giá THẬT):
-1. connect/disconnect CÙNG asyncio task (anyio cancel-scope) — disconnect cross-task = TREO IM
-   LẶNG. close-on-done: 1 lượt = 1 coroutine trọn gói, disconnect trong finally CỦA CHÍNH task đó.
-2. cwd ổn định per-conversation (data/conversations/<id>/) — cwd trôi → resume im lặng mở phiên
-   mới, main mất trí nhớ (bẫy #555).
-3. bắt session_id ở MỌI kết cục (kể cả is_error). Lệch id → resume_failed, GIỮ id gốc.
-4. resume chết (ProcessError) → fresh 1 lần, KHÔNG tính trần retry.
-
-D-16: main=sonnet, sub=haiku (từ providers.yaml — T1-2 dùng model string trực tiếp; providers
-routing full ở sprint sau). setting_sources=[] harness sạch, tools=[] chỉ mở qua allowed_tools,
-permission_mode='dontAsk' (headless). D-29: SDK live = bonus, mechanics gate không phụ thuộc.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -23,19 +8,18 @@ from typing import Any
 from app.case_intake.context import linked_case_prompt_block
 from app.mount.mount_role import mount_role
 from app.orch import registry, store
-from app.orch.audit_emit import _audit_main_tool_call, _audit_tool_call, _emit_thinking  # S8: tách audit/SSE
-from app.orch.main_prompts import _build_event_prompt, _customer_prompt_block  # S8: tách prompt-building
+from app.orch.audit_emit import _audit_main_tool_call, _audit_tool_call, _emit_thinking
+from app.orch.main_prompts import _build_event_prompt, _customer_prompt_block
 from app.orch.main_skill import get_main_skill
 from app.orch.store import Task
 from app.prompting import get_prompt_service
 
 log = logging.getLogger("orch.session")
 
-# cwd gốc per-conversation — neo transcript resume (landmine #2)
+
 CONV_ROOT = Path(__file__).resolve().parents[2] / "data" / "conversations"
 
-# S17/prod: env-driven (user nhờ đổi default prod → wrap/gpt-5.4 — đảo bằng env; per-conv model
-# vẫn đè default nên bench S17 pin sonnet per-conv KHÔNG nhiễm). Default giữ "sonnet" (D-16).
+
 MAIN_MODEL = os.environ.get("MAIN_MODEL", "sonnet")
 SUB_MODEL = "haiku"
 MAIN_MAX_TURNS = 40
@@ -43,8 +27,7 @@ SUB_MAX_TURNS = 20
 
 
 def conversation_cwd(conv_id: str) -> Path:
-    """Thư mục ổn định per-conversation (resume neo transcript ở đây). Tạo nếu chưa có."""
-    # conv_id có thể chứa ký tự lạ (text tự do D-31) → sanitize thành tên thư mục an toàn
+
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in conv_id)
     d = CONV_ROOT / safe
     d.mkdir(parents=True, exist_ok=True)
@@ -52,11 +35,7 @@ def conversation_cwd(conv_id: str) -> Path:
 
 
 def _build_sub_options(task: Task, provider_env: dict[str, str] | None = None, model: str | None = None) -> Any:
-    """Options SUB: SKILL role + toolpack role (mount_role) + common. model=haiku. KHÔNG resume.
 
-    provider_env (D-45): env {ANTHROPIC_BASE_URL/AUTH_TOKEN/API_KEY} chọn gateway SDK per-session.
-    subscription (claude-cli) → rỗng → SDK dùng CLI auth. KHÔNG đụng process env (session song song).
-    """
     from claude_agent_sdk import ClaudeAgentOptions
 
     skill, server, allowed = mount_role(task.role)
@@ -77,9 +56,7 @@ def _build_sub_options(task: Task, provider_env: dict[str, str] | None = None, m
 
 
 async def run_sub_turn(task: Task) -> dict[str, Any]:
-    """SDK runner THẬT cho _run_sub (seam). Chạy sub tươi tới ResultMessage, trả kết quả text +
-    tool-calls. close-on-done: disconnect trong finally CÙNG task. KHÔNG resume (sub disposable).
-    """
+
     from claude_agent_sdk import (
         AssistantMessage,
         ClaudeSDKClient,
@@ -93,19 +70,16 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
 
     from app.orch.providers import conv_provider_env, conv_sub_model
 
-    # D-45b (c): sub cùng conv dùng provider CỦA CONV (nhất quán trải nghiệm). null → server-default.
     conv = await store.get_conversation(task.conv_id)
     _cprov = conv.get("provider") if conv else None
     penv = conv_provider_env(_cprov)
-    # sub_model per-provider (yaml, optional): provider không map tên claude (local Ollama) khai
-    # sub_model → sub spawn model TỒN TẠI thay vì haiku alias (fix sub chết câm khi provider=local).
+
     smodel = conv_sub_model(_cprov)
     brief = task.input or task.title
     client = ClaudeSDKClient(options=_build_sub_options(task, penv, smodel))
     text_parts: list[str] = []
     tool_calls: list[dict[str, Any]] = []
-    # T4-1 audit: buffer tool_use theo id (input) → match ToolResultBlock (output) → record 1 row đủ.
-    # tool_use không có result (turn kết thúc trước) → flush với output null (append-only, không update).
+
     pending: dict[str, dict[str, Any]] = {}
     try:
         await client.connect()
@@ -116,22 +90,18 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
                     if isinstance(block, TextBlock):
                         text_parts.append(block.text)
                     elif isinstance(block, ThinkingBlock):
-                        # T4-2 F1 trace: suy nghĩ sub → SSE thinking (task_id=sub). LIVE-only, không persist.
                         _emit_thinking(task.conv_id, task.id, block.thinking)
                     elif isinstance(block, ToolUseBlock):
                         tool_name = block.name.split("__")[-1]
                         tool_calls.append({"tool": tool_name, "input": block.input})
                         pending[block.id] = {"tool": tool_name, "input": block.input}
             elif isinstance(msg, UserMessage):
-                # tool result đến qua UserMessage.content (ToolResultBlock) — match theo tool_use_id.
                 for block in getattr(msg, "content", []) or []:
                     if isinstance(block, ToolResultBlock):
                         info = pending.pop(block.tool_use_id, None)
                         if info is not None:
                             await _audit_tool_call(task, info["tool"], info["input"], block.content)
             elif isinstance(msg, ResultMessage):
-                # T16-1: bóc chỉ số THẬT (token/duration/model/cost) — trước đây vứt. Lưu task row +
-                # log per-turn có cấu trúc (base_url từ penv RESOLVED — bằng chứng T15-2). Best-effort.
                 from app.orch import instrument
 
                 _m = instrument.extract_metrics(msg)
@@ -145,13 +115,12 @@ async def run_sub_turn(task: Task) -> dict[str, Any]:
                     metrics=_m,
                 )
     finally:
-        # flush tool_use chưa có result (output null) — append-only, vẫn ghi audit (§10).
         for info in pending.values():
             await _audit_tool_call(task, info["tool"], info["input"], None)
         try:
             await client.disconnect()
         except Exception as e:  # noqa: BLE001
-            log.warning("sub disconnect lỗi: %s", e)
+            log.warning("sub-task disconnect failed: %s", e)
     return {"text": "".join(text_parts), "tool_calls": tool_calls}
 
 
@@ -162,20 +131,12 @@ def _build_main_options(
     model: str | None = None,
     tenant_id: str | None = None,
 ) -> Any:
-    """Options MAIN: skill điều phối + orch_* + common. model=conv.model hoặc MAIN_MODEL. resume bền.
 
-    D-45b (c): model per-conv override MAIN (null → MAIN_MODEL). Sub GIỮ SUB_MODEL (haiku rẻ, cố ý —
-    không promote sub thành model đắt vì user chọn cho chat). model theo provider của conv (dropdown FE).
-
-    provider_env (D-45): xem _build_sub_options. subscription → rỗng → SDK dùng CLI auth.
-    """
     from claude_agent_sdk import ClaudeAgentOptions
 
     from app.orch.common_tools import COMMON_ALLOWED, COMMON_SERVER
     from app.orch.orch_tools import ORCH_ALLOWED, build_orch_server
 
-    # D-56 MAIN identity inject: ca creator = KHÁCH → prepend block khách (xưng anh/chị, mặc định về
-    # khách này, KHÔNG tra hồ sơ người khác). creator = ngân hàng → MAIN_SKILL như cũ (không block).
     skill = get_main_skill() + _customer_prompt_block(conv_id) + linked_case_prompt_block(conv_id, tenant_id)
 
     return ClaudeAgentOptions(
@@ -194,11 +155,7 @@ def _build_main_options(
 
 
 async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[str, Any]:
-    """Chạy 1 lượt MAIN (close-on-done + resume). connect+disconnect CÙNG task này (landmine #1).
 
-    resume = sdk_session_id lưu DB; bắt session_id mới ở ResultMessage (mọi kết cục). on_text =
-    callback stream chunk (T1-3 nối SSE). Trả {text, session_id, is_error}.
-    """
     from claude_agent_sdk import (
         AssistantMessage,
         ClaudeSDKClient,
@@ -211,23 +168,12 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
         UserMessage,
     )
 
-    # ContextVar set dòng ĐẦU (brief §E · lab-joint §7): actor='main' + task='' . QUAN TRỌNG cho
-    # re-entrant path (sub done → _report → _event_sink → handle_room_event → run_main_turn chạy
-    # TRONG task của sub, đường D-33 inline — KHÔNG task mới nên ContextVar KHÔNG tự reset): không
-    # set lại thì CTX_ACTOR leak = role sub (audit mis-attribute) VÀ CTX_TASK leak = task.id sub →
-    # MAIN present bị stamp task_id sub thay vì null (vi phạm T2-1 N5 "main present → task_id null").
-    # Reset CẢ 3 — mirror nhau (fix CTX_TASK leak: tester T2-4 bắt).
-    # ⚠️ S3+ BUILDER: THÊM ContextVar mới (set trong _run_sub) → PHẢI thêm reset TƯƠNG ỨNG Ở ĐÂY.
-    # Chi phí ẩn của D-33 inline-await: contextvar không auto-reset trên re-entrant path — reset TAY
-    # ĐỦ MỌI cái. Grep `registry.CTX_` để thấy danh sách; set ở sub thì reset ở main.
     registry.CTX_CONV.set(conv_id)
     registry.CTX_ACTOR.set("main")
-    registry.CTX_TASK.set("")  # main present ngoài sub → task_id null (T2-1)
+    registry.CTX_TASK.set("")
 
     from app.orch.providers import conv_provider_env
 
-    # D-45b (c) resume-consistency: provider CỦA CONV — resume + fresh-fallback dùng CÙNG (conv tạo
-    # trên X → mọi lượt X). null → server-default. resolve MỘT lần/lượt (cả 2 path dưới dùng chung).
     _conv = await store.get_conversation(conv_id)
     penv = conv_provider_env(_conv.get("provider") if _conv else None)
     cmodel = _conv.get("model") if _conv else None  # D-45b (c): model per-conv → MAIN (null → MAIN_MODEL)
@@ -246,7 +192,7 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
     except ProcessError:
         if not expected:
             raise
-        log.warning("resume %s chết → fresh (conv %s)", expected, conv_id)
+        log.warning("resume %s failed; starting fresh (conv %s)", expected, conv_id)
         await store.set_conv_session_id(conv_id, None)
         client = ClaudeSDKClient(
             options=_build_main_options(
@@ -259,12 +205,12 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
         )
         await client.connect()
 
-    registry.main_clients[conv_id] = client  # cho interrupt (§7) — pop trong finally
+    registry.main_clients[conv_id] = client  # Enable interrupt (§7); removed in finally.
     text_parts: list[str] = []
     session_id: str | None = None
     is_error = False
-    main_metrics: dict[str, Any] = {}  # T16-1: chỉ số MAIN turn (ResultMessage) → messages.meta
-    pending: dict[str, dict[str, Any]] = {}  # T4-1 audit: tool_use theo id chờ match result
+    main_metrics: dict[str, Any] = {}
+    pending: dict[str, dict[str, Any]] = {}
     try:
         await client.query(prompt)
         async for msg in client.receive_response():
@@ -275,7 +221,6 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
                         if on_text is not None:
                             await on_text(block.text)
                     elif isinstance(block, ThinkingBlock):
-                        # T4-2 F1 trace: suy nghĩ MAIN → SSE thinking (task_id=None). LIVE-only.
                         _emit_thinking(conv_id, None, block.thinking)
                     elif isinstance(block, ToolUseBlock):
                         pending[block.id] = {"tool": block.name.split("__")[-1], "input": block.input}
@@ -288,8 +233,7 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
             elif isinstance(msg, ResultMessage):
                 session_id = getattr(msg, "session_id", None)
                 is_error = bool(getattr(msg, "is_error", False))
-                # T16-1: bóc chỉ số MAIN turn (token/duration/model/cost). Trả về caller → gắn vào
-                # messages.meta (main không có task row — nguồn stats T16-2 nhánh 'main'). + log per-turn.
+
                 from app.orch import instrument
 
                 main_metrics = instrument.extract_metrics(msg)
@@ -302,83 +246,54 @@ async def run_main_turn(conv_id: str, prompt: str, on_text: Any = None) -> dict[
                     metrics=main_metrics,
                 )
     finally:
-        # flush tool_use chưa match result (output null) — append-only audit (§10).
         for info in pending.values():
             await _audit_main_tool_call(conv_id, info["tool"], info["input"], None)
         registry.main_clients.pop(conv_id, None)
         try:
-            await client.disconnect()  # close-on-done — CÙNG task (landmine #1)
+            await client.disconnect()
         except Exception as e:  # noqa: BLE001
-            log.warning("main disconnect lỗi: %s", e)
+            log.warning("main disconnect failed: %s", e)
 
     if session_id and session_id != expected:
-        # bắt id mới (kể cả lượt đầu expected=None). Lệch khi expected có → resume nghi hỏng,
-        # nhưng vẫn lưu id mới để lượt sau resume (session.py giữ id gốc; ở đây S1 đơn giản: lưu mới)
         await store.set_conv_session_id(conv_id, session_id)
     return {"text": "".join(text_parts), "session_id": session_id, "is_error": is_error, "metrics": main_metrics}
 
 
 async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
-    """T3-4 race fix — re-dispatch giải ngân đã-duyệt TỪ chỗ ops-lần-1 HOÀN TẤT, không đua trước.
 
-    Trả True = ĐÃ XỬ (caller SKIP lượt MAIN — không stale-read, không báo user sai). False = path
-    bình thường (caller chạy MAIN như cũ).
-
-    Race (tester T3-4): admin duyệt NHANH hơn ops-lần-1 return → resume-dispatch đua trước
-    unregister → created:false → MAIN đọc task_done STALE lần-1 → báo "vẫn chờ duyệt" (sai), phiếu
-    approved treo mãi. Fix (architect): server tự re-dispatch khi role FREE, KHÔNG để MAIN đua.
-
-    2 nhánh chặn (grant = approval row approved-chưa-used, advisor: zero state mới):
-    A) approval_decided(approved) + role gốc CÒN running → KHÔNG chạy MAIN (FE đã hiện approved qua
-       SSE; grant đã persist ở approval row). Kết lượt. Khi ops-lần-1 done → nhánh B tiếp.
-    B) task_done + có grant treo → server re-dispatch role đó gọi lại tool (fire-and-forget spawn,
-       KHÔNG inline-await — task_done chạy TRONG finally sub đang chết, D-33) + SKIP MAIN report
-       lượt này. ops#2 claim → flip 'used' → grant tự clear → task_done kế không grant → MAIN report.
-
-    T4-0 loop-bound: nhánh B peek_grant (không mutate) → claim_exec_attempt (increment atomic khi chắc
-    re-dispatch) + trần MAX_EXEC_ATTEMPTS.
-    ops#2 fail BỀN → grant treo approved-unused → mỗi task_done re-dispatch tăng attempt → vượt trần
-    → KHÔNG dispatch nữa (chống task-storm) + phiếu 'exec_failed' + MAIN báo user "giải ngân lỗi bền".
-    """
     from app.orch import store_approvals
     from app.orch.dispatch import orch_dispatch_impl
     from app.orch.gated import GATED_ROLE
 
-    # A) approval_decided approved khi role gốc còn running → đừng để MAIN dispatch đua trước.
     if event == "approval_decided" and data.get("decision") == "approved":
         role = GATED_ROLE.get(data.get("action", ""))
         if role and registry.get_running_task_id(conv_id, role) is not None:
-            log.info("resume-guard A: %s còn running, hoãn re-dispatch tới khi task_done (conv %s)", role, conv_id)
-            return True  # SKIP MAIN — grant treo ở approval row, nhánh B lo khi role free
+            log.info(
+                "resume-guard A: %s is still running; deferring redispatch until task_done (conv %s)", role, conv_id
+            )
+            return True
 
-    # B) task_done + grant approved-chưa-used treo → server re-dispatch role claim bước 2 (BOUND T4-0).
     if event == "task_done":
-        # PEEK grant (KHÔNG increment) — biết role sở hữu + attempt hiện tại. Increment CHỈ khi thật
-        # sự re-dispatch (role khớp done_role) → không tốn quota oan khi role KHÁC done.
         grant = await store_approvals.peek_grant(conv_id)
         if grant is None:
-            return False  # không grant treo → path bình thường (MAIN report)
+            return False
 
         done_role = data.get("role")
         action = grant["action"]
         role = GATED_ROLE.get(action)
-        # chỉ xử khi role sở hữu action vừa FREE (task_done của CHÍNH role đó). role đã unregister ở
-        # _report TRƯỚC event này. role khác done → path bình thường (grant chờ role đúng).
+
         if not (role and role == done_role and registry.get_running_task_id(conv_id, role) is None):
             return False
 
-        # VƯỢT TRẦN (T4-0): ops#2 fail BỀN → attempt đã chạm MAX → DỪNG re-dispatch, báo MAIN "lỗi bền".
         if grant["exec_attempts"] >= store_approvals.MAX_EXEC_ATTEMPTS:
             await store_approvals.mark_exec_failed(grant["id"])
             log.warning(
-                "resume-guard B: %s vượt trần %d lần re-dispatch → exec_failed (conv %s)",
+                "resume-guard B: %s exceeded the redispatch limit of %d; marking exec_failed (conv %s)",
                 action,
                 store_approvals.MAX_EXEC_ATTEMPTS,
                 conv_id,
             )
-            # KHÔNG SKIP — để MAIN báo user. NHƯNG KHÔNG cược model đọc error trong result_summary:
-            # inject signal DETERMINISTIC vào data → _build_event_prompt task_done nhánh exec_failed →
-            # MAIN nhận prompt RÕ "giải ngân lỗi bền sau N lần, cần người" (không phụ suy luận model).
+
             data["exec_failed"] = {
                 "action": action,
                 "attempts": store_approvals.MAX_EXEC_ATTEMPTS,
@@ -386,7 +301,6 @@ async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
             }
             return False
 
-        # CÒN quota → increment atomic (chỉ khi chắc chắn re-dispatch) → dispatch ops#2.
         attempt = await store_approvals.claim_exec_attempt(grant["id"])
         payload_summary = ", ".join(f"{k}={v}" for k, v in (grant.get("payload") or {}).items())
         brief = (
@@ -397,27 +311,20 @@ async def _resume_dispatch_guard(conv_id: str, event: str, data: dict) -> bool:
             )
             .rstrip("\n")
         )
-        title = f"Thực thi {action} đã duyệt ({payload_summary})"
-        log.info("resume-guard B: re-dispatch %s claim %s lần %d (conv %s)", role, action, attempt, conv_id)
-        # fire-and-forget: orch_dispatch_impl tự spawn_sub nền — KHÔNG await (nest sub chết)
+        title = f"Execute approved {action} ({payload_summary})"
+        log.info("resume-guard B: redispatching %s claim %s attempt %d (conv %s)", role, action, attempt, conv_id)
+
         await orch_dispatch_impl(conv_id, role, title, brief)
-        return True  # SKIP MAIN report lượt này (ops#2 done sẽ báo hoàn tất — self-contained)
+        return True
     return False
 
 
 async def _turn_runner(conv_id: str, event: str, data: dict) -> None:
-    """Nối handle_room_event → run_main_turn + SSE stream (T1-3). Vỏ đưa dữ kiện, não quyết (N1).
 
-    Stream chat.delta chunk qua on_text; MỌI kết lượt (xong/lỗi) bắn chat.delta done (Gap1) +
-    persist message assistant/system + conversation.status. Lỗi main → message sender='system'
-    (Gap2 — user thấy lịch sử). uuid turn_id cho seq per-turn (streaming-sse §3).
-
-    T3-4: _resume_dispatch_guard chặn 2 nhánh race resume-dispatch TRƯỚC khi chạy MAIN (xem docstring)."""
     import uuid
 
     from app.sse.emit import emit_chat_delta, emit_chat_done, emit_conversation_status
 
-    # T3-4 race guard — ĐÃ xử (re-dispatch/hoãn) → SKIP lượt MAIN (không stale-read, không báo sai).
     if await _resume_dispatch_guard(conv_id, event, data):
         return
 
@@ -434,33 +341,30 @@ async def _turn_runner(conv_id: str, event: str, data: dict) -> None:
         result = await run_main_turn(conv_id, prompt, on_text=on_text)
         text = result["text"]
         if result["is_error"]:
-            # lỗi main trong lượt (is_error) — Gap2: message system + status failed
-            await store.add_message(conv_id, "system", text or "Lượt xử lý gặp lỗi.")
+            await store.add_message(conv_id, "system", text or "The processing turn failed.")
             emit_chat_done(conv_id, turn_id, text)
             await store.set_conv_status(conv_id, "failed")
             emit_conversation_status(conv_id, "failed")
         else:
             if text:
-                # T16-1: gắn chỉ số MAIN turn vào messages.meta.metrics (nguồn stats T16-2 nhánh main).
                 _meta = {"metrics": result.get("metrics")} if result.get("metrics") else None
-                await store.add_message(conv_id, "assistant", text, meta=_meta)  # persist TRƯỚC done (§5)
-            emit_chat_done(conv_id, turn_id, text)  # Gap1: MỌI kết lượt bắn done
+                await store.add_message(conv_id, "assistant", text, meta=_meta)
+            emit_chat_done(conv_id, turn_id, text)
             await store.set_conv_status(conv_id, "idle")
             emit_conversation_status(conv_id, "idle")
-    except Exception as e:  # noqa: BLE001 — lượt main nổ (SDK/provider): Gap1+Gap2, không chết im
+    except Exception as e:  # noqa: BLE001
         import logging
 
-        logging.getLogger("orch.session").error("lượt main lỗi conv %s: %s", conv_id, e)
-        msg = f"Hệ thống gặp lỗi khi xử lý: {str(e)[:200]}. Anh/chị gửi lại tin nhắn để tiếp tục."
+        logging.getLogger("orch.session").error("main turn failed conv %s: %s", conv_id, e)
+        msg = f"The system encountered an error while processing: {str(e)[:200]}. Send the message again to continue."
         await store.add_message(conv_id, "system", msg)
-        emit_chat_done(conv_id, turn_id, "")  # Gap1: done dù rỗng → bubble FE không treo
+        emit_chat_done(conv_id, turn_id, "")
         await store.set_conv_status(conv_id, "failed")
         emit_conversation_status(conv_id, "failed")
 
 
 def boot() -> None:
-    """Gọi lúc app startup: gán runner SDK thật cho seam + nối event sink. Tách khỏi test
-    (test mechanics KHÔNG gọi boot → không đụng SDK)."""
+
     from app.orch import room, sub_runner
 
     sub_runner.set_default_runner(run_sub_turn)

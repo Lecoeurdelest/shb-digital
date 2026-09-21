@@ -1,5 +1,3 @@
-"""CORS cho SDK nhúng: exact allowlist, không wildcard hay URL có path."""
-
 from __future__ import annotations
 
 import pytest

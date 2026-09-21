@@ -32,7 +32,6 @@ def upgrade() -> None:
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
         sa.Column("source_system", sa.Text(), nullable=False),
         sa.Column("external_case_id", sa.Text(), nullable=False),
-        # Soft reference có chủ đích: applications demo/raw không phải master của connector LOS.
         sa.Column("internal_application_id", sa.Text(), nullable=True),
         sa.Column("party_reference", sa.Text(), nullable=True),
         sa.Column("assigned_rm_subject", sa.Text(), nullable=True),
@@ -54,7 +53,7 @@ def upgrade() -> None:
         sa.CheckConstraint("loan_amount_vnd IS NULL OR loan_amount_vnd >= 0", name="ck_external_case_amount"),
         sa.CheckConstraint("jsonb_typeof(document_refs)='array'", name="ck_external_case_document_refs"),
         sa.CheckConstraint("jsonb_typeof(missing_fields)='array'", name="ck_external_case_missing_fields"),
-        sa.CheckConstraint(f"case_status IN { _CASE_STATUSES!r}", name="ck_external_case_status"),
+        sa.CheckConstraint(f"case_status IN {_CASE_STATUSES!r}", name="ck_external_case_status"),
     )
     op.create_index("ix_external_case_status_synced", "external_case_links", ["case_status", "synced_at"])
     op.create_index("ix_external_case_source_synced", "external_case_links", ["source_system", "synced_at"])
@@ -78,7 +77,9 @@ def upgrade() -> None:
         sa.CheckConstraint("jsonb_typeof(payload)='object'", name="ck_integration_inbox_payload"),
         sa.CheckConstraint("jsonb_typeof(receipt)='object'", name="ck_integration_inbox_receipt"),
     )
-    op.create_index("ix_integration_inbox_case_received", "integration_inbox", ["source_system", "external_case_id", "received_at"])
+    op.create_index(
+        "ix_integration_inbox_case_received", "integration_inbox", ["source_system", "external_case_id", "received_at"]
+    )
 
 
 def downgrade() -> None:

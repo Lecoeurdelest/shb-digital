@@ -1,12 +1,3 @@
-"""Store tasks (DB CRUD) cho orchestrator — psycopg2 sync chạy qua asyncio.to_thread (D-22:
-không block event loop). DB = kho render (SPEC §8); nguồn "đang chạy" là registry sống.
-
-Task = dataclass nhẹ (không ORM session — INSERT raw, id server_default D-28c). conv_id là TEXT
-toàn hệ (D-31: tasks.conv_id text tự do — tester dùng 'tester-ca-a-conv'; T1-3 dùng str(uuid)).
-
-D-34 closed: render CRUD và tool executor dùng cùng datastore registry/pool; mỗi hàm vẫn sở hữu
-transaction riêng và trả lease ở finally."""
-
 from __future__ import annotations
 
 import asyncio
@@ -24,8 +15,6 @@ from app.tenancy import DEFAULT_TENANT_ID
 
 @dataclass
 class Task:
-    """Bản ghi task (render). id/conv_id str; role là khoá idempotency + định danh trên mặt tool."""
-
     id: str
     conv_id: str
     role: str
@@ -56,8 +45,7 @@ def _row_to_task(row: dict[str, Any]) -> Task:
 
 
 def task_to_dict(task: Task) -> dict[str, Any]:
-    """Serialize Task → dict cho SSE/REST (1 codepath render — CONTRACT §3 OrchTask shape).
-    outcome timeout → status 'failed' ở render (§3); result.reason giữ chi tiết."""
+
     status = "failed" if task.status == "timeout" else task.status
     return {
         "id": task.id,
@@ -93,16 +81,13 @@ def _create_task_sync(conv_id: str, role: str, title: str, brief: str) -> Task:
 
 
 def _update_status_sync(task_id: str, status: str, result: dict | None = None, mark_started: bool = False) -> None:
-    """S6 guard-B (#2 race): terminal status BẤT BIẾN — NGOẠI LỆ DUY NHẤT `failed{server restart}`
-    (cờ-giả hạ-tầng boot-cleanup) bị done/timeout THẬT đè. failed-THẬT (user hủy/lỗi tool) KHÔNG bị
-    đè. rowcount=0 = write bị guard chặn → log warning (lộ nguồn-ghi-lạ, không nuốt im)."""
+
     conn = connect_core()
     try:
         with conn.cursor() as cur:
             if mark_started:
                 cur.execute("UPDATE tasks SET status=%s, started_at=now() WHERE id=%s", (status, task_id))
             elif status in ("done", "failed", "timeout"):
-                # guard: chỉ ghi khi task CHƯA terminal, HOẶC terminal='failed{server restart}' (cờ-giả).
                 cur.execute(
                     "UPDATE tasks SET status=%s, result=%s, ended_at=now() WHERE id=%s AND "
                     "(status NOT IN ('done','failed','timeout') "
@@ -113,7 +98,10 @@ def _update_status_sync(task_id: str, status: str, result: dict | None = None, m
                     import logging
 
                     logging.getLogger("orch").warning(
-                        "task %s: write status=%s bị GUARD CHẶN (đã terminal-thật) — nghi nguồn-ghi-lạ", task_id, status
+                        "task %s: GUARD BLOCKED status=%s write after true terminal state; "
+                        "suspect an unexpected writer",
+                        task_id,
+                        status,
                     )
             else:
                 cur.execute("UPDATE tasks SET status=%s WHERE id=%s", (status, task_id))
@@ -134,9 +122,6 @@ def _get_task_sync(task_id: str) -> Task | None:
             row = cur.fetchone()
             return _row_to_task(dict(row)) if row else None
     except psycopg2.errors.InvalidTextRepresentation:
-        # task_id KHÔNG phải UUID hợp lệ (input user malformed) → coi như KHÔNG tồn tại (None → 404
-        # tự nhiên ở caller), KHÔNG để psycopg2 DataError lọt ra 500. Nhất quán _exists_sync
-        # (store_approvals) đã catch psycopg2.Error cho uuid sai. Tester T4-3 bắt: interrupt malformed→500.
         return None
     finally:
         conn.close()
@@ -174,16 +159,7 @@ def _set_conv_session_id_sync(conv_id: str, session_id: str | None) -> None:
 
 
 def _cleanup_orphans_sync(boot_time: datetime | None = None) -> int:
-    """boot-cleanup (§7): task ĐỜI TRƯỚC (queued/running mồ côi sau restart) → failed('server restart').
 
-    S6 fix:
-    - (A) TIME-SCOPE: chỉ quét task `queued_at < boot_time` — cleanup = "chôn task ĐỜI TRƯỚC", KHÔNG
-      đụng task đời-này (tránh quét nhầm task vừa-tạo-sau-boot nếu request tới trước cleanup xong).
-      boot_time None → quét tất (backward-compat / test không truyền).
-    - (2) conv KẸT 'running' vĩnh viễn (task chết nhưng conv không reset): conv 'running' mà KHÔNG
-      còn task sống (queued/running) → set 'idle' (user chat tiếp resume bình thường §8).
-      waiting_approval GIỮ (hợp lệ — phiếu chờ người, không phải kẹt).
-    """
     conn = connect_core()
     try:
         with conn.cursor() as cur:
@@ -199,7 +175,7 @@ def _cleanup_orphans_sync(boot_time: datetime | None = None) -> int:
                     (json.dumps({"reason": "server restart"}),),
                 )
             n = cur.rowcount
-            # (2) conv kẹt 'running' mà KHÔNG còn task sống → 'idle' (waiting_approval giữ).
+
             cur.execute(
                 "UPDATE conversations SET status='idle' WHERE status='running' "
                 "AND id::text NOT IN (SELECT DISTINCT conv_id FROM tasks WHERE status IN ('queued','running'))"
@@ -219,7 +195,7 @@ def _create_conversation_sync(
     tenant_id: str = DEFAULT_TENANT_ID,
     group_id: str | None = None,
 ) -> dict[str, Any]:
-    """D-45b (c): lưu provider/model per-conv (null → server-default lúc chạy). Resume-consistency."""
+
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -281,7 +257,7 @@ def _list_conversations_sync(user_id: str, tenant_id: str = DEFAULT_TENANT_ID) -
 
 
 def _list_all_conversations_sync(tenant_id: str = DEFAULT_TENANT_ID) -> list[dict[str, Any]]:
-    """D-79: admin thấy mọi ca trong tenant, không thấy tenant khác."""
+
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -314,8 +290,7 @@ def _update_conversation_sync(
     group_id: str | None = None,
     update_group: bool = False,
 ) -> dict[str, Any] | None:
-    """PATCH partial: chỉ set field TRUYỀN (None = không đổi). Trả conv mới, None nếu ca không tồn tại.
-    Validate provider/model là việc của caller (router) — store chỉ ghi. id::text so khớp (conv_id text)."""
+
     sets: list[str] = []
     vals: list[Any] = []
     if title is not None:
@@ -330,13 +305,13 @@ def _update_conversation_sync(
     if update_group:
         sets.append("group_id=%s")
         vals.append(group_id)
-    if not sets:  # không field nào → chỉ trả conv hiện tại (router đã chặn body rỗng, defensive)
+    if not sets:
         return _get_conversation_sync(conv_id)
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                f"UPDATE conversations SET {', '.join(sets)} WHERE id::text=%s "  # noqa: S608 — sets là literal cột, không phải input
+                f"UPDATE conversations SET {', '.join(sets)} WHERE id::text=%s "  # noqa: S608
                 "RETURNING id,tenant_id,group_id,user_id,title,status,sdk_session_id,provider,model,created_at",
                 (*vals, conv_id),
             )
@@ -348,10 +323,7 @@ def _update_conversation_sync(
 
 
 def _delete_conversation_sync(conv_id: str) -> str:
-    """HARD delete ca trong 1 TX: chặn nếu còn phiếu pending → 'pending'; chặn nếu đang chạy →
-    'running'; ok → xoá messages+cards+tasks+conv (D-67: nội dung ca), GIỮ tool_calls + approvals
-    ĐÃ QUYẾT (audit append-only) → 'deleted'. Ca không tồn tại → 'not_found'.
-    1 TX (advisor): check-pending + mọi DELETE cùng conn — không nửa-xoá, không check-then-delete hở."""
+
     conn = connect_core()
     try:
         with conn.cursor() as cur:
@@ -360,12 +332,12 @@ def _delete_conversation_sync(conv_id: str) -> str:
             if row is None:
                 conn.rollback()
                 return "not_found"
-            # còn phiếu pending → chặn (quyết phiếu trước). Trong TX → không đua với decide.
+
             cur.execute("SELECT 1 FROM approvals WHERE conv_id=%s AND status='pending' LIMIT 1", (conv_id,))
             if cur.fetchone():
                 conn.rollback()
                 return "pending"
-            # xoá NỘI DUNG ca (D-67). approvals ĐÃ QUYẾT + tool_calls KHÔNG xoá (audit append-only §11).
+
             cur.execute("DELETE FROM messages WHERE conv_id=%s", (conv_id,))
             cur.execute("DELETE FROM cards WHERE conv_id=%s", (conv_id,))
             cur.execute("DELETE FROM tasks WHERE conv_id=%s", (conv_id,))
@@ -420,7 +392,7 @@ def _list_messages_sync(conv_id: str) -> list[dict[str, Any]]:
 
 
 def _insert_card_sync(conv_id: str, task_id: str | None, card_type: str, data: dict) -> dict[str, Any]:
-    """INSERT card → trả row với id VỎ sinh (server_default). task_id null OK (main gọi ngoài sub)."""
+
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -437,15 +409,11 @@ def _insert_card_sync(conv_id: str, task_id: str | None, card_type: str, data: d
 
 
 def _card_to_dict(row: dict[str, Any]) -> dict[str, Any]:
-    """Card render dict. data (jsonb) merge lên top-level cho FE (type/title/items ở data).
 
-    LỚP 2 phòng thủ (N5/§15): spread **data TRƯỚC, field VỎ-OWNED (id/conv_id/task_id/type/ts)
-    đặt SAU → LUÔN THẮNG dù data lỡ chứa key trùng. id vỏ-inject không bao giờ bị agent ghi đè.
-    """
     data = row.get("data") or {}
     return {
-        **data,  # title, items, sources... (nội dung agent bơm — vỏ mù N3)
-        "id": str(row["id"]),  # VỎ-owned — đặt SAU, thắng mọi key 'id' lọt trong data
+        **data,
+        "id": str(row["id"]),
         "conv_id": str(row["conv_id"]),
         "task_id": str(row["task_id"]) if row.get("task_id") else None,
         "type": row["type"],
@@ -480,7 +448,6 @@ def _list_tasks_sync(conv_id: str) -> list[dict[str, Any]]:
         conn.close()
 
 
-# ── async wrappers (D-22: sync psycopg2 qua to_thread — không block event loop) ──
 async def create_task(conv_id: str, role: str, title: str, brief: str) -> Task:
     return await asyncio.to_thread(_create_task_sync, conv_id, role, title, brief)
 
@@ -505,7 +472,7 @@ async def list_conversations(user_id: str, tenant_id: str = DEFAULT_TENANT_ID) -
 
 
 async def list_all_conversations(tenant_id: str = DEFAULT_TENANT_ID) -> list[dict[str, Any]]:
-    """D-79 admin: mọi ca trong tenant."""
+
     return await asyncio.to_thread(_list_all_conversations_sync, tenant_id)
 
 
@@ -514,8 +481,7 @@ async def set_conv_status(conv_id: str, status: str) -> None:
 
 
 def _save_task_metrics_sync(task_id: str, m: dict[str, Any]) -> None:
-    """T16-1: UPDATE task với chỉ số THẬT từ ResultMessage (token/duration/model + cost jsonb).
-    Best-effort: id sai/lỗi → nuốt (không vỡ flow sub). Field None → cột NULL sạch (ADDITIVE)."""
+
     conn = connect_core()
     try:
         with conn.cursor() as cur:
@@ -539,13 +505,13 @@ def _save_task_metrics_sync(task_id: str, m: dict[str, Any]) -> None:
         import logging
 
         conn.rollback()
-        logging.getLogger("orch").warning("save_task_metrics task=%s lỗi (bỏ qua): %s", task_id, e)
+        logging.getLogger("orch").warning("save_task_metrics failed task=%s (ignored): %s", task_id, e)
     finally:
         conn.close()
 
 
 async def save_task_metrics(task_id: str, metrics: dict[str, Any]) -> None:
-    """T16-1: lưu chỉ số ResultMessage vào task row. Best-effort (không vỡ sub nếu lỗi)."""
+
     await asyncio.to_thread(_save_task_metrics_sync, task_id, metrics)
 
 
@@ -570,7 +536,7 @@ async def update_conversation(
 
 
 async def delete_conversation(conv_id: str) -> str:
-    """T15-3 hard delete → 'deleted'|'pending'|'not_found' (running-check ở router qua registry)."""
+
     return await asyncio.to_thread(_delete_conversation_sync, conv_id)
 
 

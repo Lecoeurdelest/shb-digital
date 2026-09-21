@@ -66,7 +66,7 @@ class PostgresDataStore:
                         application_name="bank-digital",
                     )
                     self._slots = threading.BoundedSemaphore(maximum)
-                    # Gán pool sau cùng để thread khác không bao giờ thấy pool thiếu cổng giới hạn.
+
                     self._pool = pool
         return self._pool
 

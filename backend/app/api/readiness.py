@@ -1,5 +1,3 @@
-"""Public readiness probe; success non-sensitive, failure 503 theo envelope toàn hệ."""
-
 from __future__ import annotations
 
 from fastapi import APIRouter
@@ -18,7 +16,7 @@ async def ready() -> dict:
         raise ApiError(
             503,
             "not_ready",
-            "Dịch vụ chưa sẵn sàng.",
-            "Kiểm tra DB, migration, provider và role mount trong log máy chủ.",
+            "The service is not ready.",
+            "Check the database, migrations, providers, and role mounts in the server logs.",
             retryable=True,
         ) from exc

@@ -1,8 +1,3 @@
-"""Redact secret trước khi bắn ra FE/trace (khẩu vị bank — streaming-sse §4).
-
-Output agent/tool đi ra FE không được mang secret. Gọi trong emit() — cổng DUY NHẤT.
-"""
-
 from __future__ import annotations
 
 import re

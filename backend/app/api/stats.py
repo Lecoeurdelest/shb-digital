@@ -1,9 +1,3 @@
-"""Stats + assessments read API (T13-1) — dashboard số cho Control Tower (admin). ĐỌC-THUẦN.
-
-RÀO §2: chỉ group-by bảng sẵn (approvals/assessments/conversations), KHÔNG bảng mới, KHÔNG
-cost-USD/health. Timezone UTC nhất quán (data đang UTC): "today" = UTC day. psycopg2 + to_thread.
-"""
-
 from __future__ import annotations
 
 import json
@@ -25,14 +19,13 @@ log = logging.getLogger("api.stats")
 
 router = APIRouter(prefix="/api", tags=["stats"])
 
-# D-69: window ROLLING 24h|7d|30d (thay today|7d cũ). số giờ lùi từ now.
+
 _WINDOWS = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
 _ASSESS_LIMIT_MAX = 100
 
 
 def _window_bounds(window: str) -> tuple[datetime, datetime, datetime]:
-    """(start, prev_start, end) UTC — ROLLING (D-69): end=now; start=now-N giờ; prev_start=start-N
-    (delta kỳ trước cùng độ dài). 24h|7d|30d = 24|168|720 giờ."""
+
     hours = _WINDOWS[window]
     now = datetime.now(UTC)
     start = now - timedelta(hours=hours)
@@ -42,15 +35,10 @@ def _window_bounds(window: str) -> tuple[datetime, datetime, datetime]:
 
 @router.get("/stats")
 async def get_stats(window: str = Query("24h"), claims: dict = Depends(require_admin)) -> dict[str, Any]:
-    """Dashboard counters for Control Tower (admin) — approvals/assessments/conversations by window.
 
-    window=24h|7d|30d rolling (D-69, khác → 400). approvals theo decided_at (auto=decided_by='auto-rule'
-    đếm riêng); pending = trạng thái HIỆN TẠI (không lọc window). assessments theo lane+created_at.
-    conversations: total tạo trong window + active=status='running' hiện tại. delta = kỳ này − kỳ trước.
-    sparks (D-70): mỗi KPI 1 mảng 24 số (24-bucket chuẩn hoá window) — FE KpiCard vẽ sparkline. DB rỗng → zeros."""
     if window not in _WINDOWS:
         raise ApiError(
-            400, "bad_window", f"window '{window}' không hỗ trợ.", "Dùng window=24h|7d|30d.", retryable=False
+            400, "bad_window", f"window '{window}' is not supported.", "Use window=24h|7d|30d.", retryable=False
         )
     import asyncio
 
@@ -59,7 +47,7 @@ async def get_stats(window: str = Query("24h"), claims: dict = Depends(require_a
 
 @router.get("/stats/shadow-match")
 async def get_shadow_match(claims: dict = Depends(require_admin)) -> dict[str, Any]:
-    """Độ khớp snapshot hệ thống ↔ quyết định người (admin, shape cố định CONTRACT §7b)."""
+
     return await store_shadow.get_shadow_match(tenant_id_from_claims(claims))
 
 
@@ -72,16 +60,16 @@ def _shadow_time(value: str | None, field: str) -> datetime | None:
         raise ApiError(
             400,
             "bad_shadow_filter",
-            f"Query '{field}' phải là timestamp ISO-8601 có timezone.",
-            f"Dùng {field}=2026-08-24T00:00:00Z.",
+            f"Query '{field}' must be an ISO-8601 timestamp with a timezone.",
+            f"Use {field}=2026-08-24T00:00:00Z.",
             retryable=False,
         ) from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ApiError(
             400,
             "bad_shadow_filter",
-            f"Query '{field}' thiếu timezone.",
-            f"Dùng {field}=2026-08-24T00:00:00Z.",
+            f"Query '{field}' is missing a timezone.",
+            f"Use {field}=2026-08-24T00:00:00Z.",
             retryable=False,
         )
     return parsed.astimezone(UTC)
@@ -96,22 +84,22 @@ async def get_shadow_mismatches(
     cursor: str | None = Query(None),
     claims: dict = Depends(require_admin),
 ) -> dict[str, Any]:
-    """Danh sách ca comparable lệch, keyset tenant-scoped theo CONTRACT §7d."""
+
     from_at, to_at = _shadow_time(from_, "from"), _shadow_time(to_, "to")
     if from_at is not None and to_at is not None and from_at >= to_at:
         raise ApiError(
             400,
             "bad_shadow_filter",
-            "Khoảng thời gian shadow không hợp lệ: 'from' phải nhỏ hơn 'to'.",
-            "Đổi về khoảng nửa-mở from inclusive, to exclusive.",
+            "The shadow time range is invalid: 'from' must be earlier than 'to'.",
+            "Use a half-open interval with inclusive 'from' and exclusive 'to'.",
             retryable=False,
         )
     if lane is not None and lane not in {"green", "yellow", "red"}:
         raise ApiError(
             400,
             "bad_shadow_filter",
-            f"Lane '{lane}' không hợp lệ.",
-            "Dùng lane=green|yellow|red hoặc bỏ query này.",
+            f"Lane '{lane}' is invalid.",
+            "Use lane=green|yellow|red or omit this query parameter.",
             retryable=False,
         )
     try:
@@ -120,16 +108,16 @@ async def get_shadow_mismatches(
         raise ApiError(
             400,
             "bad_shadow_filter",
-            "Limit phải là số nguyên.",
-            "Dùng limit từ 1 đến 200.",
+            "Limit must be an integer.",
+            "Use a limit from 1 to 200.",
             retryable=False,
         ) from exc
     if str(page_limit) != limit or not 1 <= page_limit <= 200:
         raise ApiError(
             400,
             "bad_shadow_filter",
-            "Limit nằm ngoài phạm vi hoặc không ở dạng số nguyên chuẩn.",
-            "Dùng limit từ 1 đến 200.",
+            "Limit is out of range or not in canonical integer form.",
+            "Use a limit from 1 to 200.",
             retryable=False,
         )
     try:
@@ -145,8 +133,8 @@ async def get_shadow_mismatches(
         raise ApiError(
             400,
             "invalid_cursor",
-            "Cursor shadow không hợp lệ hoặc không thuộc bộ lọc hiện tại.",
-            "Tải lại trang đầu với cùng bộ lọc.",
+            "The shadow cursor is invalid or does not belong to the current filter set.",
+            "Reload the first page with the same filters.",
             retryable=False,
         ) from exc
 
@@ -156,7 +144,6 @@ def _stats_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # ── approvals theo window (decided_at). approved gồm 'used' (đã thực thi). auto riêng. ──
             tenant_and = " AND tenant_id=%s" if tenant_id is not None else ""
             cur.execute(
                 "SELECT "
@@ -167,14 +154,13 @@ def _stats_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
                 (start, end, tenant_id) if tenant_id is not None else (start, end),
             )
             appr = cur.fetchone()
-            # pending = trạng thái HIỆN TẠI (không lọc window — pending là snapshot hiện tại)
+
             cur.execute(
                 f"SELECT count(*) AS pending FROM approvals WHERE status='pending'{tenant_and}",
                 (tenant_id,) if tenant_id is not None else (),
             )
             pending = cur.fetchone()["pending"]
 
-            # ── assessments theo lane, created_at TEXT → cast timestamptz (an toàn mọi format iso) ──
             cur.execute(
                 "SELECT "
                 "count(*) FILTER (WHERE lane='green') AS green, "
@@ -186,7 +172,6 @@ def _stats_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
             )
             assess = cur.fetchone()
 
-            # ── conversations: total tạo trong window + active=running hiện tại ──
             cur.execute(
                 f"SELECT count(*) AS total FROM conversations WHERE created_at >= %s AND created_at < %s{tenant_and}",
                 (start, end, tenant_id) if tenant_id is not None else (start, end),
@@ -198,7 +183,6 @@ def _stats_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
             )
             conv_active = cur.fetchone()["active"]
 
-            # ── delta: tổng kỳ này − tổng kỳ TRƯỚC cùng độ dài ──
             cur.execute(
                 "SELECT count(*) FILTER (WHERE decided_at >= %s AND decided_at < %s) AS cur_appr, "
                 "count(*) FILTER (WHERE decided_at >= %s AND decided_at < %s) AS prev_appr "
@@ -241,13 +225,11 @@ def _stats_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
 
 
 def _sparks(cur: Any, start: datetime, end: datetime, tenant_id: str | None = None) -> dict[str, list[int]]:
-    """D-70: 24-bucket ĐỀU cho mỗi KPI (approved/rejected/green/yellow/red/conversations). generate_series
-    24 bucket (width=window/24) LEFT JOIN + COALESCE 0 → LUÔN đúng 24 số (rỗng → 24 số 0). Keyed theo tên KPI."""
+
     width = (end - start) / 24
     keys = ("approved", "rejected", "green", "yellow", "red", "conversations")
     out: dict[str, list[int]] = {k: [0] * 24 for k in keys}
-    # 1 query/nhóm, bucket theo floor((ts-start)/width). Gom về Python list 24.
-    # approvals (approved gồm used, rejected)
+
     cur.execute(
         "SELECT floor(extract(epoch FROM (decided_at - %s)) / extract(epoch FROM %s::interval))::int AS b, "
         "count(*) FILTER (WHERE status IN ('approved','used')) AS approved, "
@@ -298,9 +280,7 @@ async def list_assessments(
     limit: int = Query(50, ge=1, le=_ASSESS_LIMIT_MAX),
     claims: dict = Depends(require_admin),
 ) -> list[dict[str, Any]]:
-    """List assessment records (admin, read-only) for the AI-reasoning panel — newest first, cap 100.
 
-    Filter owner optional. criteria_json parse → criteria[]; JSON hỏng → criteria=[] (row vẫn trả)."""
     import asyncio
 
     return await asyncio.to_thread(_assessments_sync, owner, limit, tenant_id_from_claims(claims))
@@ -333,12 +313,12 @@ def _assessments_sync(owner: str | None, limit: int, tenant_id: str | None = Non
 
 
 def _assessment_to_dict(row: dict[str, Any]) -> dict[str, Any]:
-    """Parse criteria_json → criteria[] (hỏng → [] + log, row VẪN trả — panel không mất record)."""
+
     raw = row.get("criteria_json")
     try:
         criteria = json.loads(raw) if raw else []
     except (json.JSONDecodeError, TypeError):
-        log.warning("assessment id=%s criteria_json hỏng → criteria=[]", row.get("id"))
+        log.warning("assessment id=%s has invalid criteria_json; using criteria=[]", row.get("id"))
         criteria = []
     return {
         "id": row["id"],

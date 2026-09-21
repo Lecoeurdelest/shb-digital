@@ -1,10 +1,3 @@
-"""Chuông cửa webhook cho bàn duyệt (D-71) — allowlist nhỏ, best-effort sau commit.
-
-Webhook chỉ báo có việc và mang deep-link về Control Tower. Approval và RFI đều dựng body mới từ
-allowlist riêng, không nhận nguyên row nghiệp vụ. Không outbox; retry hữu hạn có thể tạo bản tin
-trùng theo CONTRACT §8/§11f.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -44,7 +37,7 @@ def _amount_vnd(row: dict[str, Any]) -> int | None:
 
 
 def _event_of(row: dict[str, Any], status: str) -> dict[str, Any] | None:
-    """Tạo object mới từ allowlist; không bao giờ mutate/merge approval business payload."""
+
     approval_id = row.get("id") or row.get("approval_id")
     action = row.get("action")
     conv_id = row.get("conv_id")
@@ -68,7 +61,7 @@ def _generic_body(event: dict[str, Any], include_amount: bool) -> dict[str, Any]
 
 
 def _lark_body(event: dict[str, Any], include_amount: bool) -> dict[str, Any]:
-    content = f"**{event['action']}** · ca `{event['conv_id']}` · {event['status']}"
+    content = f"**{event['action']}** · case `{event['conv_id']}` · {event['status']}"
     if include_amount and event["amount"] is not None:
         content += f" · {event['amount']} VND"
     return {
@@ -99,7 +92,7 @@ async def _post_with_retries(
     event: dict[str, Any],
     body: dict[str, Any],
 ) -> None:
-    """Ba attempts tổng: ngay, +1s, +3s; chỉ retry lỗi vận chuyển, 429 và 5xx."""
+
     async with httpx.AsyncClient(timeout=5.0) as client:
         for attempt in range(1, 4):
             if attempt > 1:
@@ -142,7 +135,7 @@ async def _deliver_guarded(
 ) -> None:
     try:
         await _post_with_retries(webhook_url, channel, event, body)
-    except Exception as exc:  # noqa: BLE001 — chuông cửa không được làm hỏng nghiệp vụ đã commit
+    except Exception as exc:  # noqa: BLE001
         log.warning(
             "webhook channel=%s event_status=%s conv=%s attempt=0 exception=%s",
             channel,
@@ -169,7 +162,7 @@ def _schedule(row: dict[str, Any], status: str) -> None:
     try:
         loop = asyncio.get_running_loop()
         task = loop.create_task(_deliver_guarded(webhook_url, channel, event, body))
-    except Exception as exc:  # noqa: BLE001 — caller có thể không có running loop; vẫn best-effort
+    except Exception as exc:  # noqa: BLE001
         log.warning(
             "webhook channel=%s event_status=%s conv=%s attempt=0 exception=%s",
             channel,
@@ -183,12 +176,12 @@ def _schedule(row: dict[str, Any], status: str) -> None:
 
 
 def notify_channel_approval_pending(approval: dict[str, Any]) -> None:
-    """Báo một phiếu pending mới; caller chịu trách nhiệm gọi sau commit + SSE."""
+
     _schedule(approval, "pending")
 
 
 def notify_channel_approval_decided(approval: dict[str, Any]) -> None:
-    """Báo kết quả approved/rejected; trạng thái khác bị drop ở allowlist."""
+
     status = str(approval.get("status", ""))
     if status not in {"approved", "rejected"}:
         return
@@ -220,8 +213,8 @@ def notify_channel_case_rfi(case_id: str, missing_fields: list[str]) -> None:
     try:
         loop = asyncio.get_running_loop()
         task = loop.create_task(_deliver_guarded(webhook_url, "generic", event, body))
-    except Exception as exc:  # noqa: BLE001 — best-effort sau commit
-        log.warning("RFI webhook schedule lỗi case=%s exception=%s", canonical_case_id[:8], type(exc).__name__)
+    except Exception as exc:  # noqa: BLE001 — best-effort after commit
+        log.warning("failed to schedule RFI webhook case=%s exception=%s", canonical_case_id[:8], type(exc).__name__)
         return
     _bg_tasks.add(task)
     task.add_done_callback(_bg_tasks.discard)

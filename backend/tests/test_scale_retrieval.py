@@ -103,8 +103,8 @@ def test_vector_notes_uses_cache_after_first_index_query(monkeypatch):
     monkeypatch.setattr(vector_notes, "key_value_capability", lambda: cache)
     monkeypatch.setattr(vector_notes, "vector_capability", lambda: vectors)
 
-    first = vector_notes.search_notes_from_vector_index({"query": "dòng tiền", "owner_id": "C007", "limit": 5})
-    second = vector_notes.search_notes_from_vector_index({"query": "dòng tiền", "owner_id": "C007", "limit": 5})
+    first = vector_notes.search_notes_from_vector_index({"query": "cash flow", "owner_id": "C007", "limit": 5})
+    second = vector_notes.search_notes_from_vector_index({"query": "cash flow", "owner_id": "C007", "limit": 5})
 
     assert first == second
     assert first is not None and first["results"][0]["note_id"] == 7

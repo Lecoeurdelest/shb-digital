@@ -1,11 +1,3 @@
-"""Cost stats API (T16-2) — /api/stats/cost + /api/stats/cost-trend (admin, ĐỌC-THUẦN).
-
-Nguồn: UNION tasks(sub, cột T16-1) + messages(main, meta->'metrics' jsonb). CHỈ turn CÓ cost
-(`cost_usd IS NOT NULL` — turn cũ/usage vắng NULL → KHÔNG tính, nếu tính =$0 kéo lệch mean/z-score).
-z-score anomaly: agg cost/conv → mean+STDDEV_SAMP → z=(c-mean)/stddev, lấy z≥2 (guard stddev=0/n<2).
-window rolling (D-69): 24h|7d|30d = now - N. delta double-window 1-query (pattern T13-1).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -25,12 +17,11 @@ log = logging.getLogger("api.cost")
 
 router = APIRouter(prefix="/api/stats", tags=["cost"])
 
-# window rolling (D-69): số giờ lùi từ now.
+
 _WINDOW_HOURS = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
 _Z_THRESHOLD = 2.0
 
-# CTE CHUNG: chuẩn hoá SUB (tasks) + MAIN (messages.meta) về 1 shape (conv_id, role, model, cost_usd,
-# in/out/cache tokens, ts). CHỈ turn có cost_usd (NULL = turn cũ/usage vắng → loại, không kéo lệch).
+
 # %(start)s/%(end)s bind window. messages jsonb: meta->'metrics'->>'x' → numeric cast.
 _UNIFIED_CTE = """
 WITH unified AS (
@@ -56,7 +47,7 @@ WITH unified AS (
 
 
 def _bounds(window: str) -> tuple[datetime, datetime, datetime]:
-    """(start, prev_start, end) rolling. end=now; start=now-N; prev_start=start-N (delta kỳ trước)."""
+
     hours = _WINDOW_HOURS[window]
     now = datetime.now(UTC)
     start = now - timedelta(hours=hours)
@@ -66,12 +57,9 @@ def _bounds(window: str) -> tuple[datetime, datetime, datetime]:
 
 @router.get("/cost")
 async def get_cost(window: str = Query("24h"), claims: dict = Depends(require_admin)) -> dict[str, Any]:
-    """Cost breakdown (admin) — total + 4-token breakdown + by_model + by_role + anomalies + delta.
 
-    window=24h|7d|30d rolling (D-69). Nguồn tasks(sub)+messages(main) turn CÓ cost. cost_estimated:
-    provider ngoài Anthropic → SDK cost ước tính (FE label). DB rỗng → zeros/[] (không 500)."""
     if window not in _WINDOW_HOURS:
-        raise ApiError(400, "bad_window", f"window '{window}' không hỗ trợ.", "Dùng 24h|7d|30d.", retryable=False)
+        raise ApiError(400, "bad_window", f"window '{window}' is not supported.", "Use 24h|7d|30d.", retryable=False)
     import asyncio
 
     return await asyncio.to_thread(_cost_sync, window, tenant_id_from_claims(claims))
@@ -141,7 +129,7 @@ def _cost_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
                 }
                 for r in cur.fetchall()
             ]
-            # delta: total kỳ này vs kỳ TRƯỚC (double-window 1-query — pattern T13-1)
+
             cur.execute(
                 """SELECT
                    COALESCE(SUM(cost_usd) FILTER (WHERE t >= %(start)s AND t < %(end)s),0) AS cur,
@@ -167,7 +155,7 @@ def _cost_sync(window: str, tenant_id: str | None = None) -> dict[str, Any]:
     return {
         "window": window,
         "total_cost_usd": float(tot["total"] or 0),
-        "cost_estimated": True,  # cost SDK cho provider ngoài Anthropic = ước tính (FE label)
+        "cost_estimated": True,
         "breakdown": {
             "input_tokens": int(tot["input_tokens"] or 0),
             "output_tokens": int(tot["output_tokens"] or 0),
@@ -196,13 +184,15 @@ async def get_cost_trend(
     group_by: str = Query("model"),
     claims: dict = Depends(require_admin),
 ) -> dict[str, Any]:
-    """Cost theo thời gian, long-format → pivot Python. bucket=hour|day, group_by=model|role."""
+
     if window not in _WINDOW_HOURS:
-        raise ApiError(400, "bad_window", f"window '{window}' không hỗ trợ.", "Dùng 24h|7d|30d.", retryable=False)
+        raise ApiError(400, "bad_window", f"window '{window}' is not supported.", "Use 24h|7d|30d.", retryable=False)
     if bucket not in ("hour", "day"):
-        raise ApiError(400, "bad_bucket", f"bucket '{bucket}' không hỗ trợ.", "Dùng hour|day.", retryable=False)
+        raise ApiError(400, "bad_bucket", f"bucket '{bucket}' is not supported.", "Use hour|day.", retryable=False)
     if group_by not in ("model", "role"):
-        raise ApiError(400, "bad_group_by", f"group_by '{group_by}' không hỗ trợ.", "Dùng model|role.", retryable=False)
+        raise ApiError(
+            400, "bad_group_by", f"group_by '{group_by}' is not supported.", "Use model|role.", retryable=False
+        )
     import asyncio
 
     return await asyncio.to_thread(
@@ -236,12 +226,12 @@ def _cost_trend_sync(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     start, _, end = _bounds(window)
-    grp = "model" if group_by == "model" else "role"  # cột hằng nội bộ (không phải input)
+    grp = "model" if group_by == "model" else "role"
     conn = connect_core()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(
-                _TREND_CTE + f"SELECT date_trunc(%(bucket)s, ts) AS b, COALESCE({grp}, 'unknown') AS name, "  # noqa: S608 — grp hằng nội bộ
+                _TREND_CTE + f"SELECT date_trunc(%(bucket)s, ts) AS b, COALESCE({grp}, 'unknown') AS name, "  # noqa: S608
                 "SUM(cost_usd) AS cost FROM unified GROUP BY b, name ORDER BY b",
                 {"start": start, "end": end, "bucket": bucket, "tenant_id": tenant_id},
             )

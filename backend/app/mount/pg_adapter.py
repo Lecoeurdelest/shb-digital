@@ -1,16 +1,3 @@
-"""PGConnAdapter — bọc psycopg2 conn "quack như sqlite3.Connection" (DECISIONS D-27).
-
-credit.py/customers.py (copy byte-nguyên từ LAB, KHÔNG được sửa — N1) dùng 3 thứ psycopg2
-raw KHÔNG có:
-  1. `conn.execute(sql, args)` — psycopg2 Connection không có `.execute()`, chỉ `.cursor()`.
-  2. Placeholder `?` — psycopg2 chỉ nhận `%s`.
-  3. Row access HỖN HỢP trong cùng file: `dict(r)` (mapping theo tên cột) VÀ `r[0]`/`r[1]`
-     (index) — không cursor stock nào phủ cả 2 (RealDictCursor phá index, cursor thường phá
-     dict(row)). Adapter tự viết Row wrapper phủ cả 2 (task T1-1 Logic mục C).
-
-Đây là lớp CẤP-CONN của vỏ (D-21 cách A2) — KHÔNG đụng logic tool.
-"""
-
 from __future__ import annotations
 
 import re
@@ -22,15 +9,10 @@ import psycopg2.extensions
 
 from app.storage.registry import get_registry
 
-# match `?` placeholder ngoài chuỗi literal ('...'/"..."). credit.py/customers.py không có
-# `?` trong string literal nào (verify: grep "'.*?.*'" rỗng) — nhưng regex vẫn tránh quote-aware
-# thay vì .replace('?', '%s') trần, phòng LAB thêm literal có `?` sau này (defensive, N1-an toàn:
-# vẫn KHÔNG chạm credit.py, chỉ adapter cẩn thận hơn).
 _PLACEHOLDER_RE = re.compile(r"\?|'[^']*'|\"[^\"]*\"")
 
 
 def _rewrite_placeholders(sql: str) -> str:
-    """`?` -> `%s`, bỏ qua `?` nằm trong string literal."""
 
     def _sub(m: re.Match[str]) -> str:
         tok = m.group(0)
@@ -39,11 +21,6 @@ def _rewrite_placeholders(sql: str) -> str:
     return _PLACEHOLDER_RE.sub(_sub, sql)
 
 
-# ── WRITE khoanh vùng (D-55b) — adapter chỉ mở GHI cho DUY NHẤT INSERT INTO assessments ──
-# Câu ghi (INSERT/UPDATE/DELETE/CREATE/DROP/ALTER/TRUNCATE ở đầu, sau strip) mà KHÔNG khớp
-# _ALLOWED_WRITE_RE → raise (fail-closed, KHÔNG im lặng). Read (SELECT + mọi câu không-ghi)
-# qua nguyên vẹn. legal_classify_profile (tool WRITE duy nhất, T7-2) ghi assessments; mọi ghi
-# khác = lỗi cấu hình/tấn công → chặn tại cửa.
 _WRITE_HEAD_RE = re.compile(
     r"^\s*(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE|REPLACE|MERGE|GRANT)\b", re.IGNORECASE
 )
@@ -51,20 +28,16 @@ _ALLOWED_WRITE_RE = re.compile(r"^\s*INSERT\s+INTO\s+assessments\b", re.IGNORECA
 
 
 def _is_write(sql: str) -> bool:
-    """True nếu statement là câu GHI (không phải SELECT/read)."""
+
     return _WRITE_HEAD_RE.match(sql) is not None
 
 
 def _is_allowed_write(sql: str) -> bool:
-    """True CHỈ khi là INSERT INTO assessments (WRITE được phép — D-55b)."""
+
     return _ALLOWED_WRITE_RE.match(sql) is not None
 
 
 class Row:
-    """Row wrapper quack-như-sqlite3.Row: hỗ trợ CẢ index (`row[0]`) CẢ mapping
-    (`row['col']`, `dict(row)`) — sqlite3.Row hỗ trợ cả 3, không cursor stock nào của
-    psycopg2 phủ đủ (task T1-1 Logic mục C)."""
-
     __slots__ = ("_values", "_cols")
 
     def __init__(self, values: tuple[Any, ...], cols: list[str]) -> None:
@@ -84,8 +57,7 @@ class Row:
         return list(self._cols)
 
     def __iter__(self) -> Iterator[Any]:
-        # dict(row) gọi keys() rồi __getitem__ nếu có .keys(); nhưng cũng hỗ trợ
-        # dict(zip(row.keys(), row)) style — iter trên VALUES khớp sqlite3.Row.__iter__.
+
         return iter(self._values)
 
     def __len__(self) -> int:
@@ -96,21 +68,11 @@ class Row:
 
 
 def _coerce_row(row: tuple[Any, ...]) -> tuple[Any, ...]:
-    """T12-2 landmine fix (D-68): psycopg2 trả cột `bytea` = memoryview; fn LAB (notes_search)
-    làm `b"".join(r["embedding"] ...)` — join memoryview raise TypeError. Ép memoryview → bytes ở
-    ĐÂY (choke point trung tâm — mọi tool hưởng, KHÔNG sửa retrieval.py byte-identical). SQLite trả
-    BLOB = bytes sẵn nên đây đúng là khôi phục hành vi sqlite mà adapter mô phỏng. Cột khác 0 ảnh hưởng."""
+
     return tuple(bytes(v) if isinstance(v, memoryview) else v for v in row)
 
 
 class _AdapterCursor:
-    """Cursor-like trả về từ `PGConnAdapter.execute()` — hỗ trợ `.fetchone()`/`.fetchall()`
-    y hệt kết quả `sqlite3.Connection.execute(...)` mà credit.py/customers.py xích thẳng.
-
-    `.lastrowid` (D-55b): emulate sqlite cho INSERT INTO assessments — legal_classify_profile
-    đọc `cur.lastrowid` lấy assessmentId. Chỉ INSERT-assessments set giá trị (adapter fetch id
-    qua RETURNING); mọi cursor khác lastrowid=None (read không dùng)."""
-
     def __init__(self, pg_cursor: psycopg2.extensions.cursor, lastrowid: int | None = None) -> None:
         self._cur = pg_cursor
         self._cols = [d.name for d in (pg_cursor.description or [])]
@@ -128,28 +90,20 @@ class _AdapterCursor:
 
 
 class PGConnAdapter:
-    """Bọc 1 pooled psycopg2 connection, cấp `.execute(sql, params=())` giả lập
-    `sqlite3.Connection.execute` — điểm ghép DUY NHẤT giữa fn LAB thuần-sqlite và PG thật.
-
-    credit.py gọi `.execute()` nhiều lần/1 call (mỗi lần 1 cursor). Adapter track các cursor
-    đã mở → `close_cursors()` dọn hết trong finally của mount wrapper (tránh cursor mồ côi tích
-    lũy khi conn sống dài qua pool). fn LAB KHÔNG gọi close (không biết cursor) — vỏ dọn hộ."""
-
     def __init__(self, pg_conn: psycopg2.extensions.connection) -> None:
         self._conn = pg_conn
         self._cursors: list[psycopg2.extensions.cursor] = []
 
     def execute(self, sql: str, params: tuple[Any, ...] = ()) -> _AdapterCursor:
-        # WRITE khoanh vùng (D-55b): câu GHI mà không phải INSERT-assessments → raise fail-closed.
-        # Kiểm trên SQL GỐC (trước rewrite placeholder) — chỉ nhìn head statement, đủ để phân loại.
+
         if _is_write(sql) and not _is_allowed_write(sql):
             raise PermissionError(
-                "adapter write chỉ mở cho 'INSERT INTO assessments' (D-55b) — câu ghi này bị chặn: "
-                f"{sql.strip()[:80]!r}. Read (SELECT) và INSERT assessments được phép; ghi khác = lỗi cấu hình."
+                "adapter writes are restricted to 'INSERT INTO assessments' (D-55b); this statement was blocked: "
+                f"{sql.strip()[:80]!r}. Reads (SELECT) and assessment inserts are allowed; other writes indicate "
+                "a configuration error."
             )
         pg_sql = _rewrite_placeholders(sql)
-        # lastrowid emulate cho INSERT-assessments: nối RETURNING id → fetch ngay trong execute
-        # (LAB classify chỉ đọc cur.lastrowid, không fetch gì khác sau INSERT — an toàn fetch eager).
+
         allowed_write = _is_allowed_write(sql)
         if allowed_write and "returning" not in pg_sql.lower():
             pg_sql = pg_sql.rstrip().rstrip(";") + " RETURNING id"
@@ -167,7 +121,7 @@ class PGConnAdapter:
         return _AdapterCursor(cur, lastrowid=lastrowid)
 
     def close_cursors(self) -> None:
-        """Đóng mọi cursor đã mở trong call này (mount wrapper gọi trong finally)."""
+
         for c in self._cursors:
             try:
                 c.close()
@@ -183,12 +137,12 @@ class PGConnAdapter:
 
 
 # ---------------------------------------------------------------------------
-# Pool — registry core dùng chung (D-34 được đóng: một pool cho tool + runtime store)
+
 # ---------------------------------------------------------------------------
 
 
 def get_pool():
-    """Compatibility name; trả connection-store thay vì lộ implementation pool."""
+
     return get_registry().connection_store("core")
 
 

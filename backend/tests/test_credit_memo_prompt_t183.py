@@ -1,4 +1,4 @@
-"""[BACKEND] T18-3 — contract prompt tờ trình sơ thẩm, deterministic từ task board."""
+"""T18-3 credit-memo prompt contract derived deterministically from the task board."""
 
 from types import SimpleNamespace
 
@@ -34,7 +34,7 @@ def _task_done_prompt(board: list[dict]) -> str:
         {
             "role": board[-1]["role"],
             "outcome": "done",
-            "result_summary": "Kết quả chuyên gia có nguồn.",
+            "result_summary": "Source-backed specialist result.",
             "board": board,
         },
     )
@@ -43,15 +43,15 @@ def _task_done_prompt(board: list[dict]) -> str:
 def test_main_skill_locks_six_section_credit_memo_contract():
     assert CREDIT_MEMO_MIN_DISTINCT_DONE_ROLES == 2
     assert f'`"{CREDIT_MEMO_TITLE}"`' in MAIN_SKILL
-    assert "đúng 6 mục bắt buộc" in MAIN_SKILL
-    assert "DSCR, LTV và CIC" in MAIN_SKILL
-    assert "3 trụ, lane" in MAIN_SKILL and "assessment #id" in MAIN_SKILL
-    assert "ma trận thẩm quyền" in MAIN_SKILL
+    assert "exactly six required sections" in MAIN_SKILL
+    assert "DSCR, LTV, and CIC" in MAIN_SKILL
+    assert "three legal pillars, lane" in MAIN_SKILL and "assessment #id" in MAIN_SKILL
+    assert "approval-matrix" in MAIN_SKILL
     assert "`reason_codes`" in MAIN_SKILL
     assert get_reason_taxonomy().checksum in MAIN_SKILL
     for code in get_reason_taxonomy().codes:
         assert MAIN_SKILL.count(f"`{code.id}`") == 1
-    assert "`source` phải là string\n  khác rỗng" in MAIN_SKILL
+    assert "`source` must be a nonempty string" in MAIN_SKILL
     for section in CREDIT_MEMO_SECTIONS:
         assert MAIN_SKILL.count(f"`{section}`") == 1
 
@@ -62,31 +62,31 @@ def test_one_completed_operations_result_does_not_open_document_gate():
             {
                 "role": "operations",
                 "status": "done",
-                "title": "Lập lộ trình xử lý hồ sơ",
+                "title": "Prepare the case-processing timeline",
             }
         ]
     )
 
-    assert "CHƯA ĐỦ 2 role chuyên gia khác nhau đã done" in prompt
-    assert "hiện có: operations" in prompt
-    assert "KHÔNG ĐƯỢC gọi tool `present`" in prompt
+    assert "Fewer than 2 distinct specialist roles have completed" in prompt
+    assert "current: operations" in prompt
+    assert "DO NOT call `present`" in prompt
     assert CREDIT_MEMO_TITLE not in prompt
 
 
 def test_two_distinct_completed_roles_require_standard_credit_memo():
     prompt = _task_done_prompt(
         [
-            {"role": "credit", "status": "done", "title": "Thẩm định tín dụng"},
-            {"role": "legal", "status": "done", "title": "Thẩm định pháp lý"},
-            {"role": "operations", "status": "running", "title": "Lập lộ trình"},
+            {"role": "credit", "status": "done", "title": "Credit assessment"},
+            {"role": "legal", "status": "done", "title": "Legal assessment"},
+            {"role": "operations", "status": "running", "title": "Prepare timeline"},
         ]
     )
 
-    assert "ĐÃ ĐỦ 2 role chuyên gia khác nhau đã done (credit, legal)" in prompt
-    assert f'title đúng `"{CREDIT_MEMO_TITLE}"`' in prompt
-    assert "items đúng 6 mục theo thứ tự" in prompt
-    assert "`source` string khác rỗng" in prompt
-    assert "top-level `sources`" in prompt
+    assert "2 distinct specialist roles have completed (credit, legal)" in prompt
+    assert f'exact title `"{CREDIT_MEMO_TITLE}"`' in prompt
+    assert "six items in this order" in prompt
+    assert "nonempty `source` string" in prompt
+    assert "Top-level `sources`" in prompt
     assert "`reason_codes`" in prompt
     for section in CREDIT_MEMO_SECTIONS:
         assert f"`{section}`" in prompt
@@ -95,12 +95,11 @@ def test_two_distinct_completed_roles_require_standard_credit_memo():
 def test_failed_or_duplicate_role_does_not_fake_second_completed_specialist():
     prompt = _task_done_prompt(
         [
-            {"role": "operations", "status": "done", "title": "Lộ trình lần 1"},
-            {"role": "operations", "status": "done", "title": "Lộ trình lần 2"},
-            {"role": "credit", "status": "failed", "title": "Thẩm định lỗi"},
+            {"role": "operations", "status": "done", "title": "First timeline"},
+            {"role": "operations", "status": "done", "title": "Second timeline"},
+            {"role": "credit", "status": "failed", "title": "Failed assessment"},
         ]
     )
 
-    assert "CHƯA ĐỦ 2 role chuyên gia khác nhau đã done" in prompt
-    assert "hiện có: operations" in prompt
-    assert "ĐÃ ĐỦ" not in prompt
+    assert "Fewer than 2 distinct specialist roles have completed" in prompt
+    assert "current: operations" in prompt

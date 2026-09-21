@@ -1,14 +1,3 @@
-"""[BACKEND] Test T3-4 race fix: _resume_dispatch_guard — 2 nhánh chặn resume-dispatch đua.
-
-Unit (KHÔNG SDK): mock store_approvals.pending_execution + orch_dispatch_impl + registry running.
-Kiểm 4 ràng buộc architect + 6 blind-spot advisor:
-- A) approval_decided approved + role running → SKIP MAIN (return True), KHÔNG dispatch ngay.
-- A') approval_decided approved + role KHÔNG running → path bình thường (return False, MAIN dispatch).
-- B) task_done + grant treo + role vừa free → re-dispatch role (spawn) + SKIP MAIN (True).
-- B') task_done KHÔNG grant → path bình thường (False, MAIN report). KHÔNG suppress oan.
-- reject không tạo grant → không strand.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -26,8 +15,8 @@ def _clean():
 class _Spy:
     def __init__(self):
         self.dispatched: list[tuple] = []
-        self.claimed: list[str] = []  # T4-0: approval_id đã increment attempt
-        self.marked_failed: list[str] = []  # T4-0: approval_id set exec_failed (vượt trần)
+        self.claimed: list[str] = []
+        self.marked_failed: list[str] = []
 
     async def dispatch(self, conv_id, role, title, brief):
         self.dispatched.append((conv_id, role, title, brief))
@@ -51,38 +40,34 @@ def _patch(monkeypatch, grant, spy):
     monkeypatch.setattr("app.orch.dispatch.orch_dispatch_impl", spy.dispatch)
 
 
-# ── A: approval_decided approved + role running → hoãn (SKIP MAIN, không dispatch) ──
-
-
 @pytest.mark.asyncio
 async def test_A_approved_role_running_skips_main_no_dispatch(monkeypatch):
     spy = _Spy()
     _patch(monkeypatch, grant=None, spy=spy)
-    registry.register_running("conv1", "operations", "task-ops-1")  # ops#1 CÒN running
+    registry.register_running("conv1", "operations", "task-ops-1")
 
     handled = await main_session._resume_dispatch_guard(
         "conv1", "approval_decided", {"action": "disburse", "decision": "approved", "payload": {"loan_id": "L1"}}
     )
-    assert handled is True  # SKIP MAIN (grant treo ở approval row, nhánh B lo khi free)
-    assert spy.dispatched == []  # KHÔNG dispatch đua trước ops#1 return
+    assert handled is True
+    assert spy.dispatched == []
 
 
 @pytest.mark.asyncio
 async def test_Aprime_approved_role_free_normal_path(monkeypatch):
-    """ops đã return (không running) → path bình thường → MAIN tự dispatch (return False)."""
+
     spy = _Spy()
     _patch(monkeypatch, grant=None, spy=spy)
-    # KHÔNG register operations → get_running_task_id None
 
     handled = await main_session._resume_dispatch_guard(
         "conv1", "approval_decided", {"action": "disburse", "decision": "approved", "payload": {"loan_id": "L1"}}
     )
-    assert handled is False  # path cũ không đổi — MAIN dispatch như hiện tại
+    assert handled is False
 
 
 @pytest.mark.asyncio
 async def test_reject_never_handled(monkeypatch):
-    """rejected → KHÔNG tạo grant, KHÔNG suppress — MAIN báo user từ chối bình thường."""
+
     spy = _Spy()
     _patch(monkeypatch, grant=None, spy=spy)
     registry.register_running("conv1", "operations", "task-ops-1")
@@ -92,9 +77,6 @@ async def test_reject_never_handled(monkeypatch):
     )
     assert handled is False
     assert spy.dispatched == []
-
-
-# ── B: task_done + grant treo + role vừa free → re-dispatch (spawn) + SKIP MAIN ──
 
 
 @pytest.mark.asyncio
@@ -108,21 +90,21 @@ async def test_B_task_done_with_grant_redispatches_and_skips(monkeypatch):
     }
     spy = _Spy()
     _patch(monkeypatch, grant=grant, spy=spy)
-    # operations KHÔNG running (vừa unregister ở _report trước task_done)
+    # operations is no longer running because _report unregisters it before task_done.
 
     handled = await main_session._resume_dispatch_guard("conv1", "task_done", {"role": "operations", "outcome": "done"})
-    assert handled is True  # SKIP MAIN report (ops#2 done sẽ báo hoàn tất)
+    assert handled is True  # Skip MAIN reporting; the second operations task will report completion.
     assert len(spy.dispatched) == 1
     conv_id, role, title, brief = spy.dispatched[0]
     assert conv_id == "conv1" and role == "operations"
-    assert "disburse" in brief and "ĐÃ ĐƯỢC DUYỆT" in brief  # brief self-contained, canned
+    assert "disburse" in brief and "APPROVED" in brief
     assert "loan_id=L1" in brief
-    assert spy.claimed == ["ap1"]  # T4-0: increment attempt KHI re-dispatch (chắc role khớp)
+    assert spy.claimed == ["ap1"]  # T4-0 increments only when redispatching the matching role.
 
 
 @pytest.mark.asyncio
 async def test_Bprime_task_done_no_grant_normal_report(monkeypatch):
-    """KHÔNG grant → MAIN report bình thường (không suppress oan message hợp lệ)."""
+
     spy = _Spy()
     _patch(monkeypatch, grant=None, spy=spy)
 
@@ -133,23 +115,21 @@ async def test_Bprime_task_done_no_grant_normal_report(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_B_grant_but_role_still_running_no_double(monkeypatch):
-    """grant treo NHƯNG role vẫn running (task_done của role KHÁC) → KHÔNG re-dispatch (tránh 2 sub
-    cùng role — ràng buộc 3)."""
+
     grant = {"id": "ap1", "action": "disburse", "payload": {"loan_id": "L1"}, "status": "approved", "exec_attempts": 0}
     spy = _Spy()
     _patch(monkeypatch, grant=grant, spy=spy)
-    registry.register_running("conv1", "operations", "task-ops-still")  # operations CÒN chạy
+    registry.register_running("conv1", "operations", "task-ops-still")
 
-    # task_done của role KHÁC (credit) đến — operations vẫn running → KHÔNG re-dispatch operations
     handled = await main_session._resume_dispatch_guard("conv1", "task_done", {"role": "credit", "outcome": "done"})
-    assert handled is False  # credit done, không phải operations → path bình thường
+    assert handled is False
     assert spy.dispatched == []
-    assert spy.claimed == []  # T4-0: role không khớp → KHÔNG tốn quota attempt oan
+    assert spy.claimed == []
 
 
 @pytest.mark.asyncio
 async def test_B_grant_wrong_done_role_no_dispatch(monkeypatch):
-    """grant disburse (operations) nhưng task_done là credit → KHÔNG re-dispatch (chỉ role sở hữu)."""
+
     grant = {"id": "ap1", "action": "disburse", "payload": {"loan_id": "L1"}, "status": "approved", "exec_attempts": 0}
     spy = _Spy()
     _patch(monkeypatch, grant=grant, spy=spy)
@@ -160,12 +140,9 @@ async def test_B_grant_wrong_done_role_no_dispatch(monkeypatch):
     assert spy.claimed == []
 
 
-# ── T4-0 loop-bound: vượt trần → DỪNG re-dispatch + exec_failed ──────────────
-
-
 @pytest.mark.asyncio
 async def test_T40_exec_attempts_below_max_still_redispatches(monkeypatch):
-    """attempt < MAX (fail tạm 1-2 lần) → VẪN re-dispatch (retry hợp lệ, trần không quá chặt)."""
+
     from app.orch import store_approvals
 
     grant = {
@@ -173,21 +150,21 @@ async def test_T40_exec_attempts_below_max_still_redispatches(monkeypatch):
         "action": "disburse",
         "payload": {"loan_id": "L1"},
         "status": "approved",
-        "exec_attempts": store_approvals.MAX_EXEC_ATTEMPTS - 1,  # =2, còn 1 quota
+        "exec_attempts": store_approvals.MAX_EXEC_ATTEMPTS - 1,
     }
     spy = _Spy()
     _patch(monkeypatch, grant=grant, spy=spy)
 
     handled = await main_session._resume_dispatch_guard("conv1", "task_done", {"role": "operations", "outcome": "done"})
-    assert handled is True  # còn quota → re-dispatch
+    assert handled is True
     assert len(spy.dispatched) == 1
     assert spy.claimed == ["ap1"]
-    assert spy.marked_failed == []  # chưa vượt trần
+    assert spy.marked_failed == []
 
 
 @pytest.mark.asyncio
 async def test_T40_exec_attempts_at_max_stops_and_marks_failed(monkeypatch):
-    """attempt >= MAX (fail BỀN) → DỪNG re-dispatch + mark exec_failed + KHÔNG SKIP (MAIN báo user)."""
+
     from app.orch import store_approvals
 
     grant = {
@@ -195,26 +172,25 @@ async def test_T40_exec_attempts_at_max_stops_and_marks_failed(monkeypatch):
         "action": "disburse",
         "payload": {"loan_id": "L1"},
         "status": "approved",
-        "exec_attempts": store_approvals.MAX_EXEC_ATTEMPTS,  # =3, chạm trần
+        "exec_attempts": store_approvals.MAX_EXEC_ATTEMPTS,
     }
     spy = _Spy()
     _patch(monkeypatch, grant=grant, spy=spy)
 
     data = {"role": "operations", "outcome": "done"}
     handled = await main_session._resume_dispatch_guard("conv1", "task_done", data)
-    assert handled is False  # KHÔNG SKIP → MAIN report báo user "lỗi bền"
-    assert spy.dispatched == []  # DỪNG re-dispatch (chống loop vô hạn)
-    assert spy.claimed == []  # vượt trần → không increment nữa
-    assert spy.marked_failed == ["ap1"]  # phiếu → exec_failed
-    # DETERMINISTIC escalation (không cược model): data có signal exec_failed → prompt rõ cho MAIN.
+    assert handled is False
+    assert spy.dispatched == []
+    assert spy.claimed == []
+    assert spy.marked_failed == ["ap1"]
+
     assert data.get("exec_failed") is not None
     assert data["exec_failed"]["attempts"] == store_approvals.MAX_EXEC_ATTEMPTS
     assert data["exec_failed"]["action"] == "disburse"
 
 
 def test_prompt_exec_failed_deterministic():
-    """_build_event_prompt task_done + exec_failed → prompt RÕ 'thất bại bền, cần người' (không
-    phụ suy luận model đọc result_summary). Không cần DB/async."""
+    """exec_failed produces an explicit manual-review prompt without model inference."""
     from app.orch.main_prompts import _build_event_prompt
 
     p = _build_event_prompt(
@@ -225,13 +201,12 @@ def test_prompt_exec_failed_deterministic():
             "exec_failed": {"action": "disburse", "attempts": 3, "payload_summary": "loan_id=L1"},
         },
     )
-    assert "THẤT BẠI BỀN" in p and "CẦN NGƯỜI" in p and "3 lần" in p
-    assert "KHÔNG tự thử lại" in p
+    assert "failed persistently" in p and "manual review" in p and "3 retries" in p
+    assert "DO NOT retry automatically" in p
 
 
 def test_prompt_disburse_done_dan_khong_present_lai():
-    """T4-5: task_done ops+done+disbursed → dặn MAIN KHÔNG present lại (Ops đã trình biên nhận) →
-    chống 2-card-trùng. Predicate HẸP: chỉ path này."""
+    """T4-5 prevents MAIN from presenting a duplicate receipt card."""
     from app.orch.main_prompts import _build_event_prompt
 
     p = _build_event_prompt(
@@ -243,33 +218,30 @@ def test_prompt_disburse_done_dan_khong_present_lai():
             "board": [],
         },
     )
-    assert "KHÔNG present" in p and "TRÌNH BIÊN NHẬN" in p
-    assert "1 câu ngắn" in p
+    assert "Do NOT present another card" in p
+    assert "one short sentence" in p
 
 
 def test_prompt_non_disburse_task_done_normal():
-    """T4-5 predicate KHÔNG fire cho task khác (credit done / ops không disbursed) → prompt generic
-    (GIỮ #1 main summary + present bình thường)."""
+
     from app.orch.main_prompts import _build_event_prompt
 
-    # credit done → generic (không dặn không-present)
     p_credit = _build_event_prompt(
         "task_done",
-        {"role": "credit", "outcome": "done", "result_summary": "DSCR 1.5 đủ điều kiện", "board": []},
+        {"role": "credit", "outcome": "done", "result_summary": "DSCR 1.5 is eligible", "board": []},
     )
-    assert "KHÔNG present" not in p_credit
+    assert "DO NOT present" not in p_credit
 
-    # ops done nhưng KHÔNG disbursed (vd ops_plan lộ trình) → generic
     p_ops_plan = _build_event_prompt(
         "task_done",
         {"role": "operations", "outcome": "done", "result_summary": '{"steps": [...], "totalDays": 5}', "board": []},
     )
-    assert "KHÔNG present" not in p_ops_plan
+    assert "DO NOT present" not in p_ops_plan
 
 
 @pytest.mark.asyncio
 async def test_T40_exhausted_wrong_role_no_mark(monkeypatch):
-    """grant vượt trần NHƯNG task_done role KHÁC → KHÔNG mark (chờ role sở hữu done)."""
+
     grant = {
         "id": "ap1",
         "action": "disburse",
@@ -282,13 +254,13 @@ async def test_T40_exhausted_wrong_role_no_mark(monkeypatch):
 
     handled = await main_session._resume_dispatch_guard("conv1", "task_done", {"role": "credit", "outcome": "done"})
     assert handled is False
-    assert spy.marked_failed == []  # role không khớp → chưa mark
+    assert spy.marked_failed == []
     assert spy.dispatched == []
 
 
 @pytest.mark.asyncio
 async def test_user_message_never_handled(monkeypatch):
-    """user_message → guard KHÔNG đụng (chỉ approval_decided + task_done)."""
+
     spy = _Spy()
     _patch(monkeypatch, grant=None, spy=spy)
     handled = await main_session._resume_dispatch_guard("conv1", "user_message", {"content": "hi"})

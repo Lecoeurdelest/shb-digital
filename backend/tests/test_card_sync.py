@@ -1,5 +1,3 @@
-"""[BACKEND] Test T3-2 gap: decide → sync card.data.status (reload-safe). CÙNG tx decide."""
-
 from __future__ import annotations
 
 from uuid import uuid4
@@ -57,15 +55,15 @@ def _card_status(conv, approval_id):
 async def test_decide_approved_syncs_card_data():
     conv = f"card-sync-appr-{uuid4()}"
     aid = await _make_pending(conv)
-    # trước decide: card pending
+
     assert _card_status(conv, aid)[0] == "pending"
-    decided = await store_approvals.decide(aid, "approved", "admin", "ok duyệt")
-    # sau decide: card.data.status = approved + decided_by + reason (CÙNG tx)
+    decided = await store_approvals.decide(aid, "approved", "admin", "approved")
+
     st, by, reason = _card_status(conv, aid)
     assert st == "approved"
     assert by == "admin"
-    assert reason == "ok duyệt"
-    # _card_row kèm trong decided (cho emit SSE) — có id
+    assert reason == "approved"
+
     assert decided["_card_row"] is not None
     assert str(decided["_card_row"]["id"])
 
@@ -75,7 +73,7 @@ async def test_decide_approved_syncs_card_data():
 async def test_decide_rejected_syncs_card_data():
     conv = f"card-sync-rej-{uuid4()}"
     aid = await _make_pending(conv)
-    await store_approvals.decide(aid, "rejected", "admin", "thiếu điều kiện")
+    await store_approvals.decide(aid, "rejected", "admin", "missing requirements")
     st, by, reason = _card_status(conv, aid)
     assert st == "rejected"
-    assert reason == "thiếu điều kiện"
+    assert reason == "missing requirements"

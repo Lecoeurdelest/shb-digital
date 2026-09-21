@@ -1,9 +1,3 @@
-"""Auth router — POST /api/auth/login (CONTRACT §1).
-
-Router = tầng HTTP: nhận body, gọi service, set cookie JWT, trả resource trần / 401 envelope.
-KHÔNG chứa business (service lo) — router chỉ dịch HTTP↔service.
-"""
-
 from __future__ import annotations
 
 import re
@@ -24,10 +18,10 @@ from app.errors import ApiError
 from app.storage import connect_core
 from app.tenancy import DEFAULT_TENANT_ID
 
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")  # format thô (demo-grade), không RFC đầy đủ
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-# D-56: /api/me (Export FE T8-2) — router riêng prefix /api (không /api/auth). /api/auth/me GIỮ (FE cũ).
+
 me_router = APIRouter(prefix="/api", tags=["me"])
 
 
@@ -43,8 +37,7 @@ class RegisterBody(BaseModel):
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
-    """Set JWT httponly cookie — dùng chung login + register (EventSource dùng cookie, không header).
-    secure=COOKIE_SECURE: prod https (=1) bật; dev http default off (landing merge — giữ google cookie flag)."""
+
     response.set_cookie(
         key=AUTH_COOKIE,
         value=token,
@@ -57,11 +50,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
 
 @router.post("/logout")
 def logout(response: Response) -> dict:
-    """Log out — clear the httponly JWT cookie so reload does not re-auth.
 
-    KHÔNG cần auth (gọi là xoá — idempotent). delete_cookie PHẢI khớp attributes lúc set (path/
-    samesite/secure) — lệch thì browser GIỮ cookie (bug: khách thoát không thoát thật, máy chung).
-    """
     response.delete_cookie(
         key=AUTH_COOKIE,
         path="/",
@@ -74,35 +63,27 @@ def logout(response: Response) -> dict:
 
 @router.post("/login")
 def login(body: LoginBody, response: Response) -> dict:
-    """Password login → {token, user} + httponly JWT cookie.
 
-    {username, password} → {token, user:{username, role}} (CONTRACT §1).
-    JWT cũng set vào cookie httponly (EventSource dùng cookie — không set header được)."""
     result = authenticate(body.username, body.password)
     if result is None:
         raise ApiError(
             status_code=401,
             code="unauthorized",
-            message="Sai tên đăng nhập hoặc mật khẩu.",
-            hint="Kiểm lại thông tin đăng nhập.",  # D-64: KHÔNG liệt kê account demo trên bề mặt public
+            message="Incorrect username or password.",
+            hint="Check the login credentials.",
             retryable=True,
         )
-    _set_auth_cookie(response, result["token"])  # helper đã kèm secure=COOKIE_SECURE (google flag)
-    # Success = resource trần (CONTRACT §0) — trả token (FE dùng nếu cần) + user
+    _set_auth_cookie(response, result["token"])
+
     return result
 
-
-# ── Google OAuth (persona KHÁCH D-56 — cửa phát JWT thêm; user/pass + DEV_SKIP_AUTH giữ nguyên) ──
-# Flow Authorization-Code server-side (port pattern có sẵn): /google/start redirect Google (state
-# cookie chống CSRF) → Google gọi /google/callback?code&state → đổi code → userinfo → upsert KHÁCH
-# → set cookie JWT shb NHƯ login thường → 302 về FE. FE không cần trang callback (cookie theo host).
 
 _STATE_COOKIE = "oauth_state"
 _NEXT_COOKIE = "oauth_next"
 
 
 def _safe_oauth_next(value: str | None) -> str | None:
-    """Chỉ nhận path cùng origin; cookie được kiểm lại vì client có thể tự giả mạo."""
+
     if not value or len(value) > 2048 or not value.startswith("/") or value.startswith("//"):
         return None
     decoded = unquote(value)
@@ -116,23 +97,19 @@ def _safe_oauth_next(value: str | None) -> str | None:
 
 @router.get("/providers")
 def providers() -> dict:
-    """Public auth-provider flags for FE boot (password + google bool; no secrets).
 
-    Public — FE đọc lúc boot để render đúng nút login. Bool-only, không lộ key/client_id."""
     return {"password": True, "google": google_oauth.is_configured()}
 
 
 @router.get("/google/start")
 def google_start(next: str | None = None) -> RedirectResponse:
-    """Start Google OAuth — redirect to account chooser (CSRF state in httponly cookie).
 
-    Redirect sang màn chọn account Google. State ngẫu nhiên vào cookie httponly (chống CSRF)."""
     if not google_oauth.is_configured():
         raise ApiError(
             status_code=503,
             code="auth_provider_disabled",
-            message="Đăng nhập Google chưa được bật trên server này.",
-            hint="Đặt AUTH_GOOGLE_ENABLED=1 + GOOGLE_OAUTH_CLIENT_ID/SECRET trong env rồi restart.",
+            message="Google sign-in is not enabled on this server.",
+            hint="Set AUTH_GOOGLE_ENABLED=1 and GOOGLE_OAUTH_CLIENT_ID/SECRET, then restart the server.",
             retryable=False,
         )
     state = secrets.token_urlsafe(32)
@@ -158,38 +135,35 @@ def google_start(next: str | None = None) -> RedirectResponse:
             secure=config.COOKIE_SECURE,
         )
     else:
-        # Xóa path cũ để request mới thiếu/invalid `next` không tái dùng redirect từ lần trước.
         resp.delete_cookie(_NEXT_COOKIE)
     return resp
 
 
 @router.get("/google/callback")
 def google_callback(request: Request, code: str | None = None, state: str | None = None) -> RedirectResponse:
-    """Google OAuth callback — verify state, exchange code, upsert customer, set JWT cookie, redirect FE.
 
-    Google gọi lại với ?code&state → verify state, đổi code, upsert KHÁCH, set cookie JWT, về FE."""
     if not google_oauth.is_configured():
         raise ApiError(
             status_code=503,
             code="auth_provider_disabled",
-            message="Đăng nhập Google chưa được bật trên server này.",
-            hint="Đặt AUTH_GOOGLE_ENABLED=1 + GOOGLE_OAUTH_CLIENT_ID/SECRET trong env rồi restart.",
+            message="Google sign-in is not enabled on this server.",
+            hint="Set AUTH_GOOGLE_ENABLED=1 and GOOGLE_OAUTH_CLIENT_ID/SECRET, then restart the server.",
             retryable=False,
         )
     if not code or not state:
         raise ApiError(
             status_code=400,
             code="oauth_malformed",
-            message="Thiếu code hoặc state từ Google.",
-            hint="Bắt đầu lại từ /api/auth/google/start.",
+            message="The Google code or state is missing.",
+            hint="Start again from /api/auth/google/start.",
             retryable=True,
         )
     if request.cookies.get(_STATE_COOKIE) != state:
         raise ApiError(
             status_code=400,
             code="oauth_state_mismatch",
-            message="State không khớp — có thể CSRF hoặc cookie hết hạn (10 phút).",
-            hint="Bắt đầu lại từ /api/auth/google/start.",
+            message="The state does not match; this may indicate CSRF or an expired cookie (10 minutes).",
+            hint="Start again from /api/auth/google/start.",
             retryable=True,
         )
     try:
@@ -199,8 +173,8 @@ def google_callback(request: Request, code: str | None = None, state: str | None
         raise ApiError(
             status_code=502,
             code="oauth_google_failed",
-            message=f"Google từ chối phiên đăng nhập: {e}",
-            hint="Thử lại; kéo dài → kiểm client_id/secret/redirect_uri khớp Google Console.",
+            message=f"Google rejected the sign-in attempt: {e}",
+            hint="Try again; if the issue persists, verify client_id, secret, and redirect_uri in Google Console.",
             retryable=True,
         ) from e
     user = google_oauth.upsert_google_user(google_sub=info["sub"], email=info["email"])
@@ -224,32 +198,36 @@ def google_callback(request: Request, code: str | None = None, state: str | None
 
 @router.post("/register", status_code=201)
 def register_endpoint(body: RegisterBody, response: Response) -> dict:
-    """Register a new customer → 201 {token, user}, auto-login (D-57).
 
-    {username, password, email?} → 201 {token, user} (D-57 khách mới). Auto-login (set cookie).
-
-    Validate (tầng HTTP): username 3-32 ký tự · password ≥4 (demo-grade) · email format thô nếu có.
-    username trùng → 409 message CHUNG (không lộ user-nào-tồn-tại kiểu khác — defensive §3)."""
     username = (body.username or "").strip()
     if not (3 <= len(username) <= 32):
-        raise ApiError(400, "bad_username", "Tên đăng nhập 3-32 ký tự.", "Chọn tên khác.", retryable=False)
+        raise ApiError(
+            400, "bad_username", "The username must be 3-32 characters.", "Choose another username.", retryable=False
+        )
     if len(body.password or "") < 4:
-        raise ApiError(400, "bad_password", "Mật khẩu tối thiểu 4 ký tự.", "Chọn mật khẩu dài hơn.", retryable=False)
+        raise ApiError(
+            400,
+            "bad_password",
+            "The password must be at least 4 characters.",
+            "Choose a longer password.",
+            retryable=False,
+        )
     if body.email and not _EMAIL_RE.match(body.email):
-        raise ApiError(400, "bad_email", "Email không hợp lệ.", "Kiểm định dạng name@domain.", retryable=False)
+        raise ApiError(
+            400, "bad_email", "The email address is invalid.", "Use the name@domain format.", retryable=False
+        )
     try:
         result = register(username, body.password, body.email)
     except UsernameTaken as e:
         raise ApiError(
-            409, "username_taken", "Tên đăng nhập đã được dùng.", "Chọn tên đăng nhập khác.", retryable=False
+            409, "username_taken", "The username is already in use.", "Choose another username.", retryable=False
         ) from e
     _set_auth_cookie(response, result["token"])
     return result
 
 
 def _me_payload(claims: dict) -> dict:
-    """D-56: {username, role, owner_id} phẳng (Export FE T8-2) + `user` wrap (FE boot-check cũ, không
-    phá). owner_id của REQUESTER (JOIN users by claims.sub). DEV_SKIP_AUTH → admin owner_id=None."""
+
     owner_id = _owner_id_of(claims.get("sub"))
     username, role = claims.get("username"), claims.get("role")
     tenant_id = str(claims["tenant_id"])
@@ -264,22 +242,18 @@ def _me_payload(claims: dict) -> dict:
 
 @router.get("/me")
 def me_auth(claims: dict = Depends(require_user)) -> dict:
-    """Current user identity (username, role, owner_id) — legacy FE boot-check path.
 
-    /api/auth/me — FE boot-check cũ. Giữ backward + thêm owner_id (D-56)."""
     return _me_payload(claims)
 
 
 @me_router.get("/me")
 def me(claims: dict = Depends(require_user)) -> dict:
-    """Current user identity (username, role, owner_id) — canonical /api/me endpoint.
 
-    /api/me (D-56 Export FE T8-2) — {username, role, owner_id}. Cùng payload /api/auth/me."""
     return _me_payload(claims)
 
 
 def _owner_id_of(user_id: str | None) -> str | None:
-    """owner_id của account (JOIN users by id). None = account ngân hàng (admin/user) hoặc không tồn tại."""
+
     if not user_id:
         return None
     import psycopg2

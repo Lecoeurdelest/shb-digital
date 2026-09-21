@@ -13,8 +13,7 @@ down_revision: str | Sequence[str] | None = "d4e8a1b7c203"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# D-79: tenant là partition/isolation key, không phải thuộc tính có thể chuyển sau khi tạo.
-# Liệt kê tường minh để migration review thấy chính xác phạm vi được khóa.
+
 _TENANT_TABLES = (
     "users",
     "conversation_groups",

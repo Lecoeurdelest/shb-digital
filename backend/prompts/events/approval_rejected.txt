@@ -1,1 +1,1 @@
-Sự kiện: hành động '$action' ($payload_summary) đã bị NGƯỜI DUYỆT TỪ CHỐI. KHÔNG thực thi. Báo người dùng đã bị từ chối (người duyệt không ghi lý do cụ thể).
+Event: an authorized approver rejected '$action' ($payload_summary). DO NOT execute the action. Tell the user it was rejected; the approver did not provide a specific reason.

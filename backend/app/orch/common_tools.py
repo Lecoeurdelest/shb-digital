@@ -1,10 +1,3 @@
-"""Tool CHUNG mọi role (server `common`): calc (+ present stub S1). lab-joint §5.
-
-calc — tầng-0: agent CẤM nhẩm. Biểu thức số học thuần (không eval code). present = S3 (canvas);
-S1 mount stub trả 'ok' để skill nào lỡ gọi không nổ (rẻ). Namespace `common` (spec §5) —
-allowed_tools khớp string tuyệt đối.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,7 +8,6 @@ from typing import Any
 
 from claude_agent_sdk import create_sdk_mcp_server, tool
 
-# ── calc: eval biểu thức số học AN TOÀN (AST, không eval code) ───────────────
 _OPS = {
     ast.Add: operator.add,
     ast.Sub: operator.sub,
@@ -33,12 +25,12 @@ def _eval_node(node: ast.AST) -> float:
     if isinstance(node, ast.Constant):
         if isinstance(node.value, (int, float)):
             return node.value
-        raise ValueError("chỉ chấp nhận số")
+        raise ValueError("only numeric values are accepted")
     if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
         return _OPS[type(node.op)](_eval_node(node.left), _eval_node(node.right))
     if isinstance(node, ast.UnaryOp) and type(node.op) in _OPS:
         return _OPS[type(node.op)](_eval_node(node.operand))
-    raise ValueError("biểu thức không hợp lệ (chỉ số học thuần)")
+    raise ValueError("invalid expression (pure arithmetic only)")
 
 
 def _now() -> str:
@@ -46,7 +38,7 @@ def _now() -> str:
 
 
 def safe_eval(expression: str) -> dict[str, Any]:
-    """Eval biểu thức số học thuần. Trả {value, expression, asOf} hoặc error 4-field."""
+
     try:
         tree = ast.parse(expression, mode="eval")
         value = _eval_node(tree.body)
@@ -54,8 +46,8 @@ def safe_eval(expression: str) -> dict[str, Any]:
     except (ValueError, SyntaxError, TypeError, ZeroDivisionError) as e:
         return {
             "code": "bad_expression",
-            "message": f"biểu thức '{expression}' không tính được: {e}",
-            "hint": "Dùng biểu thức số học thuần (+ - * / ** % ()), chỉ số.",
+            "message": f"expression '{expression}' could not be evaluated: {e}",
+            "hint": "Use a pure arithmetic expression (+ - * / ** % ()) with numbers only.",
             "retryable": True,
         }
 
@@ -66,11 +58,11 @@ def _text(payload: dict[str, Any]) -> dict[str, Any]:
 
 @tool(
     name="calc",
-    description="Tính biểu thức số học (agent CẤM nhẩm mọi phép tính). Vd '30000000/8088576'. "
-    "Chỉ số học thuần: + - * / ** % và ngoặc.",
+    description="Evaluate an arithmetic expression (the agent must not calculate mentally). Example: "
+    "'30000000/8088576'. Pure arithmetic only: + - * / ** % and parentheses.",
     input_schema={
         "type": "object",
-        "properties": {"expression": {"type": "string", "description": "biểu thức số học"}},
+        "properties": {"expression": {"type": "string", "description": "arithmetic expression"}},
         "required": ["expression"],
     },
 )
@@ -78,63 +70,55 @@ async def calc_tool(args: dict[str, Any]) -> dict[str, Any]:
     return _text(safe_eval(args.get("expression", "")))
 
 
-# 6 loại HIỂN THỊ (canvas-present §1). "approval" NGOÀI enum — N2 rào CỨNG ở SDK schema:
-# sub/main gọi present type=approval bị SDK reject TRƯỚC handler. Card approval CHỈ 1 cửa sinh:
-# wrapper phanh (S4). Không có đường "agent tự chế card phanh giả".
 PRESENT_TYPES = ["case_file", "metric", "checklist", "options", "timeline", "document"]
 
 
 @tool(
     name="present",
-    description="Trình 1 card CÓ CẤU TRÚC lên canvas (sản phẩm công việc: verdict thẩm định, tờ "
-    "trình...). Gọi khi có kết quả đáng trình — KHÔNG cho mỗi câu nói. type ∈ 6 loại hiển thị. "
-    "Mọi số trên card kèm 'source' = tên tool đã trả số đó (không bịa số). id do hệ thống sinh — "
-    "KHÔNG tự bơm id.",
+    description="Present one STRUCTURED card on the canvas (for deliverables such as assessment verdicts and credit "
+    "memos). Call it only for a result worth presenting, not for every message. type must be one of the six display "
+    "types. Every number on the card must include 'source', the tool name that returned it; never invent numbers. "
+    "The system generates the id; never provide one.",
     input_schema={
         "type": "object",
         "properties": {
-            "type": {"type": "string", "enum": PRESENT_TYPES, "description": "loại card"},
-            "title": {"type": "string", "description": "tiêu đề card"},
+            "type": {"type": "string", "enum": PRESENT_TYPES, "description": "card type"},
+            "title": {"type": "string", "description": "card title"},
             "items": {
                 "type": "array",
                 "items": {"type": "object"},
-                "description": "nội dung card theo type (vd metric: [{name,value,threshold,pass,source}])",
+                "description": (
+                    "card content for the selected type (for example metric: [{name,value,threshold,pass,source}])"
+                ),
             },
-            # T18-3: optional để card cũ không đổi contract, nhưng phải lộ trong schema thì model
-            # mới biết đây là field hợp lệ; chỉ nhắc trong prompt khiến live memo thường bỏ sót.
             "sources": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "tên tool/role nguồn đã dùng, không chứa dữ liệu nghiệp vụ nhạy cảm",
+                "description": "names of the source tools or roles used, without sensitive business data",
             },
         },
         "required": ["type", "title", "items"],
     },
 )
 async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
-    """Render a card on the canvas — validate shape, persist, emit SSE (shell-owned id).
 
-    present THẬT (canvas-present §1): validate shape → persist cards → SSE card → rendered.
-    id VỎ-inject (§15 — model không bơm id). conv/task từ ContextVar (set trước mỗi call)."""
     from app.orch import registry, store
     from app.sse.emit import emit
 
     card_type = args.get("type")
     title = args.get("title")
     items = args.get("items")
-    # Shape tối thiểu (N3 — vỏ mù nội dung items). enum đã chặn ở SDK, nhưng validate lại defensive.
+
     if card_type not in PRESENT_TYPES or not isinstance(title, str) or not isinstance(items, list):
         return _text(
             {
                 "code": "bad_card",
-                "message": f"card cần {{type, title, items}}; type ∈ {PRESENT_TYPES}",
-                "hint": "Sửa shape rồi gọi lại present.",
-                "retryable": False,  # retry y nguyên vô ích — phải sửa shape
+                "message": f"card requires {{type, title, items}}; type must be one of {PRESENT_TYPES}",
+                "hint": "Correct the shape and call present again.",
+                "retryable": False,
             }
         )
 
-    # T23-3/D-82: memo canonical đi qua write-time gate TRƯỚC mọi DB/SSE. Validator trả defensive
-    # copy và overwrite proof taxonomy server-owned; generic document/card giữ nguyên contract.
     if card_type == "document":
         from app.orch.credit_memo import CreditMemoValidationError, is_credit_memo, validate_credit_memo
 
@@ -146,37 +130,28 @@ async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
                     {
                         "code": "invalid_credit_memo",
                         "message": str(exc),
-                        "hint": "Sửa đủ sáu mục, reason_codes và proof rồi gọi lại present.",
+                        "hint": "Provide all six sections, reason_codes, and proof, then call present again.",
                         "retryable": True,
                     }
                 )
 
     conv_id = registry.CTX_CONV.get()
-    task_id = registry.CTX_TASK.get() or None  # main gọi ngoài sub → None → card task_id null
+    task_id = registry.CTX_TASK.get() or None
 
-    # Persist TRƯỚC (§4 — card không ghi DB là card ma). id VỎ sinh lúc insert (§15).
-    # LỚP 1 phòng thủ (N5/§15): LỌC field VỎ-OWNED khỏi data — model KHÔNG được bơm id/conv_id/
-    # task_id/ts (chỉ có thể BỊA). Card content (title/items/sources/recommended/total_days/flags...)
-    # tự do (N3 — vỏ mù nội dung); nhưng id là của vỏ, agent bơm 'id' vào args sẽ bị bỏ.
-    # RANH (S3+ builder đọc): CHỈ chặn field VỎ-QUẢN cụ thể, KHÔNG dùng additionalProperties:false ở
-    # input_schema — vì nó sẽ chặn CẢ field nội dung top-level N3-hợp-lệ (sources/recommended/...) mà
-    # skill bơm theo card type (canvas-present §3). 2 lớp lọc cứng {id,conv_id,task_id,ts} thoả CẢ
-    # N5/§15 (id vỏ-inject) VÀ N3 (nội dung tự do) — additionalProperties:false phá N3.
     _VO_OWNED = {"id", "conv_id", "task_id", "ts"}
     card_data = {k: v for k, v in args.items() if k not in _VO_OWNED}  # title/items/sources/...
     try:
         card_row = await store.insert_card(conv_id, task_id, card_type, card_data)
-    except Exception as e:  # noqa: BLE001 — DB lỗi → error 4-field, không stacktrace tới agent
+    except Exception as e:  # noqa: BLE001
         return _text(
             {
                 "code": "card_persist_error",
                 "message": str(e)[:200],
-                "hint": "Thử lại 1 lần; lặp thì báo main.",
+                "hint": "Retry once, then report it to main if the error recurs.",
                 "retryable": True,
             }
         )
 
-    # SSE SAU persist (streaming-sse §5). Fire-and-forget: SSE lỗi KHÔNG fail present.
     try:
         emit(conv_id, "card", {"card": card_row})
     except Exception:  # noqa: BLE001
@@ -185,22 +160,18 @@ async def present_tool(args: dict[str, Any]) -> dict[str, Any]:
     return _text(
         {
             "rendered": True,
-            "hint": f"card {card_type} đã lên canvas — tiếp tục việc, xong hết thì trả lời text.",
+            "hint": f"card {card_type} is on the canvas; continue working, then respond with text when finished.",
         }
     )
 
 
-# ── present_form (T9-1 D-57) — form intake hồ sơ khách MỚI ───────────────────
-# Fields ĐỊNH NGHĨA SERVER-SIDE (N5/§15 — model KHÔNG tự chế fields, chỉ GỌI tool). MAIN gọi khi
-# ca customer owner_id=NULL (chưa hồ sơ). Card type 'form' → FE render panel phải WIDE (T9-3).
-# 6 field theo dispatch T9-1 (KHÁC plan sprint_9 — dispatch thắng, ghi note báo architect).
 FORM_FIELDS = [
-    {"name": "full_name", "label": "Họ và tên", "type": "text", "required": True},
-    {"name": "id_number", "label": "Số CMND/CCCD", "type": "text", "required": True},
-    {"name": "address", "label": "Địa chỉ thường trú", "type": "text", "required": True},
-    {"name": "occupation", "label": "Nghề nghiệp", "type": "text", "required": True},
-    {"name": "monthly_income", "label": "Thu nhập hàng tháng (VND)", "type": "number", "required": True},
-    {"name": "loan_purpose", "label": "Mục đích vay", "type": "text", "required": True},
+    {"name": "full_name", "label": "Full name", "type": "text", "required": True},
+    {"name": "id_number", "label": "National ID number", "type": "text", "required": True},
+    {"name": "address", "label": "Permanent address", "type": "text", "required": True},
+    {"name": "occupation", "label": "Occupation", "type": "text", "required": True},
+    {"name": "monthly_income", "label": "Monthly income (VND)", "type": "number", "required": True},
+    {"name": "loan_purpose", "label": "Loan purpose", "type": "text", "required": True},
 ]
 FORM_REQUIRED = [f["name"] for f in FORM_FIELDS if f["required"]]
 
@@ -208,17 +179,15 @@ FORM_REQUIRED = [f["name"] for f in FORM_FIELDS if f["required"]]
 @tool(
     name="present_form",
     description=(
-        "Hiện FORM thu thập hồ sơ khách MỚI (chưa có hồ sơ) lên canvas — dùng khi được báo khách "
-        "CHƯA có hồ sơ. Fields do server định sẵn (họ tên, CMND, địa chỉ, nghề, thu nhập, mục đích "
-        "vay) — KHÔNG tự hỏi từng câu trong chat. Khách điền form → hệ thống tạo hồ sơ + gọi lại bạn."
+        "Show the NEW customer application FORM on the canvas when told that the customer has no existing case. "
+        "The server defines the fields (full name, national ID, address, occupation, income, and loan purpose); do "
+        "not ask for each field in chat. After the customer completes the form, the system creates the case and "
+        "resumes the session."
     ),
-    input_schema={"type": "object", "properties": {}},  # không nhận field từ model (server-side)
+    input_schema={"type": "object", "properties": {}},
 )
 async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
-    """Present the customer intake form card (fields server-defined, model cannot alter them).
 
-    present_form THẬT: persist card type 'form' (fields server-side + status='pending') → SSE.
-    id/conv/task VỎ-inject (§15). Model KHÔNG bơm fields — chống model tự chế shape hồ sơ."""
     from app import consent
     from app.orch import registry, store
     from app.sse.emit import emit
@@ -231,14 +200,14 @@ async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
         return _text(
             {
                 "code": "consent_wording_unavailable",
-                "message": "Nội dung đồng ý pre-pilot chưa sẵn sàng.",
-                "hint": "Báo quản trị kiểm tra artifact wording trước khi mở form.",
+                "message": "The pre-pilot consent wording is not ready.",
+                "hint": "Ask an administrator to review the wording artifact before opening the form.",
                 "retryable": False,
             }
         )
     card_data = {
         "type": "form",
-        "title": "Hồ sơ vay — thông tin khách hàng",
+        "title": "Loan application — customer information",
         "fields": FORM_FIELDS,
         "status": "pending",
         "consent": wording.snapshot(),
@@ -246,9 +215,7 @@ async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
     try:
         card_row = await store.insert_card(conv_id, task_id, "form", card_data)
     except Exception as e:  # noqa: BLE001
-        return _text(
-            {"code": "card_persist_error", "message": str(e)[:200], "hint": "Thử lại 1 lần.", "retryable": True}
-        )
+        return _text({"code": "card_persist_error", "message": str(e)[:200], "hint": "Retry once.", "retryable": True})
     try:
         emit(conv_id, "card", {"card": card_row})
     except Exception:  # noqa: BLE001
@@ -256,24 +223,19 @@ async def present_form_tool(args: dict[str, Any]) -> dict[str, Any]:
     return _text(
         {
             "rendered": True,
-            "hint": "Form hồ sơ đã lên canvas. KẾT THÚC LƯỢT — khách điền xong hệ thống tự gọi lại bạn.",
+            "hint": (
+                "The application form is on the canvas. End the turn; the system resumes after the customer submits it."
+            ),
         }
     )
 
 
-# ── T12-1: retrieval toolpack CHUNG (§7) — wiki_*/notes_search vào common server (mọi role) ──
-# legal_related_exposure KHÔNG ở đây (mount vào toolpack legal — roles/legal REGISTRY). Các fn LAB
-# byte-identical (roles/_retrieval/functions.py) chạy qua SEAM CHUNG run_labpack_fn (mount_role) —
-# PGConnAdapter + 4-field mọi lỗi (bảng chưa seed → db_error, KHÔNG 500). read_scope OFF cho common
-# (T12-1 scope; notes_search owner-scope = T12-2). schema LAB → input_schema qua schema_to_input.
+# T12-1 scope; notes_search owner scope is T12-2. Convert the LAB schema to input_schema through schema_to_input.
 _COMMON_RETRIEVAL = ["wiki_lookup", "wiki_search", "wiki_related_docs", "notes_search"]
 
 
 def _build_retrieval_tools() -> list:
-    """Wrap 4 fn retrieval (common) thành SDK tool — delegate `mount_role.build_common_retrieval_tools`
-    (logic build NẰM Ở mount_role: module đó insert REPO_ROOT vào sys.path lúc load nên `import roles.*`
-    chạy dù uvicorn cwd=backend/). Đặt ở đó, KHÔNG ở đây, để tránh phụ thuộc THỨ TỰ import mà ruff-isort
-    sắp lại → ModuleNotFoundError 'roles' lúc boot. Seam adapter chung run_labpack_fn (§6, không dup)."""
+
     from app.mount.mount_role import build_common_retrieval_tools
 
     return build_common_retrieval_tools(_COMMON_RETRIEVAL)

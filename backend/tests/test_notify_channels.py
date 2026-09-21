@@ -1,5 +1,3 @@
-"""S19 D-71 webhook doorbell: allowlist, retry hữu hạn và hook hậu commit."""
-
 from __future__ import annotations
 
 import json
@@ -32,7 +30,7 @@ def _approval(status: str = "pending") -> dict[str, Any]:
         "payload": {
             "loan_id": "L001-SECRET",
             "amount": 500_000_000,
-            "customer_name": "Nguyễn Văn Bí Mật",
+            "customer_name": "Secret Test Customer",
         },
         "display": {"owner_id": "C001-SECRET"},
         "receipt": {"bank_account": "0123456789"},
@@ -76,7 +74,7 @@ async def _drain_tasks() -> None:
 async def test_generic_default_exact_shape_and_nested_pii_absent(monkeypatch):
     monkeypatch.setenv("SHB_NOTIFY_WEBHOOK_URL", "https://hooks.example/token-secret")
     monkeypatch.delenv("SHB_NOTIFY_CHANNEL", raising=False)
-    monkeypatch.setenv("SHB_NOTIFY_INCLUDE_AMOUNT", "01")  # chỉ đúng chuỗi "1" mới bật
+    monkeypatch.setenv("SHB_NOTIFY_INCLUDE_AMOUNT", "01")
     monkeypatch.setattr(channels, "app_url", lambda: "https://bank.example/")
     seen = _fake_client(monkeypatch, [204])
 
@@ -97,7 +95,7 @@ async def test_generic_default_exact_shape_and_nested_pii_absent(monkeypatch):
     ]
     nested = json.dumps(seen["calls"][0][1], ensure_ascii=False)
     for forbidden in (
-        "Nguyễn",
+        "Secret",
         "L001-SECRET",
         "C001-SECRET",
         "0123456789",
@@ -132,7 +130,7 @@ async def test_lark_exact_shape_with_amount(monkeypatch):
                     "tag": "div",
                     "text": {
                         "tag": "lark_md",
-                        "content": "**disburse** · ca `12345678` · approved · 500000000 VND",
+                        "content": "**disburse** · case `12345678` · approved · 500000000 VND",
                     },
                 },
                 {
@@ -150,7 +148,7 @@ async def test_lark_exact_shape_with_amount(monkeypatch):
         },
     }
     nested = json.dumps(seen["calls"][0][1], ensure_ascii=False)
-    for forbidden in ("Nguyễn", "L001-SECRET", "C001-SECRET", "0123456789", "CIC secret"):
+    for forbidden in ("Secret", "L001-SECRET", "C001-SECRET", "0123456789", "CIC secret"):
         assert forbidden not in nested
 
 
@@ -228,7 +226,7 @@ async def test_failure_logs_only_safe_metadata(monkeypatch, caplog):
     assert "channel=lark" in caplog.text
     assert "event_status=approved" in caplog.text
     assert "conv=12345678" in caplog.text
-    for forbidden in ("token-secret", "L001-SECRET", "Nguyễn", "body-secret", "hooks.example"):
+    for forbidden in ("token-secret", "L001-SECRET", "Secret", "body-secret", "hooks.example"):
         assert forbidden not in caplog.text
 
 

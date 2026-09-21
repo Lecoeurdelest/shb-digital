@@ -1,5 +1,3 @@
-"""bank_dc chặn startup nếu còn secret demo, auth bypass hay provider có thể egress."""
-
 from __future__ import annotations
 
 import pytest

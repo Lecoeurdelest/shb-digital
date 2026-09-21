@@ -36,8 +36,8 @@ def _conflict(name: str) -> ApiError:
     return ApiError(
         409,
         "group_name_conflict",
-        f"Đã có nhóm '{name}'.",
-        "Chọn tên khác hoặc dùng nhóm hiện có.",
+        f"Group '{name}' already exists.",
+        "Choose another name or use the existing group.",
         retryable=False,
     )
 
@@ -64,12 +64,12 @@ async def update_group(group_id: str, body: GroupBody, claims: dict = Depends(re
     except store_groups.GroupNameConflict as exc:
         raise _conflict(body.name) from exc
     if group is None:
-        raise ApiError(404, "group_not_found", "Không có nhóm này.", "Tải lại danh sách nhóm.", retryable=False)
+        raise ApiError(404, "group_not_found", "This group does not exist.", "Reload the group list.", retryable=False)
     return group
 
 
 @router.delete("/{group_id}")
 async def delete_group(group_id: str, claims: dict = Depends(require_user)) -> dict[str, Any]:
     if not await store_groups.delete_group(group_id, *_scope(claims)):
-        raise ApiError(404, "group_not_found", "Không có nhóm này.", "Tải lại danh sách nhóm.", retryable=False)
+        raise ApiError(404, "group_not_found", "This group does not exist.", "Reload the group list.", retryable=False)
     return {"deleted": True, "id": group_id}

@@ -1,5 +1,3 @@
-"""MCP tools/list phải quảng bá metadata máy-đọc từ contract LAB."""
-
 from __future__ import annotations
 
 import pytest

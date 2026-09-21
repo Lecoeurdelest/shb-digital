@@ -1,11 +1,3 @@
-"""[BACKEND] Test T12-3b — ops_disburse chạy THẬT dưới gated (bridge OpsConnProxy + money-invariant).
-
-Money-path: phiếu → approve → claim → disbursements ghi ĐÚNG 1 lần + phiếu 'used' ⟺ receipt.
-Replay sau success → KHÔNG ghi lần 2. BLOCKED (app rejected) → phiếu KHÔNG 'used' (raise→rollback→
-retryable), 0 disbursement row. disburse (đường cũ) 43 money-test giữ (test riêng).
-@requires_test_db: ghi applications/disbursements (destructive) → gate test-db riêng.
-"""
-
 from __future__ import annotations
 
 import json
@@ -82,7 +74,7 @@ def _approve(conv: str, ph: str) -> int:
 @requires_test_db
 @pytest.mark.asyncio
 async def test_ops_disburse_approve_claim_writes_once_invariant(_reset_sse):
-    """phiếu → approve → claim → disbursements ghi 1 row + phiếu 'used' + receipt (invariant)."""
+
     conv = f"opsd-{uuid4()}"
     app_id = f"APPT{uuid4().hex[:6]}"
     _mk_app(app_id, amount=400_000_000)
@@ -93,15 +85,15 @@ async def test_ops_disburse_approve_claim_writes_once_invariant(_reset_sse):
     ph = payload_hash("ops_disburse", args)
     try:
         out1 = _payload(await h(args))
-        assert out1["code"] == "approval_required"  # LUÔN human (không auto)
+        assert out1["code"] == "approval_required"
         assert _approve(conv, ph) == 1
-        out2 = _payload(await h(args))  # claim → chạy THẬT
+        out2 = _payload(await h(args))
         assert out2.get("found") is True
-        assert out2["item"]["disbursementId"]  # disbursement THẬT
-        # disbursements ghi ĐÚNG 1 row
+        assert out2["item"]["disbursementId"]
+
         dsb = _raw("SELECT * FROM disbursements WHERE application_id=%s AND status='executed'", (app_id,))
         assert len(dsb) == 1
-        # invariant: phiếu 'used' ⟺ receipt present
+
         appr = _raw("SELECT status, receipt FROM approvals WHERE conv_id=%s AND payload_hash=%s", (conv, ph))
         assert appr[0]["status"] == "used" and appr[0]["receipt"] is not None
     finally:
@@ -111,7 +103,7 @@ async def test_ops_disburse_approve_claim_writes_once_invariant(_reset_sse):
 @requires_test_db
 @pytest.mark.asyncio
 async def test_ops_disburse_replay_no_second_row(_reset_sse):
-    """Gọi lại SAU success → receipt-replay, KHÔNG ghi disbursement lần 2 (chống chi đôi)."""
+
     conv = f"opsd-r-{uuid4()}"
     app_id = f"APPR{uuid4().hex[:6]}"
     _mk_app(app_id, amount=400_000_000)
@@ -123,10 +115,10 @@ async def test_ops_disburse_replay_no_second_row(_reset_sse):
     try:
         await h(args)
         _approve(conv, ph)
-        await h(args)  # chạy thật
-        await h(args)  # gọi LẠI → replay (không ghi lần 2)
+        await h(args)
+        await h(args)
         dsb = _raw("SELECT * FROM disbursements WHERE application_id=%s AND status='executed'", (app_id,))
-        assert len(dsb) == 1  # vẫn ĐÚNG 1 row (không chi đôi)
+        assert len(dsb) == 1
     finally:
         _rm_app(app_id, conv)
 
@@ -134,8 +126,7 @@ async def test_ops_disburse_replay_no_second_row(_reset_sse):
 @requires_test_db
 @pytest.mark.asyncio
 async def test_ops_disburse_blocked_app_phieu_not_used_retryable(_reset_sse):
-    """MONEY-INVARIANT: app rejected → claim chạy inner → block → RAISE → gated rollback →
-    phiếu KHÔNG 'used' (về 'approved', retry được), 0 disbursement row. KHÔNG consume phiếu oan."""
+
     conv = f"opsd-b-{uuid4()}"
     app_id = f"APPB{uuid4().hex[:6]}"
     _mk_app(app_id, status="rejected", credit=0, legal=0, human="denied", amount=200_000_000)
@@ -146,19 +137,19 @@ async def test_ops_disburse_blocked_app_phieu_not_used_retryable(_reset_sse):
     ph = payload_hash("ops_disburse", args)
     try:
         await h(args)  # pending
-        _approve(conv, ph)  # admin lỡ duyệt phiếu (nhưng app vẫn rejected)
+        _approve(conv, ph)
         out = _payload(await h(args))  # claim → inner block → RAISE (carry payload) → rollback
-        # point 2: payload NGUYÊN VĂN LAB (KHÔNG generic gated_error) — agent biết "vì sao chặn"
+
         assert out["code"] == "disburse_blocked"
-        assert "blockers" in out and out["blockers"]  # danh sách chặn cụ thể (credit/legal/human...)
-        # phiếu KHÔNG bị consume (rollback → về 'approved', rơi vào loop-bound T4-0 sau)
+        assert "blockers" in out and out["blockers"]
+
         appr = _raw("SELECT status FROM approvals WHERE conv_id=%s AND payload_hash=%s", (conv, ph))
-        assert appr[0]["status"] == "approved"  # KHÔNG 'used' — money-invariant giữ
-        # point 3: đối chiếu QUERY (không tin return) — 0 disbursement + applications KHÔNG đổi
+        assert appr[0]["status"] == "approved"
+
         dsb = _raw("SELECT * FROM disbursements WHERE application_id=%s", (app_id,))
         assert len(dsb) == 0
         app_row = _raw("SELECT status FROM applications WHERE id=%s", (app_id,))
-        assert app_row[0]["status"] == "rejected"  # applications.status KHÔNG đổi (không tiền chạy)
+        assert app_row[0]["status"] == "rejected"
     finally:
         _rm_app(app_id, conv)
 
@@ -166,15 +157,11 @@ async def test_ops_disburse_blocked_app_phieu_not_used_retryable(_reset_sse):
 @requires_test_db
 @pytest.mark.asyncio
 async def test_ops_disburse_dup_check_fires_through_proxy_no_double_pay(_reset_sse):
-    """MONEY (advisor): LAB dup-check `already_disbursed` là lá chắn DUY NHẤT chống chi-đôi CROSS-CONV
-    (gated replay chỉ conv-scoped). Pre-insert 1 disbursement 'executed' cho app → chạy trọn gated flow
-    (pending→approve→claim) từ conv KHÁC → inner dup-check qua PROXY (RealDictCursor) phải fire →
-    disburse_blocked → bridge RAISE → rollback → 0 row MỚI + phiếu KHÔNG 'used'. Chứng minh proxy đọc
-    đúng + exception-map + raise-on-blocked compose trên lớp idempotency THỨ HAI."""
+
     conv = f"opsd-dup-{uuid4()}"
     app_id = f"APPD{uuid4().hex[:6]}"
     _mk_app(app_id, amount=400_000_000)
-    # đã có 1 disbursement executed (như thể conv khác đã chi trước)
+
     _raw(
         "INSERT INTO disbursements (id, application_id, amount_vnd, beneficiary, status, executed_at, receipt_code) "
         "VALUES (%s,%s,%s,'X','executed',now()::text,'RC-PRE')",
@@ -186,35 +173,29 @@ async def test_ops_disburse_dup_check_fires_through_proxy_no_double_pay(_reset_s
     args = {"application_id": app_id, "amount_vnd": 400_000_000}
     ph = payload_hash("ops_disburse", args)
     try:
-        await h(args)  # pending (conv này chưa có receipt → không replay)
+        await h(args)
         _approve(conv, ph)
         out = _payload(await h(args))  # claim → inner dup-check fire → raise (payload) → rollback
-        assert out["code"] == "disburse_blocked"  # already_disbursed → payload nguyên văn LAB
-        # KHÔNG ghi row MỚI (vẫn đúng 1 = row pre-insert), phiếu KHÔNG 'used'
+        assert out["code"] == "disburse_blocked"
+
         dsb = _raw("SELECT * FROM disbursements WHERE application_id=%s AND status='executed'", (app_id,))
-        assert len(dsb) == 1  # chỉ row pre-insert, KHÔNG chi đôi
+        assert len(dsb) == 1
         appr = _raw("SELECT status FROM approvals WHERE conv_id=%s AND payload_hash=%s", (conv, ph))
-        assert appr[0]["status"] == "approved"  # phiếu KHÔNG consume → không double-pay
+        assert appr[0]["status"] == "approved"
     finally:
         _rm_app(app_id, conv)
-
-
-# ── loop-bound T4-0: ops_disburse blocked lặp → exec_failed (KHÔNG treo vô hạn) ──
 
 
 @requires_test_db
 @pytest.mark.asyncio
 async def test_ops_disburse_blocked_loop_falls_into_t40_exec_failed(monkeypatch):
-    """point 1 (architect bắt buộc): ops_disburse blocked lặp → guard-B T4-0 CÓ SẴN đếm exec_attempts
-    → vượt MAX → phiếu 'exec_failed', KHÔNG treo 'approved' vĩnh viễn / KHÔNG loop vô hạn.
-    Drive `_resume_dispatch_guard` trực tiếp (KHÔNG live SDK): mock dispatch + role-free; grant
-    ops_disburse approved-unused → mỗi task_done increment → tại MAX → mark_exec_failed."""
+
     from app.orch import main_session, registry, store_approvals
 
     conv = str(uuid4())
     app_id = f"APPL{uuid4().hex[:6]}"
-    _mk_app(app_id, status="rejected", credit=0, legal=0, human="denied")  # luôn blocked
-    # seed grant approved-unused cho ops_disburse (như thể admin đã duyệt)
+    _mk_app(app_id, status="rejected", credit=0, legal=0, human="denied")
+
     ph = payload_hash("ops_disburse", {"application_id": app_id, "amount_vnd": 200_000_000})
     grant = _raw(
         "INSERT INTO approvals (conv_id, action, payload, payload_hash, status, decided_by, decided_at) "
@@ -222,7 +203,7 @@ async def test_ops_disburse_blocked_loop_falls_into_t40_exec_failed(monkeypatch)
         (conv, json.dumps({"application_id": app_id, "amount_vnd": 200_000_000}), ph),
     )
     gid = grant[0]["id"]
-    # role operations FREE (không running) + mock dispatch (không spawn sub thật)
+
     monkeypatch.setattr(registry, "get_running_task_id", lambda c, r: None)
 
     async def _fake_dispatch(*a, **k):
@@ -230,25 +211,20 @@ async def test_ops_disburse_blocked_loop_falls_into_t40_exec_failed(monkeypatch)
 
     monkeypatch.setattr("app.orch.dispatch.orch_dispatch_impl", _fake_dispatch)
     try:
-        # fire task_done(role=operations) MAX+1 lần — mỗi lần guard-B re-dispatch + increment
         for _ in range(store_approvals.MAX_EXEC_ATTEMPTS + 1):
             await main_session._resume_dispatch_guard(conv, "task_done", {"role": "operations"})
-        # tại/quá MAX → phiếu exec_failed (KHÔNG còn approved treo)
+
         row = _raw("SELECT status, exec_attempts FROM approvals WHERE id=%s", (gid,))
-        assert row[0]["status"] == "exec_failed", f"phải exec_failed sau MAX lần, thấy {row[0]}"
+        assert row[0]["status"] == "exec_failed", "Expected invariant was not satisfied at source line 218."
         assert row[0]["exec_attempts"] >= store_approvals.MAX_EXEC_ATTEMPTS
     finally:
         _raw("DELETE FROM approvals WHERE id=%s", (gid,))
         _rm_app(app_id, conv)
 
 
-# ── read-scope (c): khách chỉ tra application CỦA MÌNH ───────────────────────
-
-
 @requires_test_db
 def test_ops_read_scope_customer_blocks_other_application():
-    """T12-3b (c): ca khách C001 tra ops_app_get application của owner KHÁC (C004) → refuse
-    not_your_data (read_scope application_id → applications.owner). Tightening lỗ pipeline."""
+
     import inspect
 
     from roles.operations import functions as O
@@ -257,7 +233,7 @@ def test_ops_read_scope_customer_blocks_other_application():
 
     app_id = f"APPX{uuid4().hex[:6]}"
     _mk_app(app_id)  # owner C004
-    # ca khách C001 — conversations.id là uuid → dùng str(uuid4())
+
     conv = str(uuid4())
     _raw(
         "INSERT INTO conversations (id, user_id, title, status, created_at) VALUES (%s,'c001','t','idle',now())",
@@ -271,7 +247,7 @@ def test_ops_read_scope_customer_blocks_other_application():
         out = _payload(
             _text(run_labpack_fn(fn, "ops_app_get", {"application_id": app_id}, known, hint, apply_read_scope=True))
         )
-        assert out["code"] == "not_your_data"  # C001 tra app của C004 → chặn
+        assert out["code"] == "not_your_data"
     finally:
         _raw("DELETE FROM conversations WHERE id::text=%s", (conv,))
         _rm_app(app_id, conv)

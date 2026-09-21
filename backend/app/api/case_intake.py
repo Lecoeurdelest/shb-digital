@@ -42,20 +42,22 @@ def _config() -> Any:
         raise ApiError(
             503,
             "case_intake_not_ready",
-            "Cổng tiếp nhận hồ sơ chưa sẵn sàng.",
-            "Kiểm tra cấu hình nguồn trong vận hành.",
+            "The case intake endpoint is not ready.",
+            "Check the source configuration in operations.",
             retryable=True,
         ) from exc
 
 
 def _source_config(source: str, authorization: str) -> SourceConfig:
     if not authorization.startswith("Bearer ") or not authorization[7:]:
-        raise ApiError(401, "unauthorized", "Thiếu service credential hợp lệ.", "Cấp Bearer credential.")
+        raise ApiError(401, "unauthorized", "A valid service credential is required.", "Provide a Bearer credential.")
     source_config = _config().sources.get(source)
     if source_config is None or not source_config.enabled or source_config.api_key() is None:
-        raise ApiError(403, "source_disabled", "Nguồn intake không được phép hoạt động.", "Kiểm tra source allowlist.")
+        raise ApiError(
+            403, "source_disabled", "This intake source is not permitted to operate.", "Check the source allowlist."
+        )
     if not hmac.compare_digest(authorization[7:], source_config.api_key() or ""):
-        raise ApiError(401, "unauthorized", "Service credential không hợp lệ.", "Cấp lại credential.")
+        raise ApiError(401, "unauthorized", "The service credential is invalid.", "Issue a new credential.")
     return source_config
 
 
@@ -68,15 +70,15 @@ def _validate_read_source(source: str) -> None:
         raise ApiError(
             404,
             "source_not_configured",
-            "Nguồn hồ sơ chưa được cấu hình.",
-            "Kiểm tra tên nguồn tích hợp.",
+            "The case source is not configured.",
+            "Check the integration source name.",
         )
     if not source_config.enabled:
         raise ApiError(
             403,
             "source_disabled",
-            "Nguồn hồ sơ đang bị tắt.",
-            "Liên hệ vận hành tích hợp để kiểm tra trạng thái nguồn.",
+            "The case source is disabled.",
+            "Contact integration operations to check the source status.",
         )
 
 
@@ -84,9 +86,9 @@ def _parse_payload(raw: bytes) -> dict[str, Any]:
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ApiError(400, "bad_request", "Body JSON không hợp lệ.", "Gửi CaseEventV1 hợp lệ.") from exc
+        raise ApiError(400, "bad_request", "The JSON body is invalid.", "Send a valid CaseEventV1.") from exc
     if not isinstance(payload, dict):
-        raise ApiError(400, "bad_request", "Body phải là JSON object.", "Gửi CaseEventV1 hợp lệ.")
+        raise ApiError(400, "bad_request", "The body must be a JSON object.", "Send a valid CaseEventV1.")
     return payload
 
 
@@ -96,16 +98,16 @@ def _notify_rfi(case_id: str, missing_fields: tuple[str, ...]) -> None:
         from app.notify.channels import notify_channel_case_rfi
 
         notify_channel_case_rfi(case_id, list(missing_fields))
-    except Exception as exc:  # noqa: BLE001 — transaction đã commit; chuông không được đổi receipt
-        log.warning("notify case RFI lỗi case=%s exception=%s", case_id[:8], type(exc).__name__)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("failed to send case RFI notification case=%s exception=%s", case_id[:8], type(exc).__name__)
 
 
 def _case_not_found() -> ApiError:
     return ApiError(
         404,
         "not_found",
-        "Không tìm thấy hồ sơ trong phạm vi đơn vị.",
-        "Kiểm tra lại liên kết hồ sơ.",
+        "The case was not found within the tenant scope.",
+        "Check the case link.",
         retryable=False,
     )
 
@@ -114,31 +116,39 @@ def _case_not_found() -> ApiError:
 async def receive_case_event(request: Request) -> JSONResponse:
     raw = await request.body()
     if len(raw) > _ABSOLUTE_MAX_BYTES:
-        raise ApiError(413, "payload_too_large", "Payload vượt giới hạn intake.", "Chỉ gửi field allowlist D-77.")
+        raise ApiError(
+            413, "payload_too_large", "The payload exceeds the intake limit.", "Send only fields allowed by D-77."
+        )
     payload = _parse_payload(raw)
     source = payload.get("source_system")
     if not isinstance(source, str):
-        raise ApiError(400, "bad_request", "Thiếu source_system hợp lệ.", "Gửi source_system đã cấu hình.")
+        raise ApiError(400, "bad_request", "A valid source_system is required.", "Send a configured source_system.")
     source_config = _source_config(source, request.headers.get("Authorization", ""))
     if len(raw) > source_config.max_payload_bytes:
-        raise ApiError(413, "payload_too_large", "Payload vượt giới hạn của nguồn.", "Chỉ gửi field allowlist D-77.")
+        raise ApiError(
+            413, "payload_too_large", "The payload exceeds the source limit.", "Send only fields allowed by D-77."
+        )
     try:
         event = CaseEventV1.model_validate(payload)
     except ValidationError as exc:
-        raise ApiError(400, "bad_request", "CaseEventV1 không hợp lệ.", "Kiểm tra field và kiểu dữ liệu.") from exc
+        raise ApiError(400, "bad_request", "CaseEventV1 is invalid.", "Check the fields and data types.") from exc
     if request.headers.get("Idempotency-Key") != event.event_id:
         raise ApiError(
             400,
             "bad_idempotency_key",
-            "Idempotency-Key phải bằng event_id.",
-            "Gửi lại với đúng source event_id.",
+            "Idempotency-Key must equal event_id.",
+            "Resend the request with the correct source event_id.",
         )
     if event.schema_version not in source_config.accepted_schema_versions:
-        raise ApiError(400, "unsupported_schema", "schema_version không được hỗ trợ.", "Dùng schema version allowlist.")
+        raise ApiError(
+            400, "unsupported_schema", "schema_version is not supported.", "Use an allowlisted schema version."
+        )
     if event.event_type not in source_config.allowed_event_types:
-        raise ApiError(403, "event_not_allowed", "Loại event không được phép.", "Kiểm tra source allowlist.")
+        raise ApiError(403, "event_not_allowed", "This event type is not allowed.", "Check the source allowlist.")
     if event.case.product_code not in source_config.allowed_products:
-        raise ApiError(403, "product_not_allowed", "Sản phẩm không được phép intake.", "Kiểm tra product allowlist.")
+        raise ApiError(
+            403, "product_not_allowed", "This product is not allowed for intake.", "Check the product allowlist."
+        )
     profile = source_config.profile_for(event.case.product_code)
     result = await asyncio.to_thread(
         ingest_case_event,
@@ -146,7 +156,7 @@ async def receive_case_event(request: Request) -> JSONResponse:
         tenant_slug=source_config.tenant_slug,
         shadow=profile.auto_start == "shadow",
     )
-    # Service chỉ trả candidate sau commit; serialize receipt public trước rồi mới schedule chuông.
+
     response = JSONResponse(status_code=202, content=result.receipt)
     if result.rfi_candidate is not None:
         _notify_rfi(result.rfi_candidate.case_id, result.rfi_candidate.missing_fields)
@@ -161,7 +171,7 @@ async def get_cases(
     claims: dict = Depends(require_admin),
 ) -> list[dict[str, Any]]:
     if status is not None and status not in _CASE_STATUSES:
-        raise ApiError(400, "bad_status", "Trạng thái case không hợp lệ.", "Dùng CaseStatus trong contract.")
+        raise ApiError(400, "bad_status", "The case status is invalid.", "Use a CaseStatus defined by the contract.")
     if source is not None:
         _validate_read_source(source)
     return await asyncio.to_thread(

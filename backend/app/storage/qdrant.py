@@ -24,7 +24,7 @@ class QdrantDataStore:
         self._models = models
         self._prefix = str(definition.options.get("collection_prefix", "shb_"))
         timeout = float(definition.options.get("timeout_seconds", 3))
-        # `:memory:` cho phép smoke test adapter không cần daemon; topology bank luôn dùng URL nội bộ.
+
         self._client: Any = (
             QdrantClient(location=definition.dsn, timeout=timeout)
             if definition.dsn == ":memory:"
@@ -44,7 +44,7 @@ class QdrantDataStore:
             collection_name=collection,
             vectors_config=self._models.VectorParams(size=dimension, distance=self._models.Distance.COSINE),
         )
-        # owner_id là filter nóng của notes_search; index nằm trong vector store, không quét PG trước.
+
         self._client.create_payload_index(
             collection_name=collection,
             field_name="owner_id",

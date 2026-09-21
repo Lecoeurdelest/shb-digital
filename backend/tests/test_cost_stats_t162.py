@@ -1,9 +1,3 @@
-"""[BACKEND] Test T16-2 — /api/stats/cost + /api/stats/cost-trend + stats spark (D-70) + window D-69.
-
-Z-SCORE/breakdown assert giá trị HAND-COMPUTED trên set seed (không 'non-empty'). z-score cần DB
-cost-rows SẠCH (z DB-wide) → @requires_test_db + TRUNCATE cost-bearing rows trước seed. spark=24 số.
-"""
-
 from __future__ import annotations
 
 import json
@@ -30,7 +24,7 @@ def _raw(sql: str, args: tuple = ()) -> list:
 
 
 def _clean_cost_rows() -> None:
-    """z-score DB-wide → phải sạch cost rows trước seed. Xoá tasks có cost + messages assistant meta."""
+
     _raw("DELETE FROM tasks WHERE cost->>'cost_usd' IS NOT NULL")
     _raw("DELETE FROM messages WHERE sender='assistant' AND meta->'metrics'->>'cost_usd' IS NOT NULL")
 
@@ -46,7 +40,7 @@ def _mk_task_cost(conv: str, role: str, cost: float, model: str = "glm-4.6", int
 
 @requires_test_db
 def test_cost_total_breakdown_by_model_by_role():
-    """Seed 2 task credit + 1 legal, cost hand-known → total + breakdown 4-token + by_model + by_role đúng SỐ."""
+
     _clean_cost_rows()
     c = f"ct-{uuid4()}"
     _mk_task_cost(c, "credit", 0.10, model="glm-4.6", intok=100, outtok=50)
@@ -70,7 +64,7 @@ def test_cost_total_breakdown_by_model_by_role():
 
 @requires_test_db
 def test_cost_zscore_anomaly_hand_computed():
-    """6 conv: 5×0.001 + 1×1.0 → outlier z=2.041 (STDDEV_SAMP, hand-computed) ≥2 → 1 anomaly."""
+
     _clean_cost_rows()
     convs = []
     try:
@@ -82,7 +76,7 @@ def test_cost_zscore_anomaly_hand_computed():
         _mk_task_cost(out_cid, "credit", 1.0)
         convs.append(out_cid)
         r = _cost_sync("24h")
-        assert len(r["anomalies"]) == 1  # chỉ outlier z≥2
+        assert len(r["anomalies"]) == 1
         a = r["anomalies"][0]
         assert a["conv_id"] == out_cid
         assert abs(a["z_score"] - 2.041) < 0.02  # hand-computed (statistics.stdev)
@@ -99,25 +93,25 @@ def test_cost_zscore_empty_when_under_2_conv():
     _mk_task_cost(c, "credit", 5.0)
     try:
         r = _cost_sync("24h")
-        assert r["anomalies"] == []  # 1 conv → không tính z
+        assert r["anomalies"] == []
     finally:
         _raw("DELETE FROM tasks WHERE conv_id=%s", (c,))
 
 
 @requires_test_db
 def test_cost_empty_db_zeros_no_500():
-    """DB rỗng cost → total 0, breakdown 0, list rỗng, delta null (prev=0). KHÔNG 500."""
+
     _clean_cost_rows()
     r = _cost_sync("24h")
     assert r["total_cost_usd"] == 0
     assert all(v == 0 for v in r["breakdown"].values())
     assert r["by_model"] == [] and r["by_role"] == [] and r["anomalies"] == []
-    assert r["delta"]["total_cost_pct"] is None  # prev=0 → không chia
+    assert r["delta"]["total_cost_pct"] is None
 
 
 @requires_test_db
 def test_cost_main_from_messages_meta():
-    """MAIN turn cost đọc từ messages.meta.metrics (nhánh main) — không chỉ tasks."""
+
     _clean_cost_rows()
     import uuid
 
@@ -135,10 +129,10 @@ def test_cost_main_from_messages_meta():
     )
     try:
         r = _cost_sync("24h")
-        assert abs(r["total_cost_usd"] - 0.42) < 1e-6  # từ messages.meta
+        assert abs(r["total_cost_usd"] - 0.42) < 1e-6
         assert r["breakdown"]["input_tokens"] == 999
         br = {x["role"]: x for x in r["by_role"]}
-        assert "main" in br  # role main từ messages
+        assert "main" in br
     finally:
         _raw("DELETE FROM messages WHERE conv_id=%s", (conv,))
         _raw("DELETE FROM conversations WHERE id::text=%s", (conv,))
@@ -146,7 +140,7 @@ def test_cost_main_from_messages_meta():
 
 @requires_test_db
 def test_cost_trend_pivot_by_model():
-    """cost-trend long→pivot: 2 model trong 1 bucket → series có cả 2 tên + cost đúng."""
+
     from app.api.cost import _cost_trend_sync
 
     _clean_cost_rows()
@@ -155,8 +149,8 @@ def test_cost_trend_pivot_by_model():
     _mk_task_cost(c, "legal", 0.05, model="gpt-5.5")
     try:
         r = _cost_trend_sync("24h", "hour", "model")
-        assert r["buckets"]  # có bucket
-        # gom mọi bucket → series tổng có cả 2 model
+        assert r["buckets"]
+
         all_names = set()
         for b in r["buckets"]:
             all_names |= set(b["series"].keys())
@@ -170,11 +164,11 @@ def test_cost_trend_pivot_by_model():
 
 @requires_test_db
 def test_stats_spark_exactly_24_buckets():
-    """D-70: mỗi KPI spark LUÔN 24 số (rỗng → 24 số 0). shape FE number[24]."""
+
     from app.api.stats import _stats_sync
 
     r = _stats_sync("24h")
     assert "sparks" in r
-    for kpi, arr in r["sparks"].items():
-        assert isinstance(arr, list) and len(arr) == 24, f"{kpi} spark phải 24 số, thấy {len(arr)}"
+    for _kpi, arr in r["sparks"].items():
+        assert isinstance(arr, list) and len(arr) == 24, "Expected invariant was not satisfied at source line 173."
         assert all(isinstance(x, int) for x in arr)

@@ -56,7 +56,7 @@ def snapshot() -> dict[str, Any]:
 def save_prompt(key: str, content: str, activate: bool, actor: str) -> dict[str, Any]:
     content = content.strip()
     if not content or len(content) > 30_000:
-        raise ApiError(400, "invalid_prompt", "Nội dung prompt không hợp lệ.", "Nhập 1 đến 30.000 ký tự.", False)
+        raise ApiError(400, "invalid_prompt", "The prompt content is invalid.", "Enter 1 to 30,000 characters.", False)
     environment, checksum = _environment(), hashlib.sha256(content.encode()).hexdigest()
     conn = connect_capability("prompt_catalog")
     try:
@@ -67,8 +67,8 @@ def save_prompt(key: str, content: str, activate: bool, actor: str) -> dict[str,
                 raise ApiError(
                     404,
                     "prompt_not_found",
-                    "Không tìm thấy cấu hình agent.",
-                    "Tải lại danh sách prompt.",
+                    "The agent configuration was not found.",
+                    "Reload the prompt list.",
                     False,
                 )
             cur.execute("SELECT id,version FROM prompt_versions WHERE prompt_key=%s AND checksum=%s", (key, checksum))

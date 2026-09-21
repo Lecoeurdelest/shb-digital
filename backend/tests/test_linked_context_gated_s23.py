@@ -129,7 +129,7 @@ def test_linked_conversation_stays_empty_until_explicit_admin_chat(monkeypatch):
 
         response = TestClient(app).post(
             f"/api/conversations/{case['conv_id']}/chat",
-            json={"content": "Bắt đầu kiểm tra hồ sơ này"},
+            json={"content": "Begin reviewing this case"},
             headers=_admin_headers(),
         )
         assert response.status_code == 202
@@ -137,7 +137,7 @@ def test_linked_conversation_stays_empty_until_explicit_admin_chat(monkeypatch):
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT sender,content FROM messages WHERE conv_id=%s", (case["conv_id"],))
-                assert cur.fetchall() == [("user", "Bắt đầu kiểm tra hồ sơ này")]
+                assert cur.fetchall() == [("user", "Begin reviewing this case")]
         finally:
             conn.close()
 
@@ -196,8 +196,8 @@ def test_link_guard_precedes_threshold_receipt_verdict_and_inner_tool(monkeypatc
         result = gated._gated_txn(action, case["conv_id"], None, args, threshold_vnd=threshold)
         assert result.payload == {
             "code": "preassessment_only",
-            "message": "Phiên intake này chỉ dùng để sơ thẩm, không được thực hiện hành động giải ngân.",
-            "hint": "Bàn giao hồ sơ sang quy trình phê duyệt được ngân hàng cấu hình riêng.",
+            "message": "This intake session is for pre-assessment only and cannot perform disbursement actions.",
+            "hint": "Hand the case over to the bank's separately configured approval process.",
             "retryable": False,
         }
         assert result.emit is None

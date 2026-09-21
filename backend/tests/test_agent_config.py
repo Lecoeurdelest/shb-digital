@@ -1,5 +1,3 @@
-"""API cấu hình prompt chỉ mở cho admin và không trả thông tin provider nhạy cảm."""
-
 from fastapi.testclient import TestClient
 
 import app.api.agent_config as agent_config_api
@@ -26,9 +24,9 @@ def test_admin_can_read_and_activate_prompt(monkeypatch):
             {
                 "key": "main.system",
                 "scope": "main",
-                "description": "Điều phối chính",
+                "description": "Main orchestrator",
                 "variables": [],
-                "active": {"version": 2, "content": "Prompt mới", "activated_by": "admin", "activated_at": None},
+                "active": {"version": 2, "content": "New prompt", "activated_by": "admin", "activated_at": None},
             }
         ],
     }
@@ -44,11 +42,11 @@ def test_admin_can_read_and_activate_prompt(monkeypatch):
 
     response = client.post(
         "/api/admin/agent-config/prompts/main.system",
-        json={"content": "Prompt mới", "activate": True},
+        json={"content": "New prompt", "activate": True},
         cookies=login.cookies,
     )
 
     assert login.status_code == 200
     assert response.status_code == 200
     assert response.json() == expected
-    assert saved == {"key": "main.system", "content": "Prompt mới", "activate": True, "actor": "admin"}
+    assert saved == {"key": "main.system", "content": "New prompt", "activate": True, "actor": "admin"}

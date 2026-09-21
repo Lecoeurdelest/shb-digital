@@ -5,6 +5,7 @@ Revises: 24573677068a
 Create Date: 2026-07-18 02:59:51.802096
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,19 +13,14 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '53a8d21ecbe9'
-down_revision: Union[str, Sequence[str], None] = '24573677068a'
+revision: str = "53a8d21ecbe9"
+down_revision: Union[str, Sequence[str], None] = "24573677068a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Upgrade schema — businesses + collaterals (D-28b: spine-completeness cho credit-pack).
 
-    credit-pack (cust_search/cust_get/credit_assess) query 2 bảng này VÔ ĐIỀU KIỆN.
-    Thiếu bảng → psycopg2 UndefinedTable → db_error mọi call. Tạo + seed thật (5/7 rows) để
-    3/4 tool chạy đúng, khớp ca demo 'DN X vay 5 tỷ'. Cột KHỚP SQLite LAB seed.
-    """
     op.create_table(
         "businesses",
         sa.Column("id", sa.String(), nullable=False),

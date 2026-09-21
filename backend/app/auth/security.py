@@ -1,8 +1,3 @@
-"""Primitive bảo mật auth: hash mật khẩu (bcrypt) + JWT encode/decode (PyJWT).
-
-Thuần — không biết HTTP/DB. router/service gọi. bcrypt tự salt; JWT HS256 secret từ config.
-"""
-
 from __future__ import annotations
 
 import datetime as dt
@@ -16,12 +11,12 @@ from app.tenancy import DEFAULT_TENANT_ID
 
 
 def hash_password(plain: str) -> str:
-    """bcrypt hash (tự sinh salt). Trả str để lưu cột pass_hash."""
+
     return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """So mật khẩu với hash. False (không raise) khi hash hỏng — sai credential là 401 bình thường."""
+
     try:
         return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
     except (ValueError, TypeError):
@@ -29,7 +24,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def make_token(*, user_id: str, username: str, role: str, tenant_id: str = DEFAULT_TENANT_ID) -> str:
-    """JWT HS256: sub=user_id, kèm username+role+tenant, exp theo TTL."""
+
     now = dt.datetime.now(dt.UTC)
     payload = {
         "sub": user_id,
@@ -43,7 +38,7 @@ def make_token(*, user_id: str, username: str, role: str, tenant_id: str = DEFAU
 
 
 def decode_token(token: str) -> dict[str, Any] | None:
-    """Giải mã + verify. Trả claims dict, hoặc None nếu hỏng/hết hạn (caller → 401)."""
+
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
     except jwt.InvalidTokenError:

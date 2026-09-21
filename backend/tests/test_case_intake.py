@@ -115,7 +115,7 @@ def test_happy_event_is_atomic_and_does_not_start_agent_or_approval(intake_env):
                 cur.execute("SELECT count(*) FROM messages WHERE conv_id=%s", (body["conversation_id"],))
                 assert cur.fetchone()[0] == 0
                 cur.execute("SELECT title FROM conversations WHERE id=%s", (body["conversation_id"],))
-                assert cur.fetchone()[0] == "Phiên xử lý sơ thẩm"
+                assert cur.fetchone()[0] == "Pre-assessment session"
         finally:
             conn.close()
     finally:
@@ -285,7 +285,7 @@ def test_cancelled_case_cannot_be_reopened_or_create_conversation(intake_env):
         later = send("case.preassessment_requested", 2)
         assert later.status_code == 202
         assert later.json()["case_status"] == "cancelled"
-        # Hồ sơ đã hủy phải dừng hẳn; không được âm thầm tạo workflow mới chỉ vì event tới muộn.
+
         assert later.json()["conversation_id"] is None
 
         conn = psycopg2.connect(DATABASE_URL)
@@ -373,8 +373,8 @@ def test_admin_case_read_model_exposes_source_configuration_state(monkeypatch, t
     assert unknown.status_code == 404
     assert unknown.json() == {
         "code": "source_not_configured",
-        "message": "Nguồn hồ sơ chưa được cấu hình.",
-        "hint": "Kiểm tra tên nguồn tích hợp.",
+        "message": "The case source is not configured.",
+        "hint": "Check the integration source name.",
         "retryable": False,
     }
 
@@ -383,8 +383,8 @@ def test_admin_case_read_model_exposes_source_configuration_state(monkeypatch, t
     assert disabled.status_code == 403
     assert disabled.json() == {
         "code": "source_disabled",
-        "message": "Nguồn hồ sơ đang bị tắt.",
-        "hint": "Liên hệ vận hành tích hợp để kiểm tra trạng thái nguồn.",
+        "message": "The case source is disabled.",
+        "hint": "Contact integration operations to check the source status.",
         "retryable": False,
     }
 

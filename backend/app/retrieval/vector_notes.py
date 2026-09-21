@@ -42,12 +42,11 @@ def _cache_set(key: str, payload: dict[str, Any]) -> None:
             ttl_seconds=_CACHE_TTL_SECONDS,
         )
     except (StoreConfigurationError, OSError, ValueError):
-        # Cache không được biến truy hồi thành single point of failure.
         return
 
 
 def search_notes_from_vector_index(args: dict[str, Any]) -> dict[str, Any] | None:
-    """Trả None khi scale store chưa sẵn sàng để caller giữ nguyên LAB/PG fallback."""
+
     query = args.get("query")
     owner_id = args.get("owner_id")
     if not isinstance(query, str) or not query.strip() or (owner_id is not None and not isinstance(owner_id, str)):
@@ -64,7 +63,6 @@ def search_notes_from_vector_index(args: dict[str, Any]) -> dict[str, Any] | Non
         return cached
 
     try:
-        # Không tải model embedding nếu scale profile chưa cấu hình Qdrant.
         store = vector_capability()
         from pyvi.ViTokenizer import tokenize
 
@@ -79,7 +77,6 @@ def search_notes_from_vector_index(args: dict[str, Any]) -> dict[str, Any] | Non
         log.warning("vector notes retrieval unavailable exception=%s", type(exc).__name__)
         return None
 
-    # Index chưa backfill đủ cũng quay về PG để không trả "không có" sai cho cán bộ.
     if not matches:
         return None
     result = {
@@ -97,7 +94,7 @@ def search_notes_from_vector_index(args: dict[str, Any]) -> dict[str, Any] | Non
             }
             for match in matches
         ],
-        "hint": "score = cosine; mọi trích dẫn ghi kèm note_id làm nguồn",
+        "hint": "score = cosine; include note_id as the source for every citation",
     }
     _cache_set(key, result)
     return result

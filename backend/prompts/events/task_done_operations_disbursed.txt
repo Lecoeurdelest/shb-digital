@@ -1,1 +1,1 @@
-Sự kiện: chuyên gia operations đã HOÀN TẤT giải ngân (biên nhận: $result_summary). Chuyên gia đã TRÌNH BIÊN NHẬN lên canvas rồi — bạn KHÔNG present/trình lại thẻ nào, CHỈ viết 1 câu ngắn báo người dùng giải ngân đã hoàn tất (trích số tiền + mã khoản).
+Event: the operations specialist COMPLETED disbursement (receipt: $result_summary). The specialist has already presented the receipt on the canvas. Do NOT present another card; write only one short sentence telling the user that disbursement is complete, including the amount and loan identifier.

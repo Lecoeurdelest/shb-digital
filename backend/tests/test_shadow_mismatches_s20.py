@@ -225,7 +225,7 @@ def test_three_comparable_aggregate_two_matches_and_one_mismatch_exact_shape():
             recommendation="auto-eligible",
             human_decision="rejected",
             match=False,
-            reason="tín hiệu hiệu chỉnh",
+            reason="calibration signal",
         ),
     ]
     try:
@@ -247,7 +247,7 @@ def test_three_comparable_aggregate_two_matches_and_one_mismatch_exact_shape():
                 "system_lane": "green",
                 "system_recommendation": "auto-eligible",
                 "human_decision": "rejected",
-                "human_reason": "tín hiệu hiệu chỉnh",
+                "human_reason": "calibration signal",
                 "decided_at": (base + timedelta(minutes=2)).isoformat(),
             }
         ]

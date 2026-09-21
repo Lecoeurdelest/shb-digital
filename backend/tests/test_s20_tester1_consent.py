@@ -21,12 +21,12 @@ from .conftest import requires_db, requires_test_db
 
 client = TestClient(app)
 _GOOD_VALUES = {
-    "full_name": "Khach T20 Tester 1",
+    "full_name": "Test Customer T20-1",
     "id_number": "T20-TESTER-1",
-    "address": "Dia chi test",
-    "occupation": "Kiem thu",
+    "address": "Test address",
+    "occupation": "Tester",
     "monthly_income": "25000000",
-    "loan_purpose": "kiem thu atomicity",
+    "loan_purpose": "atomicity testing",
 }
 
 

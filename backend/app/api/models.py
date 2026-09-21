@@ -1,9 +1,3 @@
-"""Models/providers router (D-45b b) — cho FE dropdown chọn provider/model.
-
-GET /api/models — list provider (public_view: name/kind/models/default/has_key) KHÔNG kèm key.
-Luật bí mật (port battle): endpoint này KHÔNG BAO GIỜ trả api_key — chỉ has_key true/false.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -18,15 +12,6 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 
 @router.get("")
 async def list_models(claims: dict = Depends(require_user)) -> dict[str, Any]:
-    """List providers + models for the FE dropdown (keys never exposed — has_key bool only).
 
-    Provider + model cho FE dropdown. reload() bắt .env mới (điền key runtime → has_key đổi).
-
-    Trả {providers: [...], default: <name>}. KHÔNG key (public_view). default = EFFECTIVE default
-    (T15-4 fix: dùng effective_default, KHÔNG default_name — default_name có thể trỏ provider ĐÃ BỊ
-    DISABLE (vd claude-cli), FE key theo top-level default → kẹt switch. effective_default LUÔN nằm
-    trong providers list khả dụng — 1 nguồn sự thật với per-provider `default` flag của public_view).
-    Mỗi provider: {name, kind, base_url, models[], default, has_key, note}.
-    """
     providers.reload()
     return {"providers": providers.public_view(), "default": providers.effective_default()}

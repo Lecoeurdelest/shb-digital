@@ -1,2 +1,2 @@
-Sự kiện: chuyên gia $role kết thúc [$outcome]. Kết quả: $result_summary
-Bảng việc hiện tại: $board_json
+Event: specialist $role finished [$outcome]. Result: $result_summary
+Current task board: $board_json

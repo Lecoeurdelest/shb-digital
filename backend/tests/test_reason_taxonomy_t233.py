@@ -23,7 +23,10 @@ def _write(path: Path, body: str) -> Path:
 
 
 def _valid(*, version: str = "1", code_id: str = "HS_THIEU_DINH_DANH_NOI_BO", group: str = "HS_THIEU") -> str:
-    return f"version: {version}\ncodes:\n  - id: {code_id}\n    group: {group}\n    description: Can bo sung can cu.\n"
+    return (
+        f"version: {version}\ncodes:\n  - id: {code_id}\n    group: {group}\n"
+        "    description: Additional evidence required.\n"
+    )
 
 
 def test_repository_taxonomy_has_required_groups_code_and_checksum():
@@ -43,18 +46,18 @@ def test_checksum_is_parsed_sorted_canonical_json_not_yaml_bytes(tmp_path: Path)
 codes:
   - id: HS_THIEU_DINH_DANH_NOI_BO
     group: HS_THIEU
-    description: Can bo sung can cu.
+    description: Additional evidence required.
   - id: CIC_CAN_RA_SOAT
     group: CIC
-    description: Can ra soat.
+    description: Review required.
 """,
     )
     second = _write(
         tmp_path / "second.yaml",
         """# comment and order do not affect proof
 codes:
-- {description: Can ra soat., group: CIC, id: CIC_CAN_RA_SOAT}
-- description: Can bo sung can cu.
+- {description: Review required., group: CIC, id: CIC_CAN_RA_SOAT}
+- description: Additional evidence required.
   id: HS_THIEU_DINH_DANH_NOI_BO
   group: HS_THIEU
 version: 1

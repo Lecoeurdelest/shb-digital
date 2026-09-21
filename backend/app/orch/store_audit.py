@@ -1,12 +1,3 @@
-"""Audit tool_calls (T4-1) — APPEND-ONLY persist + query. psycopg2 sync qua to_thread (D-22).
-
-SPEC §10: tool_calls bất biến (KHÔNG update/delete — audit). Ghi lúc sub/main gọi tool → nền
-trace/Control Tower/F1 + cost meter. §12 "audit lỗi KHÔNG fail request chính" → caller bọc
-fire-and-forget (record_tool_call KHÔNG raise ra ngoài; lỗi DB → log, best-effort).
-
-Tách khỏi store.py (D-34: file ≤400) — audit là concern riêng (append-only, không CRUD vòng đời).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -22,20 +13,20 @@ from app.storage import connect_core
 
 log = logging.getLogger("orch.audit")
 
-# filter hợp lệ cho GET /api/audit (whitelist — chống SQL injection qua tên cột động).
+
 _AUDIT_FILTERS = {"task_id", "conv_id", "tool", "actor"}
 _DEFAULT_DATABASE_URL = DATABASE_URL
 
 
 def _connect():
-    # Test cũ monkeypatch module DSN để ép error-path; runtime bình thường dùng pool D-76.
+
     if DATABASE_URL != _DEFAULT_DATABASE_URL:
         return psycopg2.connect(DATABASE_URL)
     return connect_core()
 
 
 def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
-    """Serialize tool_call row cho API/SSE (resource trần). id/task_id str; ts iso."""
+
     return {
         "id": str(row["id"]),
         "task_id": str(row["task_id"]) if row.get("task_id") else None,
@@ -50,15 +41,13 @@ def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def _safe_json(v: Any) -> str | None:
-    """Serialize jsonb TỪNG field độc lập — non-serializable (vd ToolResultBlock lạ) → str() fallback,
-    KHÔNG để 1 field hỏng làm mất CẢ row (audit append-only: thà giữ input + output-dạng-str còn hơn
-    mất record). None → None."""
+
     if v is None:
         return None
     try:
         return json.dumps(v, ensure_ascii=False)
     except (TypeError, ValueError):
-        return json.dumps(str(v), ensure_ascii=False)  # fallback: chuỗi hoá, vẫn là JSON hợp lệ
+        return json.dumps(str(v), ensure_ascii=False)
 
 
 def _record_sync(
@@ -70,10 +59,7 @@ def _record_sync(
     output: Any,
     cost: Any,
 ) -> dict[str, Any] | None:
-    """INSERT 1 tool_call (append-only). Trả row (cho SSE emit). Lỗi → None + log (best-effort §12).
 
-    Serialize từng field qua _safe_json (str fallback) TRƯỚC INSERT → 1 field non-serializable
-    KHÔNG làm mất cả row (audit không được mất record vì output tool lạ)."""
     in_j, out_j, cost_j = _safe_json(tool_input), _safe_json(output), _safe_json(cost)
     try:
         conn = _connect()
@@ -90,13 +76,13 @@ def _record_sync(
             return _row_to_dict(dict(row))
         finally:
             conn.close()
-    except Exception as e:  # noqa: BLE001 — audit best-effort: lỗi KHÔNG fail turn (§12)
-        log.warning("record tool_call lỗi (bỏ qua — audit best-effort): %s", e)
+    except Exception as e:  # noqa: BLE001
+        log.warning("failed to record tool_call (ignored; audit is best-effort): %s", e)
         return None
 
 
 def _query_sync(filters: dict[str, str], limit: int, tenant_id: str | None = None) -> list[dict[str, Any]]:
-    """Query tool_calls theo filter (whitelist cột). Mới nhất trước. limit cap."""
+
     where = []
     params: list[Any] = []
     for k, v in filters.items():
@@ -121,7 +107,7 @@ def _query_sync(filters: dict[str, str], limit: int, tenant_id: str | None = Non
         conn.close()
 
 
-# ── async wrappers (D-22: sync qua to_thread) ───────────────────────────────
+# Async wrappers (D-22: run synchronous work through to_thread).
 async def record_tool_call(
     task_id: str | None,
     conv_id: str | None,
@@ -131,12 +117,12 @@ async def record_tool_call(
     output: Any = None,
     cost: Any = None,
 ) -> dict[str, Any] | None:
-    """Persist 1 tool_call (append-only). Trả row dict (cho SSE) hoặc None nếu lỗi (best-effort §12)."""
+
     return await asyncio.to_thread(_record_sync, task_id, conv_id, actor, tool, tool_input, output, cost)
 
 
 async def query_tool_calls(
     filters: dict[str, str], limit: int = 200, tenant_id: str | None = None
 ) -> list[dict[str, Any]]:
-    """GET /api/audit — list tool_calls theo filter (whitelist cột)."""
+
     return await asyncio.to_thread(_query_sync, filters, limit, tenant_id)

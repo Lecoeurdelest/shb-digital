@@ -1,10 +1,3 @@
-"""Tool điều phối (server `orch`, CHỈ main mount): orch_dispatch + orch_status. spec §5.
-
-conv_id inject qua closure (build_orch_server per-conversation) — model KHÔNG thấy conv_id/task_id
-(spec §15 ID-cho-code). orch_dispatch idempotent (dispatch.py). orch_status honest: đọc registry
-sống + DB, kèm asOf.
-"""
-
 from __future__ import annotations
 
 import json
@@ -23,19 +16,18 @@ def _text(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_orch_server(conv_id: str) -> Any:
-    """MCP server `orch` bound tới 1 conversation (closure inject conv_id — model không thấy)."""
 
     @tool(
         name="orch_dispatch",
-        description="Giao việc cho 1 chuyên gia số theo role. Trả {role, status} NGAY, chuyên gia "
-        "chạy nền — KHÔNG chờ; giao tiếp hoặc kết thúc lượt. Trùng role đang chạy → báo đang chạy, "
-        "không tạo thứ hai. KHÔNG dùng để hỏi tình hình đội — đó là orch_status.",
+        description="Assign work to one digital specialist by role. Return {role, status} immediately while the "
+        "specialist runs in the background; do not wait. Assign other work or end the turn. If that role is already "
+        "running, report its status without creating another task. Use orch_status, not this tool, for team status.",
         input_schema={
             "type": "object",
             "properties": {
                 "role": {"type": "string", "enum": sorted(sub_runner.discovered_roles())},
-                "title": {"type": "string", "description": "tên việc, hiện trên bảng việc"},
-                "input": {"type": "string", "description": "ngữ cảnh + yêu cầu cho chuyên gia"},
+                "title": {"type": "string", "description": "task name shown on the task board"},
+                "input": {"type": "string", "description": "context and request for the specialist"},
             },
             "required": ["role", "title", "input"],
         },
@@ -46,17 +38,17 @@ def build_orch_server(conv_id: str) -> Any:
 
     @tool(
         name="orch_status",
-        description="Bảng việc + trạng thái SỐNG các chuyên gia trong phòng. Dùng khi muốn biết đội "
-        "đang làm gì (vd người dùng chen lời hỏi tình hình).",
+        description="Task board and LIVE status of specialists in the room. Use it to see what the team is doing, "
+        "for example when the user interrupts to request a status update.",
         input_schema={"type": "object", "properties": {}},
     )
     async def orch_status(args: dict[str, Any]) -> dict[str, Any]:
         board = await store.task_board(conv_id)
-        # honest: đối chiếu registry sống — role nào registry còn giữ mới thật sự 'running'
+
         live_roles = {role for (c, role) in _running_keys() if c == conv_id}
         for item in board:
             if item["status"] == "running" and item["role"] not in live_roles:
-                item["status"] = "failed"  # cờ DB cũ, registry không có → không báo láo
+                item["status"] = "failed"
         return _text(
             {
                 "tasks": board,
@@ -69,8 +61,8 @@ def build_orch_server(conv_id: str) -> Any:
 
 
 def _running_keys() -> list[tuple[str, str]]:
-    # truy cập registry sống (đọc-only) để orch_status honest
-    return list(registry._running_tasks.keys())  # noqa: SLF001 — cùng package orch
+
+    return list(registry._running_tasks.keys())  # noqa: SLF001
 
 
 def _now() -> str:

@@ -1,5 +1,3 @@
-"""Unit test schema_to_input — full JSON Schema, không shorthand (lab-joint §2)."""
-
 from __future__ import annotations
 
 from roles.credit.functions import SCHEMAS
@@ -14,7 +12,7 @@ def test_required_only_required_in_list():
     }
     out = schema_to_input(params)
     assert out["required"] == ["owner_id"]
-    # optional KHÔNG bị ép required (bug shorthand)
+
     assert "loan_amount_vnd" not in out["required"]
 
 
@@ -50,8 +48,7 @@ def test_default_in_schema_not_only_desc():
 
 
 def test_credit_assess_schema_valid():
-    # credit_assess: 1 required (owner_id) + 5 optional (HOTFIX F2: +income_override_vnd — vòng lặp
-    # hoà-giải lương-lệch, re-sync LAB D-58) — chứng minh không dính shorthand
+
     out = schema_to_input(SCHEMAS["credit_assess"]["params"])
     assert out["required"] == ["owner_id"]
     assert set(out["properties"]) == {

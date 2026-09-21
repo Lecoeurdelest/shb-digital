@@ -30,7 +30,7 @@ def test_repository_main_prompt_and_manifest_are_complete():
         "compare.single.system",
     } <= definitions.keys()
     assert f'`"{CREDIT_MEMO_TITLE}"`' in MAIN_SKILL
-    assert "ĐÃ ĐƯỢC DUYỆT" in catalog.render(
+    assert "APPROVED" in catalog.render(
         "task.approved_execution",
         {"action": "disburse", "payload_summary": "loan_id=L001"},
     )
@@ -41,7 +41,7 @@ def test_renderer_rejects_missing_or_undeclared_variables():
     with pytest.raises(PromptRenderError, match="missing"):
         render_template("Hello $name", ("name",), {})
     with pytest.raises(PromptRenderError, match="undeclared"):
-        render_template("Hello $other", ("name",), {"name": "Lan"})
+        render_template("Hello $other", ("name",), {"name": "Alice"})
 
 
 def test_repository_sync_takes_transaction_lock_before_writing(monkeypatch):
@@ -92,7 +92,7 @@ def test_repository_sync_is_idempotent_and_active_prompt_renders():
     assert first["definitions"] >= 17
     assert second["versions_created"] == 0
     service = PromptService(ttl_seconds=0)
-    assert service.render("event.user_message", {"content": "xin chào"}) == "Tin nhắn người dùng: xin chào\n"
+    assert service.render("event.user_message", {"content": "hello"}) == "User message: hello\n"
     ready = service.render(
         "event.credit_memo.ready",
         {
@@ -108,7 +108,7 @@ def test_repository_sync_is_idempotent_and_active_prompt_renders():
 @requires_db
 def test_database_adapter_can_activate_a_new_prompt_without_code_change():
     key = f"test.runtime.{uuid4().hex}"
-    content = "Xin chào $name"
+    content = "Hello $name"
     checksum = hashlib.sha256(content.encode()).hexdigest()
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
@@ -128,7 +128,7 @@ def test_database_adapter_can_activate_a_new_prompt_without_code_change():
                 (key, version_id),
             )
         service = PromptService(database=DatabasePromptCatalog("test"), ttl_seconds=0)
-        assert service.render(key, {"name": "Minh"}) == "Xin chào Minh"
+        assert service.render(key, {"name": "Minh"}) == "Hello Minh"
     finally:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM prompt_bindings WHERE prompt_key=%s", (key,))

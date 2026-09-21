@@ -1,5 +1,3 @@
-"""Readiness tách khỏi liveness: đủ dependency, không lộ URL/key/tên role."""
-
 from __future__ import annotations
 
 import pytest
@@ -46,8 +44,8 @@ def test_ready_failure_is_503_four_field_envelope(monkeypatch):
     assert response.status_code == 503
     assert response.json() == {
         "code": "not_ready",
-        "message": "Dịch vụ chưa sẵn sàng.",
-        "hint": "Kiểm tra DB, migration, provider và role mount trong log máy chủ.",
+        "message": "The service is not ready.",
+        "hint": "Check the database, migrations, providers, and role mounts in the server logs.",
         "retryable": True,
     }
 

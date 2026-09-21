@@ -31,7 +31,6 @@ def upgrade() -> None:
         sa.Column("granted_at", postgresql.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("actor", sa.Text(), nullable=False),
         sa.Column("source", sa.Text(), nullable=False),
-        # Text proof link có chủ đích: card có thể bị xóa theo retention, ledger consent không cascade.
         sa.Column("source_ref", sa.Text(), nullable=False),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="RESTRICT"),
         sa.UniqueConstraint(

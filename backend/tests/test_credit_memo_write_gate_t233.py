@@ -15,7 +15,7 @@ from app.reason_taxonomy import get_reason_taxonomy
 
 def _memo() -> dict:
     items = [
-        {"section": section, "content": f"Nội dung {index}", "source": "credit_assess"}
+        {"section": section, "content": f"Content {index}", "source": "credit_assess"}
         for index, section in enumerate(CREDIT_MEMO_SECTIONS, 1)
     ]
     items[4]["reason_codes"] = ["THU_NHAP_KHONG_DU_KHA_NANG_TRA_NO"]
@@ -56,7 +56,7 @@ async def test_invalid_memo_is_four_field_and_zero_db_sse(monkeypatch: pytest.Mo
     elif mutation == "unknown":
         args["items"][4]["reason_codes"] = ["MODEL_SANG_TAC"]
     elif mutation == "section":
-        args["items"][2]["section"] = "Mục tự chế"
+        args["items"][2]["section"] = "Invented section"
     elif mutation == "order":
         args["items"][0], args["items"][1] = args["items"][1], args["items"][0]
     else:
@@ -84,7 +84,7 @@ async def test_generic_document_bypasses_memo_gate(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(store, "insert_card", insert)
     monkeypatch.setattr("app.sse.emit.emit", lambda *_args, **_kwargs: None)
-    args = {"type": "document", "title": "Tài liệu thông thường", "items": []}
+    args = {"type": "document", "title": "Regular document", "items": []}
 
     assert _payload(await present_tool.handler(args))["rendered"] is True
     assert captured == [args]
@@ -106,10 +106,10 @@ async def test_malformed_counter_offer_never_escapes_four_field_gate(monkeypatch
     args = _memo()
     args["items"][4]["counter_offer"] = {
         "product_id": "P001",
-        "product_name": "Vay tiêu dùng chuẩn",
+        "product_name": "Standard consumer loan",
         "proposed_amount_vnd": 500_000_000,
         "loan_type": "consumer",
-        "rationale": "Giảm số tiền sau khi thẩm định lại.",
+        "rationale": "Reduce the amount after reassessment.",
         "terms": [{"field": "rate_annual", "value": 0.15, "source": "product_suggest"}],
         "proof": {
             "product_tool": "product_suggest",

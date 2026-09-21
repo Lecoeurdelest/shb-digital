@@ -1,5 +1,3 @@
-"""S18 T18-1 — ngưỡng tầng-1 cấu hình, shadow=0 và fail-closed không poison money tx."""
-
 from __future__ import annotations
 
 import json
@@ -21,7 +19,7 @@ _MISSING = object()
 
 @pytest.fixture
 def threshold_setting():
-    """Đổi key có hoàn tác; không để config test rò sang demo/test kế."""
+
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
     with conn.cursor() as cur:

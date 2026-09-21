@@ -1,9 +1,3 @@
-"""[BACKEND] Test T3-2: decide atomic + list_pending + API 400/404/409 + đánh thức main + prompt.
-
-decide atomic (pending→approved, 2 lần→None). API qua TestClient (flag OFF → require_admin cần
-cookie admin; dùng login). Đánh thức reuse handle_room_event (mock turn_runner).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -55,16 +49,13 @@ def _set_loan(lid: str, st: str) -> None:
         conn.close()
 
 
-# ── prompt approval_decided (không cần DB) ──────────────────────────────────
-
-
 def test_prompt_approved_says_action_not_ticket_id():
     p = _build_event_prompt(
         "approval_decided",
         {"action": "disburse", "decision": "approved", "payload": {"loan_id": "L001", "amount": 5000000000}},
     )
-    assert "DUYỆT" in p and "giao lại" in p and "operations" in p
-    assert "approval_id" not in p  # §15 — không phiếu-id trên mặt model
+    assert "approved" in p and "Dispatch" in p and "operations" in p
+    assert "approval_id" not in p
 
 
 def test_prompt_rejected_says_no_execute():
@@ -72,35 +63,35 @@ def test_prompt_rejected_says_no_execute():
         "approval_decided",
         {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}},
     )
-    assert "TỪ CHỐI" in p and "KHÔNG thực thi" in p
+    assert "rejected" in p and "DO NOT execute" in p
 
 
 def test_prompt_rejected_with_reason_verbatim():
-    """DF-B-07: reason có → chèn NGUYÊN VĂN + lệnh truyền đạt cho khách (không diễn dịch)."""
+
     p = _build_event_prompt(
         "approval_decided",
         {
             "action": "disburse",
             "decision": "rejected",
             "payload": {"loan_id": "L001"},
-            "reason": "DSCR dưới ngưỡng 1.2, cần bổ sung tài sản đảm bảo",
+            "reason": "DSCR is below the 1.2 threshold; additional collateral is required",
         },
     )
-    assert "TỪ CHỐI" in p and "KHÔNG thực thi" in p
-    assert "DSCR dưới ngưỡng 1.2, cần bổ sung tài sản đảm bảo" in p  # reason nguyên văn trong prompt
-    assert "NGUYÊN VĂN" in p  # lệnh MAIN không diễn dịch lại
+    assert "rejected" in p and "DO NOT execute" in p
+    assert "DSCR is below the 1.2 threshold; additional collateral is required" in p
+    assert "verbatim" in p
 
 
 def test_prompt_rejected_no_reason_no_none():
-    """reason None/rỗng → prompt KHÔNG in 'None', dùng câu 'không ghi lý do cụ thể'."""
+
     for data in (
-        {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}},  # thiếu key
+        {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}},
         {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}, "reason": None},
         {"action": "disburse", "decision": "rejected", "payload": {"loan_id": "L001"}, "reason": "  "},  # whitespace
     ):
         p = _build_event_prompt("approval_decided", data)
-        assert "TỪ CHỐI" in p and "None" not in p
-        assert "không ghi lý do" in p
+        assert "rejected" in p and "None" not in p
+        assert "did not provide a specific reason" in p
 
 
 def test_valid_decision():
@@ -109,19 +100,16 @@ def test_valid_decision():
     assert not store_approvals.valid_decision("maybe")
 
 
-# ── decide atomic (cần DB) ──────────────────────────────────────────────────
-
-
 @requires_db
 @pytest.mark.asyncio
 async def test_decide_atomic_pending_to_approved():
     conv = f"appr-decide-{uuid4()}"
     aid = await _make_pending(conv)
-    decided = await store_approvals.decide(aid, "approved", "admin", "duyệt")
+    decided = await store_approvals.decide(aid, "approved", "admin", "approved")
     assert decided is not None
     assert decided["status"] == "approved"
     assert decided["decided_by"] == "admin"
-    assert decided["reason"] == "duyệt"
+    assert decided["reason"] == "approved"
     assert decided["conv_id"] == conv
 
 
@@ -133,7 +121,7 @@ async def test_decide_twice_second_none_no_double_wake():
     d1 = await store_approvals.decide(aid, "approved", "admin", None)
     d2 = await store_approvals.decide(aid, "approved", "admin2", None)
     assert d1 is not None
-    assert d2 is None  # atomic — phiếu không còn pending → 409, không đánh thức lần 2
+    assert d2 is None
 
 
 @requires_db
@@ -141,7 +129,7 @@ async def test_decide_twice_second_none_no_double_wake():
 async def test_decide_rejected():
     conv = f"appr-rej-{uuid4()}"
     aid = await _make_pending(conv)
-    decided = await store_approvals.decide(aid, "rejected", "admin", "không đủ điều kiện")
+    decided = await store_approvals.decide(aid, "rejected", "admin", "ineligible")
     assert decided["status"] == "rejected"
 
 
@@ -163,9 +151,6 @@ async def test_approval_exists():
     aid = await _make_pending(conv)
     assert await store_approvals.approval_exists(aid)
     assert not await store_approvals.approval_exists("00000000-0000-0000-0000-000000000000")
-
-
-# ── đánh thức main reuse handle_room_event ──────────────────────────────────
 
 
 @pytest.mark.asyncio
@@ -200,7 +185,7 @@ async def test_emit_and_wake_reuses_handle_room_event():
 
 @pytest.mark.asyncio
 async def test_emit_and_wake_carries_reason_in_payload():
-    """DF-B-07: reason của quyết định phải ĐI KÈM wake payload (đứt mạch trước đây)."""
+
     registry.reset_room("wake-reason")
     captured = {}
 
@@ -218,19 +203,16 @@ async def test_emit_and_wake_carries_reason_in_payload():
                 "action": "disburse",
                 "status": "rejected",
                 "decided_by": "admin",
-                "reason": "Vượt hạn mức chi nhánh",
+                "reason": "Branch authority limit exceeded",
                 "payload": {"loan_id": "L001"},
             }
         )
         await asyncio.sleep(0.05)
-        assert captured.get("reason") == "Vượt hạn mức chi nhánh"  # reason nối vào payload wake
+        assert captured.get("reason") == "Branch authority limit exceeded"
         assert captured.get("decision") == "rejected"
     finally:
         room.set_turn_runner(None)
         registry.reset_room("wake-reason")
-
-
-# ── API 400/404/409 (cần DB + admin cookie) ─────────────────────────────────
 
 
 @requires_db
@@ -251,11 +233,10 @@ def test_api_decide_not_found_404():
 
 @requires_db
 def test_api_decide_malformed_uuid_404_not_500():
-    """approval_id KHÔNG phải UUID (input rác) → 404 (KHÔNG 500). rà 3-API T4-3: _decide_sync raise
-    InvalidTextRepresentation lọt 500 → giờ catch → None → _exists (cũng catch) → 404."""
+
     cookies = _admin_cookie()
     r = client.post("/api/approvals/nonexistent-xyz/decide", json={"decision": "approved"}, cookies=cookies)
-    assert r.status_code == 404, f"malformed approval_id PHẢI 404 không 500 — thấy {r.status_code}"
+    assert r.status_code == 404, f"malformed approval_id must return 404, not 500; got {r.status_code}"
     assert r.json()["code"] == "not_found"
 
 
@@ -264,7 +245,7 @@ def test_api_decide_malformed_uuid_404_not_500():
 async def test_api_decide_already_decided_409():
     conv = f"appr-409-{uuid4()}"
     aid = await _make_pending(conv)
-    await store_approvals.decide(aid, "approved", "admin", None)  # quyết trước
+    await store_approvals.decide(aid, "approved", "admin", None)
     cookies = _admin_cookie()
     r = client.post(f"/api/approvals/{aid}/decide", json={"decision": "approved"}, cookies=cookies)
     assert r.status_code == 409
@@ -279,8 +260,7 @@ def test_api_list_bad_status_400():
 
 
 def test_api_approvals_requires_auth_no_cookie_401():
-    # no cookie (flag OFF) → 401. Client RIÊNG (TestClient cookie persist giữa test — dùng client
-    # sạch để no-cookie thật, không dính cookie từ test khác).
+
     fresh = TestClient(app)
     r = fresh.get("/api/approvals")
     assert r.status_code == 401
@@ -289,26 +269,24 @@ def test_api_approvals_requires_auth_no_cookie_401():
 @requires_db
 @requires_db
 def test_api_approvals_customer_forbidden_D56():
-    """D-56 (ĐẢO D-54): duyệt = việc NGÂN HÀNG (admin). Customer/user gọi → 403 forbidden 4-field.
-    App = cửa khách: khách chat, agent auto-duyệt nhỏ, lớn bắn NGÂN HÀNG duyệt."""
+
     r = client.post("/api/auth/login", json={"username": "c001", "password": "c001"})
     if r.status_code != 200:
-        pytest.skip("seed customer account chưa có")
+        pytest.skip("seed customer account is unavailable")
     r2 = client.get("/api/approvals?status=pending", cookies=r.cookies)
-    assert r2.status_code == 403  # customer KHÔNG duyệt được (D-56 — việc ngân hàng)
+    assert r2.status_code == 403
     assert r2.json()["code"] == "forbidden"
 
 
 @pytest.mark.asyncio
 async def test_emit_and_wake_guarded_logs_not_swallow(caplog):
-    """Fix nhất quán _report: handle_room_event raise trong resume → log lỗi (KHÔNG nuốt im,
-    KHÔNG treo API). stub turn_runner raise → _emit_and_wake không nổ ra ngoài, log có dòng lỗi."""
+
     import logging
 
     registry.reset_room("wake-err")
 
     async def boom_runner(conv_id, event, data):
-        raise RuntimeError("resume nổ demo")
+        raise RuntimeError("demo resume failure")
 
     room.set_turn_runner(boom_runner)
     try:
@@ -326,9 +304,9 @@ async def test_emit_and_wake_guarded_logs_not_swallow(caplog):
                     "payload": {"loan_id": "L001"},
                 }
             )
-            await asyncio.sleep(0.05)  # cho _wake_guarded chạy + log
-        assert any("resume approval_decided lỗi" in r.message for r in caplog.records), (
-            "resume fail phải log (không nuốt im)"
+            await asyncio.sleep(0.05)
+        assert any("failed to resume after approval decision" in r.message for r in caplog.records), (
+            "resume failures must be logged"
         )
     finally:
         room.set_turn_runner(None)

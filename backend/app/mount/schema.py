@@ -1,6 +1,3 @@
-"""schema_to_input — SCHEMAS params -> full JSON Schema (lab-joint §2, BẢN DUY NHẤT).
-KHÔNG dùng shorthand {tên: kiểu} của SDK: dạng đó ép MỌI param thành required."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -16,7 +13,7 @@ _JSON = {
 
 
 def schema_to_input(params: dict[str, Any]) -> dict[str, Any]:
-    """FULL JSON Schema — required/enum/default nằm TRONG schema."""
+
     props: dict[str, Any] = {}
     required: list[str] = []
     for pname, meta in params.items():
@@ -44,7 +41,7 @@ def schema_to_input(params: dict[str, Any]) -> dict[str, Any]:
         if meta.get("default") is not None:
             desc = f"{desc} (default {meta['default']})".strip()
         if not meta.get("required"):
-            desc = f"{desc} — optional, bỏ trống được".strip(" —")
+            desc = f"{desc} — optional; may be left blank".strip(" —")
         if desc:
             p["description"] = desc
         props[pname] = p

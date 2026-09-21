@@ -123,13 +123,8 @@ def _create_party_references() -> None:
     op.add_column("party_relations", sa.Column("from_party_id", sa.Text(), nullable=True))
     op.add_column("party_relations", sa.Column("to_party_id", sa.Text(), nullable=True))
     for table in _PARTY_TABLES:
-        op.execute(
-            f"UPDATE {table} child SET party_id=p.owner_id FROM parties p "
-            "WHERE child.owner_id=p.owner_id"
-        )
-    op.execute(
-        "UPDATE party_relations r SET from_party_id=p.owner_id FROM parties p WHERE r.from_id=p.owner_id"
-    )
+        op.execute(f"UPDATE {table} child SET party_id=p.owner_id FROM parties p WHERE child.owner_id=p.owner_id")
+    op.execute("UPDATE party_relations r SET from_party_id=p.owner_id FROM parties p WHERE r.from_id=p.owner_id")
     op.execute("UPDATE party_relations r SET to_party_id=p.owner_id FROM parties p WHERE r.to_id=p.owner_id")
     op.execute(
         """
@@ -208,10 +203,7 @@ def _create_conversation_references() -> None:
     )
     for table in _CONVERSATION_TABLES:
         op.add_column(table, sa.Column("conversation_id", postgresql.UUID(as_uuid=True), nullable=True))
-        op.execute(
-            f"UPDATE {table} child SET conversation_id=c.id FROM conversations c "
-            "WHERE child.conv_id=c.id::text"
-        )
+        op.execute(f"UPDATE {table} child SET conversation_id=c.id FROM conversations c WHERE child.conv_id=c.id::text")
     op.execute(
         """
         CREATE FUNCTION shb_resolve_conversation_reference() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -263,7 +255,10 @@ def _create_issue_view() -> None:
         "SELECT 'missing_approval','shadow_reviews',approval_id::text,approval_id::text FROM shadow_reviews s "
         "WHERE NOT EXISTS (SELECT 1 FROM approvals a WHERE a.id=s.approval_id)"
     )
-    op.execute("CREATE VIEW operational_data_issues AS " + " UNION ALL ".join([*conversation_queries, *party_queries, approval_query]))
+    op.execute(
+        "CREATE VIEW operational_data_issues AS "
+        + " UNION ALL ".join([*conversation_queries, *party_queries, approval_query])
+    )
 
 
 def upgrade() -> None:

@@ -1,5 +1,3 @@
-"""S18 T18-2 — pending-time snapshot, atomic ledger và match-rate contract."""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -113,7 +111,6 @@ async def test_green_red_neutral_both_owner_paths_and_exact_stats():
     try:
         green_id, red_id, neutral_id = (_pending(case) for case in cases)
 
-        # Assessment/config đổi sau pending không được viết lại snapshot green ban đầu.
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
         with conn.cursor() as cur:

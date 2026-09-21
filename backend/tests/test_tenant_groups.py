@@ -44,7 +44,7 @@ def _admin_headers(tenant_id: str, username: str) -> dict[str, str]:
 @requires_test_db
 def test_group_crud_assign_and_delete_ungroups_conversation():
     headers = _admin_headers(DEFAULT_TENANT_ID, "tenant-group-admin")
-    name = f"Doanh nghiệp {uuid4().hex[:8]}"
+    name = f"Business {uuid4().hex[:8]}"
 
     created = client.post("/api/conversation-groups", json={"name": f"  {name}  "}, headers=headers)
     assert created.status_code == 201
@@ -57,7 +57,7 @@ def test_group_crud_assign_and_delete_ungroups_conversation():
 
     conv_response = client.post(
         "/api/conversations",
-        json={"title": "Phiên trong nhóm", "group_id": group["id"]},
+        json={"title": "Session in group", "group_id": group["id"]},
         headers=headers,
     )
     assert conv_response.status_code == 201
@@ -92,7 +92,7 @@ def test_admin_endpoints_hide_other_tenant_conversation_and_ledgers():
     conv_a: dict = {}
     try:
         group_b = client.post(
-            "/api/conversation-groups", json={"name": f"Nhóm B {marker[:6]}"}, headers=headers_b
+            "/api/conversation-groups", json={"name": f"Group B {marker[:6]}"}, headers=headers_b
         ).json()
         conv_b = client.post(
             "/api/conversations",
@@ -158,7 +158,7 @@ def test_admin_endpoints_hide_other_tenant_conversation_and_ledgers():
 
 @requires_test_db
 def test_tenant_id_is_db_immutable_for_identity_group_and_conversation():
-    """D-79 phải giữ được cả khi SQL nội bộ bỏ qua API tenant scoping."""
+
     tenant_b = str(uuid4())
     marker = uuid4().hex
     conn = psycopg2.connect(DATABASE_URL)

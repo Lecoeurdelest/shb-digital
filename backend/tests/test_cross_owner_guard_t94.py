@@ -1,13 +1,3 @@
-"""[BACKEND] Test T9-4 fix — cross-owner disburse guard (money-adjacent).
-
-Khách A KHÔNG được kích hoạt giải ngân loan khách B. Guard TRƯỚC 4-step/advisory-lock.
-CRITICAL: dùng conversation ROW THẬT (conv_id giả → JOIN no-op → guard bỏ qua = false-green).
-
-Repro tester: c9test1 (owner C901) giải ngân L007 (owner B001) → not_your_loan.
-Ma trận: cross-owner khách REFUSE · own-loan khách OK · bank mọi loan OK · creator-owner-NULL
-REFUSE · loan-không-tồn-tại REFUSE · DB-lỗi REFUSE (fail-closed).
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -24,7 +14,7 @@ from .conftest import requires_db, requires_test_db
 
 
 def _real_conv(user_id: str) -> str:
-    """Conversation ROW THẬT (creator = user_id). Guard JOIN conversations.user_id → users → cần row thật."""
+
     conn = psycopg2.connect(DATABASE_URL)
     conn.autocommit = True
     try:
@@ -70,7 +60,7 @@ def _cleanup(username: str, conv: str, owner_id: str | None) -> None:
 
 
 def _guard(conv_id: str, loan_id: str) -> dict | None:
-    """Gọi guard trực tiếp qua cur thật (JOIN row thật)."""
+
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -79,12 +69,9 @@ def _guard(conv_id: str, loan_id: str) -> dict | None:
         conn.close()
 
 
-# ── guard logic trực tiếp (conv row THẬT) ────────────────────────────────────
-
-
 @requires_db
 def test_cross_owner_customer_refused():
-    """REPRO tester: khách C901 giải ngân L007 (owner B001) → not_your_loan REFUSE."""
+
     u = "c9test1_" + uuid.uuid4().hex[:6]
     _mk_customer(u, "C901")
     conv = _real_conv(u)
@@ -97,7 +84,7 @@ def test_cross_owner_customer_refused():
 
 @requires_db
 def test_own_loan_customer_allowed():
-    """Khách giải ngân loan CỦA MÌNH → None (cho qua). Seed loan owner=C901."""
+
     u = "c9own_" + uuid.uuid4().hex[:6]
     _mk_customer(u, "C901")
     conv = _real_conv(u)
@@ -111,7 +98,7 @@ def test_own_loan_customer_allowed():
     )
     conn.close()
     try:
-        assert _guard(conv, lid) is None  # đúng owner → cho qua
+        assert _guard(conv, lid) is None
     finally:
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
@@ -122,10 +109,10 @@ def test_own_loan_customer_allowed():
 
 @requires_db
 def test_bank_creator_any_loan_allowed():
-    """Ca creator = BANK (admin) → None (qua mọi loan — bank thao tác hộ mọi khách)."""
+
     conv = _real_conv("admin")  # admin = bank, role='admin'
     try:
-        assert _guard(conv, "L007") is None  # bank → không áp guard
+        assert _guard(conv, "L007") is None
     finally:
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
@@ -135,7 +122,7 @@ def test_bank_creator_any_loan_allowed():
 
 @requires_db
 def test_creator_owner_null_refused():
-    """Khách CHƯA có hồ sơ (owner_id NULL) mà đòi giải ngân → fail-closed REFUSE."""
+
     u = "c9null_" + uuid.uuid4().hex[:6]
     _mk_customer(u, None)
     conv = _real_conv(u)
@@ -148,7 +135,7 @@ def test_creator_owner_null_refused():
 
 @requires_db
 def test_loan_not_exist_refused():
-    """Khách giải ngân loan KHÔNG tồn tại → REFUSE (không tồn tại = không thuộc hồ sơ)."""
+
     u = "c9nx_" + uuid.uuid4().hex[:6]
     _mk_customer(u, "C901")
     conv = _real_conv(u)
@@ -160,22 +147,18 @@ def test_loan_not_exist_refused():
 
 
 def test_db_error_refused(monkeypatch):
-    """DB lỗi khi lookup → refuse fail-closed (money-adjacent — không cho qua khi không chắc)."""
 
     class _BoomCur:
         def execute(self, *a):
-            raise psycopg2.OperationalError("db chết")
+            raise psycopg2.OperationalError("database failure")
 
     r = cross_owner_refusal(_BoomCur(), "any-conv", "L007")
     assert r is not None and r["code"] == "not_your_loan"
 
 
-# ── E2E qua _gated_txn: refuse KHÔNG tạo phiếu (TRƯỚC 4-step) ─────────────────
-
-
-@requires_test_db  # _gated_txn disburse ghi loans.status → test-db riêng (siết money-write)
+@requires_test_db
 def test_gated_txn_cross_owner_no_ticket():
-    """Qua _gated_txn: cross-owner → not_your_loan + KHÔNG tạo phiếu approvals (refuse trước 4-step)."""
+
     u = "c9gtx_" + uuid.uuid4().hex[:6]
     _mk_customer(u, "C901")
     conv = _real_conv(u)
@@ -185,7 +168,7 @@ def test_gated_txn_cross_owner_no_ticket():
         result = _gated_txn("disburse", conv, None, {"loan_id": "L007", "amount": 100_000_000})
         payload = result.payload
         assert payload["code"] == "not_your_loan"
-        # KHÔNG tạo phiếu (guard trước bước 4)
+
         conn = psycopg2.connect(DATABASE_URL)
         with conn.cursor() as cur:
             cur.execute("SELECT count(*) FROM approvals WHERE conv_id=%s", (conv,))
@@ -197,7 +180,7 @@ def test_gated_txn_cross_owner_no_ticket():
 
 @requires_test_db
 def test_gated_txn_bank_disburse_unchanged():
-    """Đối chứng: ca bank giải ngân L007 qua _gated_txn → KHÔNG bị guard chặn (tạo phiếu/auto như cũ)."""
+
     conv = _real_conv("admin")
     registry.CTX_CONV.set(conv)
     registry.CTX_TASK.set("")
@@ -210,10 +193,9 @@ def test_gated_txn_bank_disburse_unchanged():
     conn.close()
     try:
         result = _gated_txn("disburse", conv, None, {"loan_id": lid, "amount": 100_000_000})
-        # bank + amount<500tr → auto-duyệt (KHÔNG not_your_loan)
+
         assert result.payload.get("code") != "not_your_loan"
     finally:
-        # teardown: khôi phục loans.status (disburse ghi 'disbursed' — không pollute seed)
         conn = psycopg2.connect(DATABASE_URL)
         conn.autocommit = True
         with conn.cursor() as cur:

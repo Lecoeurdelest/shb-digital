@@ -1,9 +1,3 @@
-"""[BACKEND] Test T4-3: POST /interrupt — huỷ 1 sub, KHÔNG đụng sub khác (§4.3 "hủy từng con").
-
-Quan trọng nhất (SPEC §4.3): 2 sub song song → huỷ 1 → sub kia VẪN chạy. + 404/409/400 4-field.
-Dùng sub_runner seam (fake runner) + store thật (get_task validate). KHÔNG SDK.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -25,8 +19,7 @@ def _user_cookie():
 
 
 def _mk_conv(user_id: str = "admin") -> str:
-    """D-56: interrupt giờ scoping check conv tồn tại + accessible TRƯỚC → test cần conv ROW thật.
-    Trả conv_id (string) — task.conv_id dùng CÙNG id này (khớp scoping + task-thuộc-conv)."""
+
     import psycopg2
 
     from app.db.config import DATABASE_URL
@@ -52,14 +45,11 @@ def _clean():
     registry.reset_all()
 
 
-# ── §4.3 SỐNG CÒN: huỷ 1 sub KHÔNG đụng sub kia ────────────────────────────
-
-
 @requires_db
 @pytest.mark.asyncio
 async def test_cancel_one_sub_not_the_other():
     conv = _mk_conv()
-    # 2 sub THẬT (DB row) chạy lâu (giữ running để huỷ)
+
     cancelled = {"a": False, "b": False}
 
     async def long_a(task):
@@ -85,20 +75,18 @@ async def test_cancel_one_sub_not_the_other():
     registry.register_running(conv, "legal", task_b.id)
     sub_runner.spawn_sub(task_a, runner=long_a)
     sub_runner.spawn_sub(task_b, runner=long_b)
-    await asyncio.sleep(0.05)  # cho 2 sub vào running (mark_running)
+    await asyncio.sleep(0.05)
 
-    # huỷ CHỈ sub A qua API
     cookies = _user_cookie()
     r = client.post(f"/api/conversations/{conv}/interrupt", json={"target": task_a.id}, cookies=cookies)
     assert r.status_code == 200
     assert r.json()["cancelled"] is True
     assert r.json()["target"] == task_a.id
 
-    await asyncio.sleep(0.1)  # cho CancelledError lan tới long_a
-    assert cancelled["a"] is True, "sub A phải bị huỷ"
-    assert cancelled["b"] is False, "sub B KHÔNG được đụng (§4.3 hủy từng con)"
+    await asyncio.sleep(0.1)
+    assert cancelled["a"] is True, "Expected invariant was not satisfied at source line 87."
+    assert cancelled["b"] is False, "Expected invariant was not satisfied at source line 88."
 
-    # dọn: huỷ B
     tb = registry.sub_tasks.get(task_b.id)
     if tb:
         tb.cancel()
@@ -124,16 +112,15 @@ def test_interrupt_task_not_found_404():
 
 @requires_db
 def test_interrupt_malformed_uuid_404_not_500():
-    """target KHÔNG phải UUID hợp lệ (input user rác) → 404 (KHÔNG 500). tester T4-3 bắt:
-    _get_task_sync raise InvalidTextRepresentation lọt ra 500 thô → giờ catch → None → 404."""
+
     conv = _mk_conv()
     cookies = _user_cookie()
     r = client.post(
         f"/api/conversations/{conv}/interrupt",
-        json={"target": "nonexistent-task-id-xyz"},  # chuỗi rác, không UUID
+        json={"target": "nonexistent-task-id-xyz"},
         cookies=cookies,
     )
-    assert r.status_code == 404, f"malformed uuid PHẢI 404 không 500 — thấy {r.status_code}"
+    assert r.status_code == 404, "Expected invariant was not satisfied at source line 123."
     assert r.json()["code"] == "task_not_found"
 
 
@@ -142,7 +129,7 @@ def test_interrupt_malformed_uuid_404_not_500():
 async def test_interrupt_done_task_409():
     conv = _mk_conv()
     task = await store.create_task(conv, "credit", "done task", "brief")
-    await store.finish_task(task.id, "done", {"ok": True})  # đã xong
+    await store.finish_task(task.id, "done", {"ok": True})
     cookies = _user_cookie()
     r = client.post(f"/api/conversations/{conv}/interrupt", json={"target": task.id}, cookies=cookies)
     assert r.status_code == 409
@@ -153,11 +140,11 @@ async def test_interrupt_done_task_409():
 @requires_db
 @pytest.mark.asyncio
 async def test_interrupt_running_db_but_no_registry_409():
-    """DB running nhưng registry không còn (đã _report / double-cancel) → 409."""
+
     conv = _mk_conv()
     task = await store.create_task(conv, "credit", "t", "brief")
     await store.mark_running(task.id)  # DB running
-    # KHÔNG spawn_sub → registry.sub_tasks không có
+
     cookies = _user_cookie()
     r = client.post(f"/api/conversations/{conv}/interrupt", json={"target": task.id}, cookies=cookies)
     assert r.status_code == 409
@@ -168,8 +155,7 @@ async def test_interrupt_running_db_but_no_registry_409():
 @requires_db
 @pytest.mark.asyncio
 async def test_interrupt_wrong_conv_404():
-    """task tồn tại nhưng thuộc ca KHÁC → 404 task_not_found (task.conv_id != conv_id). Cả 2 conv ROW
-    tồn tại (admin accessible) → reach task-thuộc-conv check (không dừng ở scoping conv-not-found)."""
+
     conv_owner = _mk_conv()
     conv_other = _mk_conv()
     task = await store.create_task(conv_owner, "credit", "t", "brief")
@@ -177,14 +163,14 @@ async def test_interrupt_wrong_conv_404():
     cookies = _user_cookie()
     r = client.post(f"/api/conversations/{conv_other}/interrupt", json={"target": task.id}, cookies=cookies)
     assert r.status_code == 404
-    assert r.json()["code"] == "task_not_found"  # task thuộc conv_owner, không conv_other
+    assert r.json()["code"] == "task_not_found"
     _cleanup(conv_owner)
     _cleanup(conv_other)
 
 
 @requires_db
 def test_interrupt_target_main_400():
-    """target='main' ngoài scope T4-3 → 400. conv ROW tồn tại (admin) → qua scoping → reach 400."""
+
     conv = _mk_conv()
     cookies = _user_cookie()
     r = client.post(f"/api/conversations/{conv}/interrupt", json={"target": "main"}, cookies=cookies)

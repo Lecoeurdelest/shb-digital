@@ -1,12 +1,12 @@
 {
-  "title": "Tờ trình sơ thẩm",
+  "title": "Pre-assessment credit memo",
   "minimum_distinct_done_roles": 2,
   "sections": [
-    "Tóm tắt yêu cầu",
-    "Khả năng trả nợ — DSCR/LTV/CIC",
-    "Pháp lý — 3 trụ, lane và assessment",
-    "Điều khoản đề xuất",
-    "Khuyến nghị và căn cứ ma trận thẩm quyền",
-    "Công cụ và nguồn"
+    "Request summary",
+    "Repayment capacity — DSCR/LTV/CIC",
+    "Legal review — three pillars, lane, and assessment",
+    "Proposed terms",
+    "Recommendation and approval-matrix rationale",
+    "Tools and sources"
   ]
 }

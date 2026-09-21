@@ -110,7 +110,7 @@ def _cleanup_case(case_id: str) -> None:
 
 def _memo(reason_codes: list[str]) -> dict:
     items = [
-        {"section": section, "content": f"Nội dung {index}", "source": "credit_assess"}
+        {"section": section, "content": f"Content {index}", "source": "credit_assess"}
         for index, section in enumerate(CREDIT_MEMO_SECTIONS, 1)
     ]
     items[4]["reason_codes"] = reason_codes

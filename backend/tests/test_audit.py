@@ -1,7 +1,3 @@
-"""[BACKEND] Test T4-1: tool_calls audit — persist append-only + query filter + fire-and-forget +
-GET /api/audit. DB thật (requires_db). record_tool_call best-effort (lỗi KHÔNG raise — §12).
-"""
-
 from __future__ import annotations
 
 from uuid import uuid4
@@ -34,9 +30,6 @@ def _count(conv_id: str) -> int:
         conn.close()
 
 
-# ── persist (DB thật) ───────────────────────────────────────────────────────
-
-
 @requires_db
 @pytest.mark.asyncio
 async def test_record_tool_call_persists_row():
@@ -56,16 +49,16 @@ async def test_record_tool_call_persists_row():
     assert row["input"]["loan_id"] == "L1"
     assert row["output"]["disbursed"] is True
     assert row["cost"]["usd"] == 0.01
-    assert row["task_id"] is None  # main/không-task
+    assert row["task_id"] is None
     assert row["conv_id"] == conv
-    assert row["id"]  # VỎ-inject uuid
+    assert row["id"]
     assert row["ts"]  # server now()
 
 
 @requires_db
 @pytest.mark.asyncio
 async def test_record_output_null_ok():
-    """output chưa bắt được (SDK không trả result) → null, KHÔNG chặn persist."""
+
     conv = f"audit-null-{uuid4()}"
     row = await store_audit.record_tool_call(task_id=None, conv_id=conv, actor="main", tool="calc", tool_input={"a": 1})
     assert row is not None
@@ -96,29 +89,26 @@ async def test_query_newest_first():
     await store_audit.record_tool_call(task_id=None, conv_id=conv, actor="main", tool="first", tool_input={})
     await store_audit.record_tool_call(task_id=None, conv_id=conv, actor="main", tool="second", tool_input={})
     rows = await store_audit.query_tool_calls({"conv_id": conv})
-    assert rows[0]["tool"] == "second"  # mới nhất trước
+    assert rows[0]["tool"] == "second"
 
 
 @requires_db
 @pytest.mark.asyncio
 async def test_filter_whitelist_ignores_unknown():
-    """cột filter không whitelist (chống injection) → bỏ qua, không crash."""
+
     conv = f"audit-wl-{uuid4()}"
     await store_audit.record_tool_call(task_id=None, conv_id=conv, actor="main", tool="x", tool_input={})
-    # 'output' không trong whitelist → bỏ qua → trả tất cả của conv
+
     rows = await store_audit.query_tool_calls({"conv_id": conv, "output": "hack"})
     assert len(rows) == 1
 
 
-# ── fire-and-forget (§12: audit lỗi KHÔNG fail) ─────────────────────────────
-
-
 @pytest.mark.asyncio
 async def test_record_bad_db_returns_none_not_raise(monkeypatch):
-    """DB lỗi → record_tool_call trả None (KHÔNG raise) → caller không fail turn (best-effort §12)."""
+
     monkeypatch.setattr(store_audit, "DATABASE_URL", "postgresql://bad:bad@localhost:1/nope")
     row = await store_audit.record_tool_call(task_id=None, conv_id="c", actor="main", tool="x", tool_input={})
-    assert row is None  # lỗi nuốt → None, không nổ ra ngoài
+    assert row is None
 
 
 # ── GET /api/audit (admin) ──────────────────────────────────────────────────
@@ -150,7 +140,7 @@ async def test_api_audit_filter_returns_rows():
 
 @requires_db
 def test_api_audit_bad_task_id_400():
-    """task_id sai format uuid → 400 giọng-agent (không 500)."""
+
     cookies = _admin_cookie()
     r = client.get("/api/audit?task_id=not-a-uuid", cookies=cookies)
     assert r.status_code == 400
@@ -159,18 +149,15 @@ def test_api_audit_bad_task_id_400():
 
 @requires_db
 def test_api_audit_limit_cap():
-    """limit > 1000 → 400 bad_request (validation handler chung map 4-field envelope, KHÔNG 422 trần)."""
+
     cookies = _admin_cookie()
     r = client.get("/api/audit?limit=5000", cookies=cookies)  # > max 1000
     assert r.status_code == 400
     assert r.json()["code"] == "bad_request"
 
 
-# ── SSE toolcall emit shape §9 (gate #2 — verify EVENT fired, không chỉ no-error) ──
-
-
 def test_emit_toolcall_shape():
-    """SSE toolcall payload = {task_id, tool, summary, cost} (SPEC §9). subscribe → emit → nhận đúng."""
+
     from app.orch.audit_emit import _emit_toolcall
     from app.sse import bus
 
@@ -181,23 +168,23 @@ def test_emit_toolcall_shape():
             conv,
             {"id": "tc1", "task_id": "t1", "tool": "disburse", "input": {"loan_id": "L1"}, "cost": {"usd": 0.02}},
         )
-        assert not q.empty(), "SSE toolcall KHÔNG phát"
+        assert not q.empty(), "Expected invariant was not satisfied at source line 171."
         ev = q.get_nowait()
         assert ev["type"] == "toolcall"
         d = ev["data"]
-        # §9 {task_id,tool,summary,cost} + id (FE upsert dedup — mở rộng tương thích)
+
         assert set(d.keys()) == {"id", "task_id", "tool", "summary", "cost"}
-        assert d["id"] == "tc1"  # = tool_calls.id để FE dedup reload+SSE
+        assert d["id"] == "tc1"
         assert d["task_id"] == "t1"
         assert d["tool"] == "disburse"
-        assert "loan_id" in d["summary"]  # summary = input tóm tắt
+        assert "loan_id" in d["summary"]
         assert d["cost"] == {"usd": 0.02}
     finally:
         bus.unsubscribe(conv, q)
 
 
 def test_emit_toolcall_null_input_empty_summary():
-    """input null → summary rỗng (không crash)."""
+
     from app.orch.audit_emit import _emit_toolcall
     from app.sse import bus
 
@@ -211,11 +198,8 @@ def test_emit_toolcall_null_input_empty_summary():
         bus.unsubscribe(conv, q)
 
 
-# ── _safe_json hardening (#3 advisor — 1 field hỏng KHÔNG mất cả row) ────────
-
-
 def test_safe_json_fallback_non_serializable():
-    """output non-serializable (object lạ) → str() fallback, KHÔNG throw → row vẫn persist."""
+
     from app.orch.store_audit import _safe_json
 
     class Weird:
@@ -224,10 +208,10 @@ def test_safe_json_fallback_non_serializable():
 
     out = _safe_json(Weird())
     assert out is not None
-    assert "WEIRD" in out  # str fallback giữ nội dung, vẫn JSON hợp lệ
+    assert "WEIRD" in out
     import json as _j
 
-    _j.loads(out)  # phải parse được (JSON hợp lệ)
+    _j.loads(out)
     assert _safe_json(None) is None
     assert _safe_json({"ok": 1}) == '{"ok": 1}'
 
@@ -235,7 +219,7 @@ def test_safe_json_fallback_non_serializable():
 @requires_db
 @pytest.mark.asyncio
 async def test_record_non_serializable_output_still_persists():
-    """output object lạ → row VẪN persist (input không mất) — audit append-only không được mất record."""
+
     conv = f"audit-weird-{uuid4()}"
 
     class Weird:
@@ -245,6 +229,6 @@ async def test_record_non_serializable_output_still_persists():
     row = await store_audit.record_tool_call(
         task_id=None, conv_id=conv, actor="main", tool="x", tool_input={"a": 1}, output=Weird()
     )
-    assert row is not None  # KHÔNG mất row
-    assert row["input"] == {"a": 1}  # input giữ nguyên
-    assert "WEIRD" in str(row["output"])  # output str-hoá
+    assert row is not None
+    assert row["input"] == {"a": 1}
+    assert "WEIRD" in str(row["output"])

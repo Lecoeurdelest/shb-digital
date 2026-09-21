@@ -34,7 +34,7 @@ def test_publish_other_conv_isolated():
     q1 = bus.subscribe("c1")
     bus.subscribe("c2")
     bus.publish("c2", {"type": "y"})
-    assert q1.empty()  # c1 không nhận event của c2
+    assert q1.empty()
 
 
 def test_unsubscribe_removes():
@@ -46,10 +46,10 @@ def test_unsubscribe_removes():
 
 def test_publish_full_queue_drops_not_raises():
     q = bus.subscribe("c4")
-    # nhồi đầy queue (maxsize 500) — publish không raise, chỉ drop
+
     for i in range(600):
         bus.publish("c4", {"n": i})
-    assert q.qsize() <= 500  # đầy thì drop, không nổ
+    assert q.qsize() <= 500
 
 
 # ── emit envelope shape ─────────────────────────────────────────────────────
@@ -68,14 +68,14 @@ def test_emit_envelope_shape():
 def test_chat_delta_seq_increments_then_done_highest():
     q = bus.subscribe("c6")
     emit.emit_chat_delta("c6", "turn-1", "Xin")
-    emit.emit_chat_delta("c6", "turn-1", " chào")
-    emit.emit_chat_done("c6", "turn-1", "Xin chào")
+    emit.emit_chat_delta("c6", "turn-1", " hello")
+    emit.emit_chat_done("c6", "turn-1", "Hello")
     e1 = q.get_nowait()
     e2 = q.get_nowait()
     e3 = q.get_nowait()
     assert e1["seq"] == 1 and e1["data"]["chunk"] == "Xin" and e1["data"]["done"] is False
     assert e2["seq"] == 2
-    assert e3["seq"] == 3 and e3["data"]["done"] is True and e3["data"]["full_text"] == "Xin chào"
+    assert e3["seq"] == 3 and e3["data"]["done"] is True and e3["data"]["full_text"] == "Hello"
 
 
 def test_emit_task_full_row():
@@ -102,12 +102,9 @@ def test_redact_deep_nested():
     assert "[REDACTED:api-key]" in out["a"]["b"][0]
 
 
-# ── endpoint 404 (mechanics, không cần SDK) ─────────────────────────────────
-
-
 @pytest.mark.asyncio
 async def test_sse_endpoint_headers_present():
-    """4 header sống-còn phải có trong response."""
+
     from app.api.sse import _SSE_HEADERS
 
     assert _SSE_HEADERS["X-Accel-Buffering"] == "no"
@@ -115,7 +112,7 @@ async def test_sse_endpoint_headers_present():
 
 
 def test_sse_heartbeat_interval_15s():
-    """S6: heartbeat 15s (SPEC §9) — client có traffic phát hiện đứt (SIGKILL onerror không fire)."""
+
     from app.api.sse import _HEARTBEAT
 
     assert _HEARTBEAT == 15.0
@@ -124,9 +121,7 @@ def test_sse_heartbeat_interval_15s():
 @requires_db
 @pytest.mark.asyncio
 async def test_sse_stream_emits_ping_event_when_idle(monkeypatch):
-    """S6: queue RỖNG > _HEARTBEAT → stream yield EVENT ping (data:) KHÔNG comment (: ...) — native
-    EventSource nuốt comment → FE onmessage không thấy. type='ping' cùng shape envelope → FE reset
-    watchdog. Hạ _HEARTBEAT nhỏ để test nhanh. (D-56: cần conv row + claims admin cho scoping.)"""
+
     import json as _json
 
     import psycopg2
@@ -135,7 +130,7 @@ async def test_sse_stream_emits_ping_event_when_idle(monkeypatch):
     from app.db.config import DATABASE_URL
 
     monkeypatch.setattr(sse_mod, "_HEARTBEAT", 0.05)  # nhanh
-    # D-56 scoping: sse check conv tồn tại + accessible → cần conv ROW thật. claims admin → mọi ca.
+
     cn = psycopg2.connect(DATABASE_URL)
     cn.autocommit = True
     with cn.cursor() as cur:
@@ -161,21 +156,21 @@ async def test_sse_stream_emits_ping_event_when_idle(monkeypatch):
     )
     frames = []
     it = resp.body_iterator
-    for _ in range(3):  # connected + ≥1 ping (queue rỗng → timeout → ping event)
+    for _ in range(3):
         frames.append(await it.__anext__())
     joined = "".join(frames)
-    assert ": connected" in joined  # frame đầu (comment — onopen fire, không cần onmessage)
-    # heartbeat = EVENT THẬT data: (KHÔNG comment ': heartbeat') → FE onmessage bắt được
+    assert ": connected" in joined
+
     ping_frames = [f for f in frames if f.startswith("data:")]
-    assert ping_frames, "phải có ít nhất 1 ping EVENT (data:) khi idle"
+    assert ping_frames, "Expected invariant was not satisfied at source line 165."
     payload = _json.loads(ping_frames[0][len("data: ") :].strip())
-    assert payload["type"] == "ping"  # FE parse type='ping' → bỏ qua render + reset watchdog
+    assert payload["type"] == "ping"
     assert payload["conversation_id"] == conv
     assert payload["data"] == {}
-    assert set(payload) == {"type", "conversation_id", "seq", "ts", "data"}  # cùng shape SSEEnvelope
+    assert set(payload) == {"type", "conversation_id", "seq", "ts", "data"}
 
 
 def test_bus_publish_no_subscriber_noop():
-    # emit khi không ai nghe → không nổ (orch _report/dispatch emit an toàn khi chưa có SSE client)
+
     emit.emit("nobody", "task.status", {"task": {"id": "t"}})
     assert bus.conn_count("nobody") == 0

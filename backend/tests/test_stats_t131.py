@@ -1,9 +1,3 @@
-"""[BACKEND] Test T13-1 — GET /api/stats + GET /api/assessments (dashboard admin, read-only).
-
-stats: shape · window filter (today vs 7d — seed 2 mốc, đếm đúng) · auto đếm riêng · delta kỳ-trước ·
-DB rỗng zeros · window lạ 400 · authz 403. assessments: filter owner/cap/malformed-json/newest.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -64,15 +58,11 @@ def _rm(conv_ids: tuple[str, ...] = (), owners: tuple[str, ...] = ()) -> None:
     conn.close()
 
 
-# ── stats shape + window + auto + delta (test-db riêng — seed rác approvals/assessments) ──
-
-
 @requires_test_db
 def test_stats_shape_and_window_filter():
-    """D-69 24h rolling: seed 2 mốc trong-window + 1 mốc >24h (ngoài) → đo DELTA counts (isolation-
-    independent: DB world có sẵn approvals, assert TĂNG ĐÚNG chứ không absolute). shape + sparks."""
+
     now = datetime.now(UTC)
-    old = now - timedelta(days=2)  # >24h → NGOÀI window 24h
+    old = now - timedelta(days=2)
 
     def _counts() -> dict:
         return client.get("/api/stats?window=24h", cookies=_admin()).json()["approvals"]
@@ -80,7 +70,7 @@ def test_stats_shape_and_window_filter():
     before = _counts()
     _mk_approval("st1", "approved", "admin", now, "sh1")
     _mk_approval("st2", "used", "auto-rule", now, "sh2")  # auto (used = approved matrix)
-    _mk_approval("st3", "rejected", "admin", old, "sh3")  # >24h — KHÔNG vào window
+    _mk_approval("st3", "rejected", "admin", old, "sh3")
     try:
         r = client.get("/api/stats?window=24h", cookies=_admin())
         assert r.status_code == 200
@@ -88,17 +78,17 @@ def test_stats_shape_and_window_filter():
         assert set(b) == {"window", "approvals", "assessments", "conversations", "delta", "sparks"}
         assert set(b["approvals"]) == {"approved", "rejected", "pending", "auto"}
         after = b["approvals"]
-        # DELTA (không absolute): +2 approved (approved+used), +1 auto, +0 rejected (mốc cũ ngoài window)
+
         assert after["approved"] - before["approved"] == 2
         assert after["auto"] - before["auto"] == 1
-        assert after["rejected"] - before["rejected"] == 0  # st3 >24h → không vào
+        assert after["rejected"] - before["rejected"] == 0
     finally:
         _rm(conv_ids=("st1", "st2", "st3"))
 
 
 @requires_test_db
 def test_stats_7d_window_includes_yesterday():
-    """window=7d → gồm cả hôm qua (khác today)."""
+
     now = datetime.now(UTC)
     yst = now - timedelta(days=1)
     _mk_approval("s7a", "approved", "admin", now, "s7h1")
@@ -106,14 +96,14 @@ def test_stats_7d_window_includes_yesterday():
     try:
         b = client.get("/api/stats?window=7d", cookies=_admin()).json()
         assert b["window"] == "7d"
-        assert b["approvals"]["approved"] >= 1 and b["approvals"]["rejected"] >= 1  # cả 2 mốc trong 7d
+        assert b["approvals"]["approved"] >= 1 and b["approvals"]["rejected"] >= 1
     finally:
         _rm(conv_ids=("s7a", "s7b"))
 
 
 @requires_test_db
 def test_stats_assessments_by_lane():
-    """assessments đếm theo lane trong window."""
+
     iso = datetime.now(UTC).isoformat(timespec="seconds")
     _mk_assessment("STAT1", "green", iso)
     _mk_assessment("STAT1", "red", iso)
@@ -134,7 +124,7 @@ def test_stats_bad_window_400():
 
 @requires_db
 def test_stats_default_today():
-    """Không truyền window → default today (không 400)."""
+
     r = client.get("/api/stats", cookies=_admin())
     assert r.status_code == 200
     assert r.json()["window"] == "24h"
@@ -159,7 +149,7 @@ def test_stats_authz_403_customer():
 
 @requires_db
 def test_stats_no_500_shape_always():
-    """Dù data thế nào → 200 + shape đủ (không 500). Số có thể ≥0."""
+
     b = client.get("/api/stats?window=24h", cookies=_admin()).json()
     assert all(isinstance(b["approvals"][k], int) for k in ("approved", "rejected", "pending", "auto"))
     assert all(isinstance(b["assessments"][k], int) for k in ("green", "yellow", "red"))
@@ -174,10 +164,10 @@ def test_assessments_filter_owner_and_newest():
     now = datetime.now(UTC)
     _mk_assessment("OWN1", "green", (now - timedelta(seconds=2)).isoformat(timespec="seconds"))
     newest = _mk_assessment("OWN1", "red", now.isoformat(timespec="seconds"))
-    _mk_assessment("OWN2", "yellow", now.isoformat(timespec="seconds"))  # owner khác
+    _mk_assessment("OWN2", "yellow", now.isoformat(timespec="seconds"))
     try:
         rows = client.get("/api/assessments?owner=OWN1", cookies=_admin()).json()
-        assert all(r["owner_id"] == "OWN1" for r in rows)  # filter đúng
+        assert all(r["owner_id"] == "OWN1" for r in rows)
         assert rows[0]["id"] == newest  # newest first
     finally:
         _rm(owners=("OWN1", "OWN2"))
@@ -185,22 +175,22 @@ def test_assessments_filter_owner_and_newest():
 
 @requires_test_db
 def test_assessments_malformed_json_still_returns():
-    """criteria_json hỏng → criteria=[] nhưng row VẪN trả (panel không mất record)."""
+
     iso = datetime.now(UTC).isoformat(timespec="seconds")
     aid = _mk_assessment("BADJ", "green", iso, criteria_json="{not valid json")
     try:
         rows = client.get("/api/assessments?owner=BADJ", cookies=_admin()).json()
         assert len(rows) == 1
         assert rows[0]["id"] == aid
-        assert rows[0]["criteria"] == []  # hỏng → [] không crash
+        assert rows[0]["criteria"] == []
     finally:
         _rm(owners=("BADJ",))
 
 
 @requires_db
 def test_assessments_cap_and_authz():
-    """limit cap 100 (>100 → 400 4-field qua validation handler chung) · customer → 403."""
-    # cap: limit 500 > 100 → 400 bad_request (validation handler map 422→400 4-field, như audit)
+    """Limit is capped at 100; higher values use the shared four-field 400 handler, and customers receive 403."""
+
     r = client.get("/api/assessments?limit=500", cookies=_admin())
     assert r.status_code == 400
     assert r.json()["code"] == "bad_request"

@@ -1,5 +1,3 @@
-"""Integration test auth — login (đúng/sai), JWT, cookie, deps (CONTRACT §1). Cần DB seed users."""
-
 from __future__ import annotations
 
 import psycopg2
@@ -30,9 +28,6 @@ def _users_seeded() -> bool:
         conn.close()
 
 
-# ── security primitives (không cần DB) ──────────────────────────────────────
-
-
 def test_hash_verify_roundtrip():
     h = hash_password("secret123")
     assert verify_password("secret123", h) is True
@@ -57,15 +52,12 @@ def test_decode_bad_token():
     assert decode_token("garbage.token.here") is None
 
 
-# ── login endpoint (cần DB seed) ────────────────────────────────────────────
-
-
 @requires_db
 def test_login_success_user():
     if not _users_seeded():
         import pytest
 
-        pytest.skip("users chưa seed — uv run python -m app.db.seed_users")
+        pytest.skip("users are not seeded; run uv run python -m app.db.seed_users")
     r = client.post("/api/auth/login", json={"username": "user", "password": "user"})
     assert r.status_code == 200
     body = r.json()
@@ -74,7 +66,7 @@ def test_login_success_user():
     assert "token" in body
     # cookie set
     assert AUTH_COOKIE in r.cookies
-    # token trong body decode được
+
     assert decode_token(body["token"])["role"] == "user"
 
 
@@ -83,7 +75,7 @@ def test_login_success_admin():
     if not _users_seeded():
         import pytest
 
-        pytest.skip("users chưa seed")
+        pytest.skip("users are not seeded")
     r = client.post("/api/auth/login", json={"username": "admin", "password": "admin"})
     assert r.status_code == 200
     assert r.json()["user"]["role"] == "admin"
@@ -94,18 +86,18 @@ def test_login_wrong_password_401_envelope():
     if not _users_seeded():
         import pytest
 
-        pytest.skip("users chưa seed")
+        pytest.skip("users are not seeded")
     r = client.post("/api/auth/login", json={"username": "user", "password": "WRONG"})
     assert r.status_code == 401
     body = r.json()
-    # envelope 4-field TRẦN (không bọc {detail})
+
     assert set(body) == {"code", "message", "hint", "retryable"}
     assert body["code"] == "unauthorized"
-    # D-64: hint generic — bề mặt 401 public KHÔNG liệt kê account demo nào
-    assert body["hint"] == "Kiểm lại thông tin đăng nhập."
+
+    assert body["hint"] == "Check the login credentials."
     blob = (body["message"] + " " + body["hint"]).lower()
     for leak in ("admin", "user /", "c001", "b001", "account demo"):
-        assert leak not in blob, f"401 body lộ account demo: {leak!r}"
+        assert leak not in blob, f"401 body leaked demo account data: {leak!r}"
 
 
 @requires_db
@@ -113,39 +105,36 @@ def test_login_unknown_user_401():
     if not _users_seeded():
         import pytest
 
-        pytest.skip("users chưa seed")
+        pytest.skip("users are not seeded")
     r = client.post("/api/auth/login", json={"username": "ghost", "password": "x"})
     assert r.status_code == 401
     assert r.json()["code"] == "unauthorized"
 
 
 def test_login_missing_field_400_envelope():
-    r = client.post("/api/auth/login", json={"username": "user"})  # thiếu password
+    r = client.post("/api/auth/login", json={"username": "user"})
     assert r.status_code == 400
     body = r.json()
     assert set(body) == {"code", "message", "hint", "retryable"}
     assert body["code"] == "bad_request"
 
 
-# ── logout endpoint (S11 micro — clear cookie thật) ─────────────────────────
-
-
 @requires_db
 def test_logout_clears_cookie_me_401():
-    """login → /api/me 200 → logout → /api/me 401 (cookie chết THẬT, không re-auth khi reload)."""
+
     fresh = TestClient(app)
     r = fresh.post("/api/auth/login", json={"username": "user", "password": "user"})
     assert r.status_code == 200
-    assert fresh.get("/api/me").status_code == 200  # cookie sống → authed
+    assert fresh.get("/api/me").status_code == 200
     lo = fresh.post("/api/auth/logout")
     assert lo.status_code == 200
     assert lo.json() == {"ok": True}
-    # cookie đã bị xoá (delete_cookie khớp attributes) → /api/me 401
+
     assert fresh.get("/api/me").status_code == 401
 
 
 def test_logout_idempotent_when_not_logged_in():
-    """logout khi CHƯA login → vẫn 200 {ok:true} (idempotent — gọi là xoá, không cần auth)."""
+
     fresh = TestClient(app)
     r = fresh.post("/api/auth/logout")
     assert r.status_code == 200

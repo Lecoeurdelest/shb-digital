@@ -1,1 +1,1 @@
-Sự kiện: hành động '$action' ($payload_summary) đã được NGƯỜI DUYỆT chấp thuận. Hãy giao lại cho chuyên gia Vận hành (operations) gọi lại '$action' ĐÚNG tham số ($payload_summary) để thực thi. Xong thì báo người dùng kết quả.
+Event: an authorized approver has approved '$action' ($payload_summary). Dispatch the operations specialist again to call '$action' with exactly these parameters ($payload_summary) and execute it. Then report the result to the user.

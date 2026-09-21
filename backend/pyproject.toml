@@ -20,9 +20,10 @@ dependencies = [
     "uvicorn[standard]>=0.51.0",
 ]
 
-# T12-2 (D-68): embed group OPTIONAL — notes_search (1/4 tầng retrieval) cần model bkai CPU. CI/deploy
-# MẶC ĐỊNH KHÔNG kéo (torch nặng); cài riêng `uv sync --extra embed`. torch pin CPU (không CUDA — SPEC
-# "local CPU"). Lib vắng → notes_search trả env_missing graceful (LAB thiết kế), 3 tầng kia chạy bình thường.
+# T12-2 (D-68): the embed group is OPTIONAL. notes_search (one of four retrieval layers) needs the bkai CPU model.
+# CI and deployment do not install it by default because torch is large; install it with `uv sync --extra embed`.
+# Torch is pinned to CPU (no CUDA, per the "local CPU" specification). Without the library, notes_search returns a
+# graceful env_missing response as designed by LAB, while the other three layers continue to operate.
 [project.optional-dependencies]
 scale = []
 embed = [
@@ -31,7 +32,7 @@ embed = [
     "torch>=2.0",
 ]
 
-# torch từ index CPU-only (tránh CUDA ~2.5G nuốt đĩa/image). Chỉ áp khi cài extra embed.
+# Install torch from the CPU-only index to avoid adding roughly 2.5 GB of CUDA data. This applies only to the embed extra.
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
@@ -50,21 +51,21 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-# app.* nằm ở backend/ (.), roles.* nằm ở repo root (..) — D-26 layout
+# app.* lives in backend/ (.) and roles.* lives at the repository root (..), per the D-26 layout.
 pythonpath = [".", ".."]
 
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-# roles/ = labpack COPY từ LAB (N1 — VỎ không sửa logic); loại khỏi lint của vỏ.
+# roles/ is the labpack copied from LAB (N1: the shell does not modify its logic), so exclude it from shell linting.
 extend-exclude = ["app/db/migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
-# B008: Depends() ở default arg là IDIOM CHUẨN FastAPI (không phải bug) — false positive.
+# B008: Depends() in a default argument is the standard FastAPI idiom, so this is a false positive.
 ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
-# email.py: template mail HTML table-based + inline CSS (T9-2 addendum) — dòng dài BẮT BUỘC
-# (inline CSS không tách được không phá HTML/anti-spam). E501 chỉ cho file template này.
+# email.py uses table-based HTML email with inline CSS (T9-2 addendum), where long lines are required because splitting
+# inline CSS can break HTML or spam-filter compatibility. Ignore E501 only for this template file.
 "app/notify/email.py" = ["E501"]

@@ -879,7 +879,7 @@ UTF-8 bằng sorted keys và separator compact, rồi công bố checksum `sha25
 Khoảng trắng/comment/thứ tự YAML không làm đổi checksum. Taxonomy phải load thành công ở startup
 sau runtime-security nhưng trước cleanup/boot, đồng thời được render vào prompt MAIN ở runtime.
 
-`present(type='document', title='Tờ trình sơ thẩm')` có write-time gate trước DB/SSE. `items` phải
+`present(type='document', title='Pre-assessment credit memo')` có write-time gate trước DB/SSE. `items` phải
 có đúng sáu mục theo đúng thứ tự canonical ở `backend/prompts/main/credit_memo.json`; mỗi mục có
 `section`, `content`, `source` là string khác rỗng. Riêng mục 5 có thêm `reason_codes`: mảng
 nonempty các id duy nhất, tất cả thuộc taxonomy đang chạy. Client/model không sở hữu proof:

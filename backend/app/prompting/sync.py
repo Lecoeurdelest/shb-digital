@@ -14,8 +14,8 @@ from app.prompting.catalog import BACKEND_ROOT, FilePromptCatalog
 from app.storage import connect_capability
 
 REPO_ROOT = BACKEND_ROOT.parent
-# Tuần tự hóa sync giữa các replica; nếu thiếu lock, hai process có thể cùng tính max(version)+1
-# rồi đua trên unique constraint dù bản thân mỗi lượt sync là idempotent.
+
+
 _SYNC_LOCK_KEY = int(hashlib.sha256(b"bank-digital:prompt-sync:v1").hexdigest()[:15], 16)
 
 

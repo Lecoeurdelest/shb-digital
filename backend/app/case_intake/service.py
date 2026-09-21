@@ -91,7 +91,7 @@ def _create_conversation(cur: Any, tenant_id: str) -> str:
     cur.execute(
         "INSERT INTO conversations (tenant_id,user_id,title,status,created_at) "
         "VALUES (%s,NULL,%s,'idle',now()) RETURNING id",
-        (tenant_id, "Phiên xử lý sơ thẩm"),
+        (tenant_id, "Pre-assessment session"),
     )
     return str(cur.fetchone()["id"])
 
@@ -100,8 +100,8 @@ def _not_ready() -> ApiError:
     return ApiError(
         503,
         "case_intake_not_ready",
-        "Cổng tiếp nhận hồ sơ chưa sẵn sàng.",
-        "Kiểm tra tenant nguồn và kết nối dữ liệu vận hành.",
+        "The case intake endpoint is not ready.",
+        "Check the source tenant and operational data connection.",
         retryable=True,
     )
 
@@ -126,15 +126,12 @@ def ingest_case_event(event: CaseEventV1, *, tenant_slug: str, shadow: bool) -> 
         raise _not_ready() from exc
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Tenant đến duy nhất từ source config đã qua service credential. Resolve trong tx để
-            # startup không phụ thuộc DB và mọi write bên dưới dùng cùng partition key.
             cur.execute("SELECT id::text AS id FROM tenants WHERE slug=%s", (tenant_slug,))
             tenant = cur.fetchone()
             if tenant is None:
                 raise _not_ready()
             tenant_id = tenant["id"]
-            # Khoá event trước, case sau trên mọi request: vừa đóng race cùng event xuyên hai case,
-            # vừa giữ thứ tự lock cố định để tránh deadlock khi nhiều version tới đồng thời.
+
             cur.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
                 (f"event:{tenant_id}:{event.source_system}:{event.event_id}",),
@@ -154,8 +151,8 @@ def ingest_case_event(event: CaseEventV1, *, tenant_slug: str, shadow: bool) -> 
                     raise ApiError(
                         409,
                         "idempotency_conflict",
-                        "Idempotency-Key đã được dùng cho payload khác.",
-                        "Dùng lại đúng payload cũ hoặc phát event_id mới.",
+                        "Idempotency-Key has already been used for a different payload.",
+                        "Reuse the original payload or issue a new event_id.",
                         retryable=False,
                     )
                 prior = dict(duplicate["receipt"])
@@ -180,8 +177,8 @@ def ingest_case_event(event: CaseEventV1, *, tenant_slug: str, shadow: bool) -> 
                     raise ApiError(
                         409,
                         "source_version_conflict",
-                        "source_version hiện tại có nội dung khác.",
-                        "Tăng source_version cho thay đổi mới.",
+                        "The current source_version has different content.",
+                        "Increment source_version for the new change.",
                         retryable=False,
                     )
                 receipt = _receipt(event, dict(current), "duplicate")
@@ -194,8 +191,7 @@ def ingest_case_event(event: CaseEventV1, *, tenant_slug: str, shadow: bool) -> 
             else:
                 status = _case_status(event, missing_fields)
             conversation_id = str(current["conversation_id"]) if current and current.get("conversation_id") else None
-            # D-77 P0 không có sự kiện reopen: case đã huỷ phải dừng hẳn, kể cả khi LOS
-            # gửi pre-assessment version mới đến muộn.
+
             if (
                 event.event_type == "case.preassessment_requested"
                 and shadow

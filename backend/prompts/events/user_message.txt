@@ -1,1 +1,1 @@
-Tin nhắn người dùng: $content
+User message: $content

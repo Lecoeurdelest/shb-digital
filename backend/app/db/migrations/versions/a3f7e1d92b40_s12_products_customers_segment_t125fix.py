@@ -1,15 +1,3 @@
-"""s12 products table + customers.segment (T12-5 FAIL B fix — Products toolpack thiếu bảng/cột)
-
-Revision ID: a3f7e1d92b40
-Revises: f2c8d6b41a70
-Create Date: 2026-07-19 11:00:00.000000
-
-FAIL B (tester T12-5): product_list → 'relation products does not exist'; product_suggest →
-'column customers.segment does not exist'. World-swap T12-2 TABLES list SÓT bảng products (catalog
-LAB) + customers LAB có cột `segment` (mass|vip|staff) mà migration cũ thiếu. DDL từ LAB shb-132.db.
-Reversible: drop products + drop segment. Seed VALUES = seed_from_lab (extend TABLES).
-"""
-
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -23,7 +11,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """+products (catalog gói vay) + customers.segment (ADDITIVE nullable)."""
+
     op.create_table(
         "products",
         sa.Column("id", sa.Text(), primary_key=True),
@@ -44,6 +32,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Drop products + customers.segment (đảo được)."""
+
     op.drop_column("customers", "segment")
     op.drop_table("products")

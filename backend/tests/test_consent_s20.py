@@ -1,5 +1,3 @@
-"""S20 T20-3/T20-4 — wording proof, append-only DB guard và atomic form submit."""
-
 from __future__ import annotations
 
 import hashlib
@@ -51,15 +49,15 @@ def test_wording_v1_snapshot_and_exact_checksum():
         "wording_checksum": wording.checksum,
         "content_markdown": wording.content_markdown,
     }
-    assert "không phải DPIA" in wording.content_markdown
-    assert "dữ liệu giả lập" in wording.content_markdown
+    assert "DPIA" in wording.content_markdown
+    assert "shadow" in wording.content_markdown
 
 
 def test_wording_checksum_changes_when_one_content_byte_changes(tmp_path: Path):
     first = tmp_path / "first.md"
     second = tmp_path / "second.md"
-    first.write_bytes(_wording_bytes(b"Noi dung A\n"))
-    second.write_bytes(_wording_bytes(b"Noi dung B\n"))
+    first.write_bytes(_wording_bytes(b"Content A\n"))
+    second.write_bytes(_wording_bytes(b"Content B\n"))
     assert consent.load_wording(first).checksum != consent.load_wording(second).checksum
 
 
@@ -126,8 +124,8 @@ def test_missing_or_false_consent_is_four_field_zero_write(grant):
         assert response.status_code == 400
         assert response.json() == {
             "code": "consent_required",
-            "message": "Cần đồng ý nội dung xử lý dữ liệu trước khi nộp hồ sơ.",
-            "hint": "Đọc wording trên form và tick ô đồng ý nếu bạn chấp thuận.",
+            "message": "Consent to data processing is required before submitting the application.",
+            "hint": "Read the form wording and select the consent checkbox if you agree.",
             "retryable": True,
         }
         assert _form_state(username, card_id) == (None, "pending", 0)

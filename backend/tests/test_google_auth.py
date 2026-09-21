@@ -1,9 +1,3 @@
-"""Google OAuth (persona KHÁCH D-56) — providers, start (redirect+state), callback (4 nhánh),
-upsert idempotent, login password với account Google-only không 500.
-
-Không gọi Google thật: exchange_code/fetch_userinfo monkeypatch tại app.auth.google.
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -26,7 +20,7 @@ client = TestClient(app)
 
 @pytest.fixture
 def google_on(monkeypatch):
-    """Bật Google OAuth giả lập qua env-config (module attr — router/google đọc lúc gọi)."""
+
     monkeypatch.setattr(config, "AUTH_GOOGLE_ENABLED", True)
     monkeypatch.setattr(config, "GOOGLE_OAUTH_CLIENT_ID", "test-client-id")
     monkeypatch.setattr(config, "GOOGLE_OAUTH_CLIENT_SECRET", "test-secret")
@@ -66,11 +60,11 @@ def test_start_redirects_google_with_state_cookie(google_on):
     loc = r.headers["location"]
     assert loc.startswith(google_oauth.GOOGLE_AUTH_URL)
     assert "client_id=test-client-id" in loc and "state=" in loc
-    assert r.cookies.get("oauth_state")  # state cookie chống CSRF
+    assert r.cookies.get("oauth_state")
 
 
 def test_google_next_safe_path_roundtrips_exactly(google_on, monkeypatch):
-    """Control Tower truyền path+query tương đối; callback giữ nguyên và ghép đúng một slash."""
+
     fresh = TestClient(app)
     safe_next = "/?tab=approvals&approval=018f-test"
     start = fresh.get("/api/auth/google/start", params={"next": safe_next}, follow_redirects=False)
@@ -100,8 +94,8 @@ def test_google_next_safe_path_roundtrips_exactly(google_on, monkeypatch):
         "https://evil.example/pwn",
         "//evil.example/pwn",
         "/\\evil.example/pwn",
-        "/%2Fevil.example/pwn",  # decoded thành protocol-relative
-        "/%5Cevil.example/pwn",  # decoded thành backslash
+        "/%2Fevil.example/pwn",
+        "/%5Cevil.example/pwn",
     ],
 )
 def test_google_start_rejects_unsafe_next(google_on, unsafe_next):
@@ -174,15 +168,15 @@ def test_callback_happy_sets_jwt_cookie_and_creates_customer(google_on, monkeypa
     assert r.status_code == 307
     assert r.headers["location"] == config.FRONTEND_URL
     token = r.cookies.get(AUTH_COOKIE)
-    assert token, "JWT cookie phải được set như login thường"
+    assert token, "JWT cookie must be set as it is for standard login"
     claims = decode_token(token)
-    assert claims and claims["role"] == "customer"  # khách MỚI → customer (D-56)
+    assert claims and claims["role"] == "customer"
     assert claims["username"] == f"{sub}@example.com"
-    # Deep-link approval vẫn nằm sau admin boundary: Google persona là customer, không được fetch.
+
     detail = client.get("/api/approvals/not-a-uuid", cookies={AUTH_COOKIE: token})
     assert detail.status_code == 403
     assert detail.json()["code"] == "forbidden"
-    # row thật trong DB: role customer, owner_id NULL (khách mới — intake S9 gắn sau), pass_hash NULL
+
     conn = psycopg2.connect(DATABASE_URL)
     try:
         with conn.cursor() as cur:
@@ -204,7 +198,7 @@ def test_upsert_idempotent_same_sub_same_user(google_on):
 
 @requires_db
 def test_password_login_on_google_only_account_is_401_not_500(google_on):
-    """Account Google-only (pass_hash NULL) mà login bằng password → 401 sạch (guard NULL)."""
+
     sub = _fresh_sub()
     u = google_oauth.upsert_google_user(google_sub=sub, email=f"{sub}@example.com")
     r = client.post("/api/auth/login", json={"username": u["username"], "password": "anything"})

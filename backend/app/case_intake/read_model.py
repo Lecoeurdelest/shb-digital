@@ -11,13 +11,13 @@ from app.storage import connect_core
 from app.tenancy import DEFAULT_TENANT_ID
 
 _NEXT_ACTION = {
-    "received": "Kiểm tra thông tin hồ sơ",
-    "missing_information": "Bổ sung thông tin còn thiếu",
-    "ready_for_preassessment": "Bắt đầu sơ thẩm",
-    "preassessment_in_progress": "Theo dõi kết quả sơ thẩm",
-    "needs_specialist": "Chuyển chuyên gia nghiệp vụ",
-    "ready_for_handover": "Bàn giao bước tiếp theo",
-    "cancelled": "Không cần xử lý",
+    "received": "Review case information",
+    "missing_information": "Provide missing information",
+    "ready_for_preassessment": "Begin pre-assessment",
+    "preassessment_in_progress": "Monitor the pre-assessment result",
+    "needs_specialist": "Escalate to a domain specialist",
+    "ready_for_handover": "Hand over to the next stage",
+    "cancelled": "No action required",
 }
 
 
@@ -67,11 +67,11 @@ def _legacy_summary(row: dict[str, Any]) -> dict[str, Any]:
         rendered = str(created_at)
         data_as_of = rendered if "T" in rendered else f"{rendered}T00:00:00+00:00"
     next_action = {
-        "disbursed": "Kiểm tra biên nhận",
-        "ready_to_disburse": "Bàn giao vận hành",
-        "approved_pending_procedures": "Hoàn tất thủ tục",
-        "rejected": "Kiểm tra kết quả thẩm định",
-    }.get(row["status"], "Tiếp tục kiểm tra hồ sơ")
+        "disbursed": "Review the receipt",
+        "ready_to_disburse": "Hand over to operations",
+        "approved_pending_procedures": "Complete the procedures",
+        "rejected": "Review the assessment result",
+    }.get(row["status"], "Continue reviewing the case")
     return {
         "id": f"internal_operations:{row['id']}",
         "source_system": "internal_operations",
@@ -123,7 +123,7 @@ def list_cases(
                 )
                 external = [_external_summary(dict(row)) for row in cur.fetchall()]
             legacy: list[dict[str, Any]] = []
-            # Legacy applications là dữ liệu demo chung trước D-79; chỉ tenant mặc định được thấy.
+
             if source in {None, "", "internal_operations"} and tenant_id == DEFAULT_TENANT_ID:
                 cur.execute(
                     "SELECT p.*,a.lane,a.created_at AS assessment_created_at FROM applications p "
