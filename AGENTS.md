@@ -51,7 +51,10 @@ npm run test && npm run typecheck
 - Test: assert hành vi quan sát được (không assert-not-None suông); phủ edge
   rỗng / None / max / malformed / error-path. FE test chạy jsdom — component WebGL phải
   guard no-op (xem `Lobby3D.tsx`).
-- Comment tiếng Việt, giải thích **vì sao** (trade-off, D-xx) chứ không tả lại code.
+- Commit subject và body phải viết hoàn toàn bằng tiếng Anh (kể cả merge/squash message).
+- Backend: comment, docstring, prompt, error và test prose viết bằng tiếng Anh; giải thích
+  **vì sao** (trade-off, D-xx), không chỉ tả lại code. Dữ liệu tiếng Việt có chủ đích cho
+  nghiệp vụ/locale phải được rà riêng để không phá hành vi hoặc hợp đồng với frontend.
 - Secret chỉ ở `.env` (đã gitignore) — **không bao giờ** hardcode/commit key.
 
 ## Vùng cẩn trọng (đụng vào phải hiểu invariant)

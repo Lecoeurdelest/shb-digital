@@ -23,7 +23,7 @@ def tenant_id_from_claims(claims: dict[str, Any]) -> str:
     raise ApiError(
         status_code=401,
         code="tenant_context_missing",
-        message="Phiên đăng nhập thiếu phạm vi đơn vị.",
-        hint="Đăng nhập lại để làm mới phiên.",
+        message="The session is missing its tenant context.",
+        hint="Sign in again to refresh the session.",
         retryable=False,
     )

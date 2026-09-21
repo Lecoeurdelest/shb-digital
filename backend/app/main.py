@@ -1,8 +1,7 @@
-"""FastAPI app entrypoint — S1 scaffold nền (T1-1) + orchestrator boot (T1-2).
+"""FastAPI entry point and orchestrator startup.
 
-Có: health + auth (login, JWT cookie, 2 account seed). Error envelope 4-field toàn hệ.
-Startup: boot orchestrator (gán SDK runner cho seam + nối event sink) + dọn task mồ côi (§7).
-Chat/SSE routes land in T1-3 (dùng orch.room.handle_room_event).
+Startup validates configuration, cleans up orphaned tasks, and connects the SDK
+runner and event sink. Errors use the application-wide four-field envelope.
 """
 
 from __future__ import annotations
@@ -38,36 +37,36 @@ log = logging.getLogger("app")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # boot-cleanup (§7): task DB queued/running mồ côi từ đời trước → failed('server restart')
-    # DEV_SKIP_AUTH cảnh báo (D-39): flag ON → mọi request = admin, không được dùng prod/demo thật
+    # Boot cleanup marks queued/running tasks from the previous process as failed.
+    # D-39: DEV_SKIP_AUTH grants admin access and must not be used for a real deployment.
     from app.case_intake.config import load_case_intake_config
     from app.config import DEV_SKIP_AUTH
     from app.orch import main_session, registry, store
     from app.reason_taxonomy import activate_reason_taxonomy
     from app.runtime_security import validate_runtime_security
 
-    validate_runtime_security()  # bank_dc: chặn startup trước mọi DB cleanup/agent boot
-    # D-81/D-82: artifact tĩnh hỏng phải chặn trước mọi mutation/agent boot; tenant DB chỉ resolve
-    # trong transaction intake nên DB availability không bị biến thành startup dependency ở đây.
+    validate_runtime_security()  # bank_dc must fail before DB cleanup or agent boot.
+    # D-81/D-82: reject invalid static artifacts before any mutation. Tenant resolution
+    # happens in the intake transaction, so this check does not require DB availability.
     load_case_intake_config()
     activate_reason_taxonomy()
 
     if DEV_SKIP_AUTH:
-        log.warning("⚠️  DEV_SKIP_AUTH ON — mọi request = admin, BỎ auth. KHÔNG dùng prod/demo thật.")
+        log.warning("DEV_SKIP_AUTH ON: every request has admin access. Do not use in a real deployment.")
 
     registry.reset_all()
     try:
-        # S6 (A): boot_time NGAY đầu startup → cleanup chỉ quét task ĐỜI TRƯỚC (queued_at < boot_time),
-        # KHÔNG quét task đời-này. datetime.now(UTC) khớp queued_at (timestamptz).
+        # S6 (A): record boot_time before cleanup so tasks queued by this process are safe.
+        # UTC matches the queued_at timestamptz column.
         from datetime import UTC, datetime
 
         boot_time = datetime.now(UTC)
         n = await store.cleanup_orphans(boot_time)
         if n:
-            log.info("boot-cleanup: %d task mồ côi (đời trước) → failed(server restart)", n)
-    except Exception as e:  # noqa: BLE001 — DB chưa sẵn lúc boot không được chặn app lên
+            log.info("boot-cleanup: %d orphaned tasks marked failed(server restart)", n)
+    except Exception as e:  # noqa: BLE001 — DB unavailability must not prevent app startup.
         log.warning("boot-cleanup skip (DB?): %s", e)
-    main_session.boot()  # gán SDK runner cho seam + nối event sink (sub xong → wake main)
+    main_session.boot()  # Connect the SDK runner and event sink for specialist completion.
     try:
         yield
     finally:
@@ -83,7 +82,7 @@ _CORS_HEADERS = ["Authorization", "Content-Type", "Accept"]
 
 
 def configure_cors(target: FastAPI, origins: tuple[str, ...]) -> None:
-    """Rỗng = same-origin only; có allowlist mới gắn middleware cho SDK nhúng."""
+    """Use same-origin only unless an explicit allowlist enables embedded clients."""
     if not origins:
         return
     target.add_middleware(
@@ -98,24 +97,24 @@ def configure_cors(target: FastAPI, origins: tuple[str, ...]) -> None:
 app = FastAPI(title="BANK Digital Expert Guild", lifespan=lifespan)
 configure_cors(app, CORS_ORIGINS)
 
-register_error_handler(app)  # ApiError + validation → body 4-field trần (CONTRACT §0)
+register_error_handler(app)  # ApiError and validation share the CONTRACT §0 envelope.
 app.include_router(auth_router)
-app.include_router(me_router)  # /api/me (D-56 persona — Export FE T8-2)
-app.include_router(conversations_router)  # conversations + chat (T1-3)
-app.include_router(conversation_groups_router)  # D-79: thư mục nhóm phiên tenant-scoped
-app.include_router(sse_router)  # SSE stream (T1-3)
-app.include_router(approvals_router)  # approvals decide + list (T3-2)
-app.include_router(agent_config_router)  # admin chỉnh prompt version, không lộ provider secret
-app.include_router(models_router)  # providers/models cho FE dropdown (D-45b)
-app.include_router(audit_router)  # tool_calls audit search (T4-1 §11)
-app.include_router(interrupt_router)  # POST /interrupt huỷ sub (T4-3 §4.3)
-app.include_router(compare_router)  # POST /compare single vs multi (T4-4 deliverable #5)
-app.include_router(form_intake_router)  # POST /form-submit khách mới nộp hồ sơ (T9-1 D-57)
-app.include_router(notifications_router)  # GET /notifications bell khách (T9-2 D-57)
-app.include_router(stats_router)  # GET /stats + /assessments dashboard Control Tower (T13-1)
+app.include_router(me_router)  # /api/me exposes the D-56 persona.
+app.include_router(conversations_router)  # Conversations and chat.
+app.include_router(conversation_groups_router)  # D-79: tenant-scoped groups.
+app.include_router(sse_router)  # SSE stream.
+app.include_router(approvals_router)  # Approval decisions and listing.
+app.include_router(agent_config_router)  # Admin prompt versions without provider secrets.
+app.include_router(models_router)  # D-45b: available providers and models.
+app.include_router(audit_router)  # Tool-call audit search.
+app.include_router(interrupt_router)  # Interrupt a specialist.
+app.include_router(compare_router)  # Single-agent versus multi-agent comparison.
+app.include_router(form_intake_router)  # Customer form submission.
+app.include_router(notifications_router)  # Customer notification bell.
+app.include_router(stats_router)  # Control Tower statistics and assessments.
 app.include_router(cost_router)  # GET /stats/cost + /stats/cost-trend (T16-2)
 app.include_router(readiness_router)  # GET /api/ready: DB+migration+provider+role mounts
-app.include_router(case_intake_router)  # D-77: service intake + admin case read-model
+app.include_router(case_intake_router)  # D-77: service intake and admin case read model.
 
 
 @app.get("/api/health")

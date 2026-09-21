@@ -1,7 +1,7 @@
-"""Envelope lỗi 4-field — 1 shape cả hệ (CONTRACT §0 · SPEC §5).
+"""One four-field error envelope across the application (CONTRACT §0 · SPEC §5).
 
-MỌI lỗi toàn hệ: {code, message, hint, retryable}. REST dùng HTTP status phân loại;
-body lỗi mới là 4-field. Helper này = nguồn DUY NHẤT dựng error body — không rải rác.
+Every error has {code, message, hint, retryable}. REST uses HTTP status codes for
+classification; only error bodies use this envelope. Keep construction in one place.
 """
 
 from __future__ import annotations
@@ -14,12 +14,12 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
 def error_body(code: str, message: str, hint: str, retryable: bool = False) -> dict[str, Any]:
-    """Dict 4-field thuần (SSE/tool cũng dùng shape này)."""
+    """Return the plain four-field shape also used by SSE and tools."""
     return {"code": code, "message": message, "hint": hint, "retryable": retryable}
 
 
 class ApiError(HTTPException):
-    """HTTPException mang envelope 4-field. Raise trong router/service → handler render body chuẩn."""
+    """HTTP exception rendered as the standard four-field error body."""
 
     def __init__(
         self,
@@ -33,7 +33,7 @@ class ApiError(HTTPException):
 
 
 def register_error_handler(app: Any) -> None:
-    """Mọi lỗi HTTP/validation đều về body 4-field trần theo CONTRACT §0."""
+    """Normalize HTTP and validation errors to CONTRACT §0."""
     from fastapi.exceptions import RequestValidationError
 
     @app.exception_handler(ApiError)
@@ -42,24 +42,28 @@ def register_error_handler(app: Any) -> None:
 
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(_req: Any, exc: StarletteHTTPException) -> JSONResponse:
-        # Router-level 404/405 do Starlette sinh không đi qua ApiError. Chuẩn hoá tại cổng cuối
-        # để FE không phải có nhánh riêng cho {"detail": ...}.
+        # Starlette's routing errors bypass ApiError; normalize them here so clients do
+        # not need a separate branch for {"detail": ...}.
         errors = {
-            400: ("bad_request", "Yêu cầu không hợp lệ.", "Kiểm tra lại request theo CONTRACT."),
-            401: ("unauthorized", "Chưa đăng nhập hoặc phiên hết hạn.", "Đăng nhập lại."),
-            403: ("forbidden", "Bạn không có quyền thực hiện thao tác này.", "Dùng tài khoản có quyền phù hợp."),
-            404: ("not_found", "Không tìm thấy tài nguyên được yêu cầu.", "Kiểm tra lại đường dẫn hoặc định danh."),
+            400: ("bad_request", "Invalid request.", "Check the request against the API contract."),
+            401: ("unauthorized", "Not signed in or the session has expired.", "Sign in again."),
+            403: (
+                "forbidden",
+                "You are not allowed to perform this action.",
+                "Use an account with the required access.",
+            ),
+            404: ("not_found", "The requested resource was not found.", "Check the path or identifier."),
             405: (
                 "method_not_allowed",
-                "Phương thức HTTP không được hỗ trợ cho đường dẫn này.",
-                "Dùng phương thức được khai báo trong CONTRACT.",
+                "This HTTP method is not supported for the path.",
+                "Use a method declared in the API contract.",
             ),
-            409: ("conflict", "Yêu cầu xung đột với trạng thái hiện tại.", "Tải lại trạng thái rồi thử lại."),
-            429: ("rate_limited", "Hệ thống đang giới hạn tần suất yêu cầu.", "Chờ một lúc rồi thử lại."),
+            409: ("conflict", "The request conflicts with the current state.", "Reload the state and try again."),
+            429: ("rate_limited", "Too many requests.", "Wait a moment and try again."),
         }
         code, message, hint = errors.get(
             exc.status_code,
-            ("http_error", "Không thể xử lý yêu cầu HTTP.", "Kiểm tra lại yêu cầu hoặc thử lại sau."),
+            ("http_error", "The HTTP request could not be processed.", "Check the request or try again later."),
         )
         return JSONResponse(
             status_code=exc.status_code,
@@ -69,13 +73,13 @@ def register_error_handler(app: Any) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_req: Any, exc: RequestValidationError) -> JSONResponse:
-        # body sai shape (thiếu field/sai kiểu) → 400 envelope 4-field, không leak trace pydantic
+        # Validation errors retain the four-field shape without exposing a Pydantic traceback.
         return JSONResponse(
             status_code=400,
             content=error_body(
                 "bad_request",
-                f"body không hợp lệ: {exc.errors()[0].get('msg', 'validation error') if exc.errors() else ''}",
-                "Kiểm lại field bắt buộc + kiểu dữ liệu theo CONTRACT.",
+                f"Invalid body: {exc.errors()[0].get('msg', 'validation error') if exc.errors() else ''}",
+                "Check required fields and data types against the API contract.",
                 retryable=True,
             ),
         )
